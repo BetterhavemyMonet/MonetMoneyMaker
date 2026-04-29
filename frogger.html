@@ -6,20 +6,41 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <style>
-canvas { display:block; margin:10px auto; border:2px solid #00f0ff; box-shadow:0 0 20px #00f0ff55; border-radius:6px; }
+body {
+  background-image: url('/title.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+body::before { content:''; position:fixed; inset:0; background:rgba(2,4,10,0.82); pointer-events:none; z-index:0; }
+.page { position:relative; z-index:1; padding-bottom:20px; }
+canvas { display:block; margin:10px auto; border:2px solid #00f0ff; box-shadow:0 0 20px #00f0ff55; border-radius:6px; max-width:100%; }
 #info { font-size:14px; color:#00f0ff; margin:6px 0; }
 #msg { font-size:20px; min-height:28px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
 .btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:13px; }
+#dpad { display:none; margin:8px auto; width:130px; height:130px; position:relative; }
+#dpad button { position:absolute; width:40px; height:40px; border-radius:8px; font-size:20px; padding:0; margin:0; }
+#dpad .up{top:0;left:45px;} #dpad .down{bottom:0;left:45px;}
+#dpad .left{top:45px;left:0;} #dpad .right{top:45px;right:0;}
+@media(pointer:coarse){#dpad{display:block;}}
 </style>
 </head>
 <body>
+<div class="page">
 <h2>MONET FROGGER</h2>
 <div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Lives: <span id="lives">3</span> &nbsp;|&nbsp; Level: <span id="level">1</span></div>
 <div id="msg">Press SPACE or Tap to Start</div>
 <canvas id="c" width="420" height="500"></canvas>
+<div id="dpad">
+  <button class="up" onclick="move(0,-1)">&#9650;</button>
+  <button class="down" onclick="move(0,1)">&#9660;</button>
+  <button class="left" onclick="move(-1,0)">&#9664;</button>
+  <button class="right" onclick="move(1,0)">&#9654;</button>
+</div>
 <br>
 <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
 <button class="btn" id="startBtn" onclick="startGame()" style="margin-left:12px">START</button>
+</div>
 
 <script>
 const canvas = document.getElementById('c');
@@ -27,9 +48,11 @@ const ctx = canvas.getContext('2d');
 const COLS = 14, ROWS = 14, CELL = 30;
 const W = COLS * CELL, H = ROWS * CELL;
 canvas.width = W; canvas.height = H;
+function fitCanvas(){const mw=Math.min(W,window.innerWidth-16);canvas.style.width=mw+'px';canvas.style.height=(mw*H/W)+'px';}
+fitCanvas(); window.addEventListener('resize',fitCanvas);
 
 let frog, cars, logs, score, lives, level, gameRunning, gameOver, animId;
-const img = new Image(); img.src = '/character.png';
+const img = new Image(); img.src = '/dino-sprite.png';
 
 const SAFE_ROWS = [0, 7, 13];
 const CAR_ROWS = [8,9,10,11,12];
@@ -39,7 +62,7 @@ function makeCars(lvl) {
   let c = [];
   CAR_ROWS.forEach((row, i) => {
     let dir = i % 2 === 0 ? 1 : -1;
-    let spd = (0.8 + i * 0.3 + lvl * 0.2) * dir;
+    let spd = (0.45 + i * 0.16 + lvl * 0.1) * dir;
     let count = 2 + i;
     for (let j = 0; j < count; j++) {
       c.push({ x: (j * (W / count)) % W, y: row * CELL, w: CELL * 1.6, h: CELL * 0.7, spd, row });
@@ -52,7 +75,7 @@ function makeLogs(lvl) {
   let l = [];
   LOG_ROWS.forEach((row, i) => {
     let dir = i % 2 === 0 ? 1 : -1;
-    let spd = (0.5 + i * 0.2 + lvl * 0.15) * dir;
+    let spd = (0.32 + i * 0.12 + lvl * 0.08) * dir;
     for (let j = 0; j < 3; j++) {
       l.push({ x: j * (W / 3), y: row * CELL, w: CELL * 2.5, h: CELL * 0.8, spd, row });
     }

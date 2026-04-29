@@ -21,7 +21,7 @@ body::before {
   z-index:0;
 }
 .page { position:relative; z-index:1; padding-bottom:20px; }
-canvas { display:block; margin:8px auto; border:2px solid #a855ff; box-shadow:0 0 24px #a855ff55; border-radius:6px; }
+canvas { display:block; margin:8px auto; border:2px solid #a855ff; box-shadow:0 0 24px #a855ff55; border-radius:6px; max-width:100%; }
 #info { font-size:13px; color:#00f0ff; margin:4px 0; }
 #msg { font-size:17px; min-height:24px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
 .btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:12px; padding:8px 16px; }
@@ -54,9 +54,11 @@ const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
 const CELL=22, COLS=21, ROWS=21;
 canvas.width=COLS*CELL; canvas.height=ROWS*CELL;
 const W=canvas.width, H=canvas.height;
+function fitCanvas(){const mw=Math.min(W,window.innerWidth-16);canvas.style.width=mw+'px';canvas.style.height=mw+'px';}
+fitCanvas(); window.addEventListener('resize',fitCanvas);
 
 const bgImg=new Image(); bgImg.src='/title.jpg';
-const charImg=new Image(); charImg.src='/character.png';
+const charImg=new Image(); charImg.src='/dino-sprite.png';
 
 // 0=path 1=wall 2=dot 3=power 4=empty
 const BASE_MAP=[

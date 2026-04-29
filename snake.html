@@ -6,7 +6,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
 <style>
-canvas { display:block; margin:10px auto; border:2px solid #00ff9d; box-shadow:0 0 20px #00ff9d55; border-radius:6px; }
+canvas { display:block; margin:10px auto; border:2px solid #00ff9d; box-shadow:0 0 20px #00ff9d55; border-radius:6px; max-width:100%; }
 #info { font-size:14px; color:#00f0ff; margin:6px 0; }
 #msg { font-size:18px; min-height:26px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
 .btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:13px; }
@@ -40,8 +40,10 @@ const ctx = canvas.getContext('2d');
 const CELL = 20, COLS = 21, ROWS = 21;
 const W = COLS * CELL, H = ROWS * CELL;
 canvas.width = W; canvas.height = H;
+function fitCanvas(){const mw=Math.min(W,window.innerWidth-16);canvas.style.width=mw+'px';canvas.style.height=mw+'px';}
+fitCanvas(); window.addEventListener('resize',fitCanvas);
 
-const img = new Image(); img.src = '/character.png';
+const img = new Image(); img.src = '/dino-sprite.png';
 
 let snake, dir, nextDir, food, score, gameRunning, intervalId, bestScore;
 bestScore = parseInt(localStorage.getItem('snake_best')||'0');
