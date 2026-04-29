@@ -6,7 +6,7 @@
 
 <body>
 
-<h2>Click Speed (Secure Pot)</h2>
+<h2>Click Speed (Wallet Secured)</h2>
 
 <p>Pot: <span id="pot">0</span></p>
 <button onclick="enter()">Enter Game</button>
@@ -14,14 +14,13 @@
 <br><br>
 
 <button onclick="click()">CLICK</button>
-
 <p>Score: <span id="score">0</span></p>
 
 <script>
 let score = 0;
 let sessionId = null;
 
-// get pot
+// load pot
 async function loadPot(){
   const res = await fetch("http://localhost:3001/pot");
   const data = await res.json();
@@ -29,23 +28,41 @@ async function loadPot(){
 }
 loadPot();
 
-// enter game
+// enter game with signature
 async function enter(){
+  if (!window.solana) {
+    alert("Install Phantom");
+    return;
+  }
+
+  const provider = window.solana;
+  const resp = await provider.connect();
+
+  const wallet = resp.publicKey.toString();
+  const message = "Enter Monet Arcade";
+
+  const encoded = new TextEncoder().encode(message);
+  const signed = await provider.signMessage(encoded, "utf8");
+
+  const signature = signed.signature.toString();
+
   const res = await fetch("http://localhost:3001/enter", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({
-      player: localStorage.getItem("player_name")
-    })
+    body: JSON.stringify({ wallet, signature, message })
   });
 
   const data = await res.json();
 
-  sessionId = data.sessionId;
+  if(data.error){
+    alert("Signature failed");
+    return;
+  }
 
+  sessionId = data.sessionId;
   document.getElementById("pot").innerText = data.pot;
 
-  alert("Entered!");
+  alert("Entered securely!");
 }
 
 // click logic
@@ -74,20 +91,18 @@ async function win(){
   const data = await res.json();
 
   if(data.error){
-    alert("Invalid win attempt");
+    alert("Invalid win");
     return;
   }
 
   alert(
     "WINNER!\n\n" +
-    "You get: " + data.payout + "\n" +
-    "Treasury: " + data.treasury
+    "Wallet: " + data.winner + "\n" +
+    "Payout: " + data.payout
   );
 
   sessionId = null;
   score = 0;
-  document.getElementById("score").innerText = 0;
-
   loadPot();
 }
 </script>
