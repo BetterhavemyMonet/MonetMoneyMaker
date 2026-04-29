@@ -4,41 +4,94 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css">
 
 <style>
-.container {
-  margin-top:80px;
+body {
+  margin:0;
+  height:100vh;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  background: radial-gradient(circle at top,#0b0f1a,#02040a);
+  font-family:'Orbitron',sans-serif;
+  color:white;
 }
 
-input {
-  padding:12px;
-  width:70%;
-  max-width:300px;
-  border-radius:10px;
-  border:none;
-  margin:10px;
+/* 🔲 CARD */
+.card {
+  background: rgba(255,255,255,0.05);
+  padding:30px;
+  border-radius:16px;
+  width:85%;
+  max-width:350px;
+  box-shadow:
+    0 0 25px rgba(0,255,255,0.2),
+    0 0 50px rgba(168,85,255,0.15);
   text-align:center;
 }
 
-.login-btn {
-  width:70%;
-  max-width:300px;
+/* 🔮 TITLE */
+.title {
+  font-size:24px;
+  margin-bottom:20px;
+  background: linear-gradient(90deg,#00f0ff,#a855ff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:
+    0 0 10px rgba(0,255,255,0.6),
+    0 0 20px rgba(168,85,255,0.6);
+}
+
+/* 🔤 INPUT */
+input {
+  width:100%;
+  padding:12px;
+  margin-bottom:15px;
+  border-radius:10px;
+  border:none;
+  text-align:center;
+  background:rgba(255,255,255,0.08);
+  color:white;
+  outline:none;
+}
+
+/* 🔘 BUTTONS */
+button {
+  width:100%;
+  padding:12px;
+  border-radius:10px;
+  border:none;
+  margin-top:10px;
+  font-weight:bold;
+}
+
+/* MAIN BUTTON */
+.enter {
+  background:linear-gradient(135deg,#00ff9d,#00ffc3);
+  color:black;
+  box-shadow:0 0 15px rgba(0,255,150,0.5);
+}
+
+/* SECONDARY */
+.wallet {
+  background:transparent;
+  border:2px solid #a855ff;
+  color:#a855ff;
+  box-shadow:0 0 10px rgba(168,85,255,0.4);
 }
 </style>
 </head>
 
 <body>
 
-<div class="container">
+<div class="card">
 
-<h1>MONET ARCADE</h1>
+<div class="title">MONET ARCADE</div>
 
 <input id="name" placeholder="Enter Username">
 
-<button class="login-btn" onclick="login()">ENTER ARCADE</button>
-
-<button onclick="connectWallet()">CONNECT WALLET</button>
+<button class="enter" onclick="login()">ENTER ARCADE</button>
+<button class="wallet" onclick="connectWallet()">CONNECT WALLET</button>
 
 </div>
 
@@ -52,7 +105,6 @@ function login(){
   }
 
   localStorage.setItem("player_name", name);
-
   window.location.href = "index.html";
 }
 
@@ -64,7 +116,6 @@ async function connectWallet(){
 
   const resp = await window.solana.connect();
   localStorage.setItem("wallet", resp.publicKey.toString());
-
   alert("Wallet connected!");
 }
 </script>
