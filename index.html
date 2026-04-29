@@ -16,10 +16,6 @@ body {
   text-align:center;
 }
 
-.logo {
-  margin-top:30px;
-}
-
 .hero img {
   width:90%;
   max-width:420px;
@@ -31,7 +27,6 @@ body {
 
 h1 {
   color:#5df2ff;
-  margin-top:10px;
 }
 
 .btn {
@@ -64,42 +59,18 @@ h1 {
 <h1>MONET MONEY ARCADE</h1>
 
 <div class="hero">
-  <img src="/monetmario.jpg" alt="Monet Arcade">
+  <img src="/monetmario.jpg">
 </div>
 
-<button class="btn connect">CONNECT TO PLAY" onclick="connectWallet()</button>
-<button class="btn exchange">EXCHANGE" onclick="goToExchange()</button>
+<button class="btn connect" onclick="connectWallet()">CONNECT TO PLAY</button>
+<button class="btn exchange" onclick="goToExchange()">EXCHANGE</button>
+
+<div style="margin-top:30px;">
+  <h2 style="color:#5df2ff;">Swap SOL → MONET</h2>
+  <button onclick="goToExchange()" class="btn connect">Launch Exchange</button>
+</div>
+
+<script src="/script.js"></script>
 
 </body>
 </html>
-<script src="/script.js"></script>
-
-<div style="margin:40px auto; max-width:500px;">
-  <h2 style="color:#5df2ff;">Swap SOL → MONET</h2>
-
-  <iframe 
-    src="https://jup.ag/swap/So11111111111111111111111111111111111111112-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b"
-    style="width:100%; height:600px; border:none; border-radius:16px; box-shadow:0 0 25px rgba(0,255,200,0.2);">
-  </iframe>
-</div>
-
-
-<div style="margin:40px auto; max-width:500px;">
-  <h2 style="color:#5df2ff;">Swap SOL → MONET</h2>
-
-  <iframe 
-    src="https://jup.ag/swap/So11111111111111111111111111111111111111112-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b"
-    style="width:100%; height:600px; border:none; border-radius:16px; box-shadow:0 0 25px rgba(0,255,200,0.2);">
-  </iframe>
-</div>
-
-
-<div style="margin:40px auto; max-width:500px;">
-  <h2 style="color:#5df2ff;">Swap SOL → MONET</h2>
-
-  <iframe 
-    src="https://jup.ag/swap/So11111111111111111111111111111111111111112-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b"
-    style="width:100%; height:600px; border:none; border-radius:16px; box-shadow:0 0 25px rgba(0,255,200,0.2);">
-  </iframe>
-</div>
-
