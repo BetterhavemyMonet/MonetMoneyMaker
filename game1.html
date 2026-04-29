@@ -1,60 +1,52 @@
 <!DOCTYPE html>
 <html>
-<body style="background:black;color:white;text-align:center">
+<head>
+<link rel="stylesheet" href="/styles.css">
+</head>
 
-<h2>Click Speed (Winner Takes Pot)</h2>
+<body>
 
-<p>Entry Fee: 1 MONET</p>
+<h2>Click Speed (Pot Game)</h2>
+
 <p>Pot: <span id="pot">0</span> MONET</p>
+<button onclick="enter()">Enter (1 MONET)</button>
 
-<button onclick="enter()">Enter Game</button>
 <br><br>
-
-<button onclick="click()">CLICK FAST</button>
+<button onclick="click()">CLICK</button>
 
 <p>Score: <span id="score">0</span></p>
 
 <script>
+let pot = parseInt(localStorage.getItem("pot") || 0);
 let score = 0;
 let entered = false;
 
-// load pot
-let pot = parseInt(localStorage.getItem("pot") || "0");
 document.getElementById("pot").innerText = pot;
 
-function enter() {
-  if (entered) return;
+function enter(){
+  if(entered) return;
 
   entered = true;
-
   pot += 1;
   localStorage.setItem("pot", pot);
   document.getElementById("pot").innerText = pot;
-
-  alert("You entered the game!");
 }
 
-function click() {
-  if (!entered) {
-    alert("You must enter first!");
+function click(){
+  if(!entered){
+    alert("Enter first!");
     return;
   }
 
   score++;
   document.getElementById("score").innerText = score;
 
-  // simple win condition
-  if (score >= 20) {
-    let winnerShare = Math.floor(pot * 0.8);
-    let treasury = pot - winnerShare;
+  if(score >= 20){
+    let win = Math.floor(pot * 0.8);
+    let treasury = pot - win;
 
-    alert(
-      "YOU WIN!\n\n" +
-      "You get: " + winnerShare + " MONET\n" +
-      "Treasury gets: " + treasury + " MONET"
-    );
+    alert("WINNER!\nYou get " + win + "\nTreasury gets " + treasury);
 
-    // reset pot
     pot = 0;
     localStorage.setItem("pot", pot);
     document.getElementById("pot").innerText = pot;
