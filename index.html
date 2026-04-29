@@ -6,17 +6,13 @@
 
 <style>
 body {
-  margin:0;
   background:#02040a;
   color:white;
   text-align:center;
   font-family:sans-serif;
 }
 
-h1 {
-  color:#00f0ff;
-  margin-top:20px;
-}
+h1 { color:#00f0ff; }
 
 img {
   width:90%;
@@ -34,19 +30,10 @@ button {
   border-radius:10px;
   border:none;
   font-weight:bold;
-  display:block;
 }
 
-.connect {
-  background:#00ff9d;
-  color:black;
-}
-
-.exchange {
-  border:2px solid #a855ff;
-  background:none;
-  color:#a855ff;
-}
+.connect { background:#00ff9d; color:black; }
+.exchange { border:2px solid #a855ff; background:none; color:#a855ff; }
 </style>
 </head>
 
@@ -56,12 +43,26 @@ button {
 
 <img src="/monetmario.jpg">
 
-<button class="connect" onclick="goArcade()">CONNECT TO PLAY</button>
+<button class="connect" onclick="connectAndPlay()">CONNECT TO PLAY</button>
 <button class="exchange" onclick="goExchange()">EXCHANGE</button>
 
 <script>
-function goArcade() {
-  window.location.href = "arcade.html";
+async function connectAndPlay() {
+  if (!window.solana) {
+    alert("Install Phantom Wallet");
+    return;
+  }
+
+  try {
+    const resp = await window.solana.connect();
+    console.log("Connected:", resp.publicKey.toString());
+
+    // after connect → go to arcade
+    window.location.href = "arcade.html";
+
+  } catch (err) {
+    alert("Connection failed");
+  }
 }
 
 function goExchange() {
