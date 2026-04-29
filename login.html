@@ -12,10 +12,21 @@ body {
   display:flex;
   align-items:center;
   justify-content:center;
-  background: radial-gradient(circle at top,#0b0f1a,#02040a);
+  background-image: url('/title.jpg');
+  background-size: cover;
+  background-position: center;
   font-family:'Orbitron',sans-serif;
   color:white;
 }
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(2,4,10,0.78);
+  pointer-events:none;
+  z-index:0;
+}
+.card { position:relative; z-index:1; }
 
 /* 🔲 CARD */
 .card {
@@ -86,6 +97,7 @@ button {
 
 <div class="card">
 
+<img src="/logo.png" style="width:90px;margin:0 auto 10px;display:block;filter:drop-shadow(0 0 12px #a855ff)">
 <div class="title">MONET ARCADE</div>
 
 <input id="name" placeholder="Enter Username">
@@ -105,7 +117,7 @@ function login(){
   }
 
   localStorage.setItem("player_name", name);
-  window.location.href = "index.html";
+  window.location.href = "arcade.html";
 }
 
 async function connectWallet(){

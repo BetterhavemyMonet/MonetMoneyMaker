@@ -4,93 +4,123 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Monet Money Arcade</title>
-
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
 <style>
 body {
-  background:#02040a;
-  color:white;
-  text-align:center;
-  font-family:sans-serif;
+  background-image: url('/title.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height:100vh;
 }
-
-h1 { color:#00f0ff; }
-
-img {
-  width:90%;
-  max-width:420px;
-  margin:20px auto;
-  display:block;
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(2,4,10,0.85);
+  pointer-events:none;
+  z-index:0;
 }
+.page { position:relative; z-index:1; padding-bottom:30px; }
+.wallet-bar { max-width:600px; margin:0 auto 14px; padding:10px 16px; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid #333; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; }
+.hero { max-width:480px; margin:0 auto 24px; text-align:center; }
+.hero img { width:90%; max-width:320px; border-radius:12px; box-shadow:0 0 30px #a855ff44; margin-bottom:12px; display:block; margin:0 auto 12px; }
+.hero-sub { color:#888; font-size:12px; font-family:'Orbitron',sans-serif; }
+.hero-balance { font-size:28px; font-weight:bold; margin:8px 0 4px; background:linear-gradient(90deg,#a855ff,#00f0ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
 
-button {
-  width:80%;
-  max-width:300px;
-  margin:12px auto;
-  padding:14px;
-  border-radius:10px;
-  border:none;
-  font-weight:bold;
-}
+.nav-grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; max-width:420px; margin:0 auto 20px; padding:0 16px; }
+.nav-card { display:block; background:rgba(255,255,255,0.04); border:1px solid #333; border-radius:14px; padding:20px 16px; text-decoration:none; cursor:pointer; transition:transform 0.15s, box-shadow 0.15s; text-align:center; }
+.nav-card:hover { transform:translateY(-3px); }
+.nav-card.arcade { border-color:#00ff9d44; --glow:#00ff9d; }
+.nav-card.arcade:hover { box-shadow:0 0 20px #00ff9d44; }
+.nav-card.exchange { border-color:#a855ff44; }
+.nav-card.exchange:hover { box-shadow:0 0 20px #a855ff44; }
+.nav-card.portfolio { border-color:#00f0ff44; }
+.nav-card.portfolio:hover { box-shadow:0 0 20px #00f0ff44; }
+.nav-card.scores { border-color:#ffdd0044; }
+.nav-card.scores:hover { box-shadow:0 0 20px #ffdd0044; }
+.nav-icon { font-size:32px; margin-bottom:8px; }
+.nav-title { font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800; color:#fff; margin-bottom:4px; }
+.nav-desc { font-size:10px; color:#666; }
 
-.connect { background:#00ff9d; color:black; }
-.exchange { border:2px solid #a855ff; background:none; color:#a855ff; }
+.fee-note { max-width:420px; margin:0 auto 16px; padding:10px 16px; background:rgba(168,85,255,0.08); border:1px solid #a855ff33; border-radius:10px; font-size:11px; color:#aaa; text-align:center; }
+.fee-note b { color:#a855ff; }
 
-.wallet {
-  margin-top:10px;
-  font-size:14px;
-  color:#00ff9d;
-}
-
-.balance {
-  font-size:16px;
-  margin-bottom:10px;
-}
+.logout-btn { background:transparent; border:1px solid #333; color:#555; font-size:11px; padding:6px 14px; border-radius:8px; cursor:pointer; margin-top:10px; }
+.logout-btn:hover { border-color:#ff4488; color:#ff4488; }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800</head>display=swap" rel="stylesheet"><link rel="stylesheet" href="/styles.css"></head>
-
+</head>
 <body>
+<div class="page">
+  <img src="/logo.png" style="width:100px;display:block;margin:16px auto 6px;filter:drop-shadow(0 0 20px #a855ff)">
+  <h1>MONET ARCADE</h1>
+  <p style="color:#888;font-size:12px;font-family:Orbitron,sans-serif;margin:-6px 0 12px">Welcome, <span id="playerName" style="color:#00f0ff"></span></p>
 
-<h1>MONET MONEY ARCADE<br><span id="user"></span></h1>
+  <div class="wallet-bar" id="walletBar"></div>
 
-<div class="wallet" id="wallet">Not connected</div>
-<div class="balance">Balance: <span id="bal">0</span> MONET</div>
+  <div class="hero">
+    <img src="/title.jpg" alt="Monet Mario">
+    <div class="hero-sub">MONET BALANCE</div>
+    <div class="hero-balance" id="heroBal">Connect wallet to check</div>
+  </div>
 
-<img src="/monetmario.jpg">
+  <div class="fee-note">
+    Entry fee: <b>5 MONET</b> per game &nbsp;|&nbsp; Winners receive <b>80% payout</b>
+  </div>
 
-<button class="connect" onclick="connectAndPlay()">CONNECT TO PLAY</button>
-<button class="exchange" onclick="goExchange()">EXCHANGE</button>
+  <div class="nav-grid">
+    <a class="nav-card arcade" href="arcade.html">
+      <div class="nav-icon">&#127918;</div>
+      <div class="nav-title" style="color:#00ff9d">PLAY GAMES</div>
+      <div class="nav-desc">5 MONET entry · Win prizes</div>
+    </a>
+    <a class="nav-card exchange" href="exchange.html">
+      <div class="nav-icon">&#8645;</div>
+      <div class="nav-title" style="color:#a855ff">EXCHANGE</div>
+      <div class="nav-desc">Buy MONET via Jupiter</div>
+    </a>
+    <a class="nav-card portfolio" href="portfolio.html">
+      <div class="nav-icon">&#128188;</div>
+      <div class="nav-title" style="color:#00f0ff">PORTFOLIO</div>
+      <div class="nav-desc">Wallet & token balances</div>
+    </a>
+    <a class="nav-card scores" href="leaderboard.html">
+      <div class="nav-icon">&#127942;</div>
+      <div class="nav-title" style="color:#ffdd00">LEADERBOARD</div>
+      <div class="nav-desc">Top scores & rankings</div>
+    </a>
+  </div>
 
+  <div style="text-align:center">
+    <button class="logout-btn" onclick="logout()">Log Out</button>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 <script>
-async function connectAndPlay() {
-  if (!window.solana) {
-    alert("Install Phantom Wallet");
-    return;
-  }
+document.getElementById('playerName').textContent = localStorage.getItem('player_name') || 'Player';
+renderWalletBar('walletBar');
 
-  try {
-    const resp = await window.solana.connect();
-    const addr = resp.publicKey.toString();
-
-    document.getElementById("wallet").innerText = addr;
-
-    // fake stored balance for now
-    let bal = localStorage.getItem("monet_balance") || 0;
-    document.getElementById("bal").innerText = bal;
-
-    window.location.href = "arcade.html";
-
-  } catch {
-    alert("Connection failed");
+function updateHeroBal() {
+  const el = document.getElementById('heroBal');
+  if (WalletState.connected) {
+    el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
+  } else {
+    el.textContent = 'Connect wallet to check';
   }
 }
+document.addEventListener('walletConnected', updateHeroBal);
+document.addEventListener('balanceUpdated', updateHeroBal);
+document.addEventListener('walletDisconnected', updateHeroBal);
+updateHeroBal();
 
-function goExchange() {
-  window.open(
-    "https://jup.ag/swap/So11111111111111111111111111111111111111112-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b",
-    "_blank"
-  );
+function logout() {
+  localStorage.removeItem('player_name');
+  sessionStorage.clear();
+  window.location.href = 'login.html';
 }
 </script>
-
 </body>
 </html>

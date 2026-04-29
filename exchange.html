@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monet Exchange</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+body {
+  background-image: url('/title.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height:100vh;
+}
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(2,4,10,0.86);
+  pointer-events:none;
+  z-index:0;
+}
+.page { position:relative; z-index:1; padding-bottom:30px; }
+.wallet-bar { max-width:600px; margin:0 auto 12px; padding:10px 16px; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid #333; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; }
+.nav-row { display:flex; justify-content:center; gap:10px; margin:8px 0 16px; flex-wrap:wrap; }
+.nav-btn { padding:7px 18px; border-radius:8px; border:2px solid #a855ff; background:transparent; color:#a855ff; font-family:'Orbitron',sans-serif; font-size:11px; font-weight:bold; cursor:pointer; text-decoration:none; display:inline-block; }
+.nav-btn:hover { background:#a855ff; color:#000; }
+.monet-info { max-width:560px; margin:0 auto 16px; background:rgba(168,85,255,0.1); border:1px solid #a855ff33; border-radius:12px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.monet-info .label { font-family:'Orbitron',sans-serif; font-size:11px; color:#a855ff; }
+.monet-info .value { font-size:20px; font-weight:bold; color:#fff; }
+.monet-info .sub { font-size:11px; color:#888; }
+#jupiter-terminal-wrap { max-width:500px; margin:0 auto; background:rgba(0,0,0,0.5); border-radius:16px; border:1px solid #a855ff44; overflow:hidden; min-height:500px; }
+.loading-msg { color:#888; font-size:13px; padding:40px; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h2>MONET EXCHANGE</h2>
+  <div class="wallet-bar" id="walletBar"></div>
+
+  <div class="monet-info">
+    <div>
+      <div class="label">YOUR MONET BALANCE</div>
+      <div class="value" id="monetBal">—</div>
+    </div>
+    <div style="text-align:right">
+      <div class="label">TOKEN ADDRESS</div>
+      <div style="font-size:10px;color:#888;font-family:monospace;max-width:200px;word-break:break-all">6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b</div>
+    </div>
+  </div>
+
+  <div class="nav-row">
+    <a class="nav-btn" href="arcade.html">&#127918; Arcade</a>
+    <a class="nav-btn" href="portfolio.html">&#128188; Portfolio</a>
+    <a class="nav-btn" href="index.html">&#8592; Home</a>
+  </div>
+
+  <div id="jupiter-terminal-wrap">
+    <p class="loading-msg" id="jupLoad">Loading swap widget…</p>
+    <div id="integrated-terminal"></div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script src="https://terminal.jup.ag/main-v4.js" data-preload></script>
+<script>
+renderWalletBar('walletBar');
+
+document.addEventListener('balanceUpdated', () => {
+  document.getElementById('monetBal').textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
+});
+document.addEventListener('walletConnected', () => {
+  document.getElementById('monetBal').textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
+});
+
+function initJupiter() {
+  if (window.Jupiter) {
+    document.getElementById('jupLoad').style.display = 'none';
+    window.Jupiter.init({
+      displayMode: 'integrated',
+      integratedTargetId: 'integrated-terminal',
+      endpoint: 'https://api.mainnet-beta.solana.com',
+      defaultExplorer: 'SolanaFM',
+      formProps: {
+        initialOutputMint: '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
+      },
+    });
+  } else {
+    setTimeout(initJupiter, 500);
+  }
+}
+initJupiter();
+
+// Pass connected wallet to Jupiter if available
+document.addEventListener('walletConnected', () => {
+  if (window.Jupiter && window.solana) {
+    try {
+      window.Jupiter.init({
+        displayMode: 'integrated',
+        integratedTargetId: 'integrated-terminal',
+        endpoint: 'https://api.mainnet-beta.solana.com',
+        passThroughWallet: window.solana,
+        formProps: {
+          initialOutputMint: '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
+        },
+      });
+    } catch(e) {}
+  }
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monet Portfolio</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+body {
+  background-image: url('/title.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height:100vh;
+}
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(2,4,10,0.86);
+  pointer-events:none;
+  z-index:0;
+}
+.page { position:relative; z-index:1; padding-bottom:30px; }
+.wallet-bar { max-width:640px; margin:0 auto 12px; padding:10px 16px; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid #333; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; }
+.nav-row { display:flex; justify-content:center; gap:10px; margin:8px 0 16px; flex-wrap:wrap; }
+.nav-btn { padding:7px 18px; border-radius:8px; border:2px solid #a855ff; background:transparent; color:#a855ff; font-family:'Orbitron',sans-serif; font-size:11px; font-weight:bold; cursor:pointer; text-decoration:none; display:inline-block; }
+.nav-btn:hover { background:#a855ff; color:#000; }
+
+.stat-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(160px,1fr)); gap:12px; max-width:640px; margin:0 auto 20px; padding:0 16px; }
+.stat-card { background:rgba(255,255,255,0.04); border:1px solid #333; border-radius:12px; padding:16px; }
+.stat-label { font-size:10px; color:#888; font-family:'Orbitron',sans-serif; margin-bottom:6px; }
+.stat-value { font-size:22px; font-weight:bold; color:#fff; }
+.stat-sub { font-size:11px; color:#555; margin-top:3px; }
+.monet-card { border-color:#a855ff44; background:rgba(168,85,255,0.08); }
+.monet-card .stat-value { background:linear-gradient(90deg,#a855ff,#00f0ff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+
+.section-title { font-family:'Orbitron',sans-serif; font-size:11px; color:#a855ff; letter-spacing:2px; text-align:left; max-width:640px; margin:0 auto 8px; padding:0 16px; }
+
+.token-list { max-width:640px; margin:0 auto; padding:0 16px; }
+.token-row { display:flex; align-items:center; justify-content:space-between; padding:12px 14px; background:rgba(255,255,255,0.03); border:1px solid #222; border-radius:10px; margin-bottom:8px; }
+.token-row.monet-row { border-color:#a855ff44; background:rgba(168,85,255,0.06); }
+.token-mint { font-size:10px; color:#555; font-family:monospace; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.token-name { font-size:13px; font-weight:bold; color:#fff; }
+.token-bal { font-size:15px; font-weight:bold; color:#00f0ff; }
+.token-badge { font-size:9px; padding:2px 6px; border-radius:10px; background:#a855ff22; color:#a855ff; border:1px solid #a855ff44; margin-left:6px; }
+
+.claims-section { max-width:640px; margin:16px auto 0; padding:0 16px; }
+.claim-row { display:flex; align-items:center; justify-content:space-between; padding:10px 14px; background:rgba(0,255,157,0.04); border:1px solid #00ff9d22; border-radius:10px; margin-bottom:8px; flex-wrap:wrap; gap:6px; }
+.claim-status { font-size:10px; padding:2px 8px; border-radius:10px; font-family:'Orbitron',sans-serif; }
+.claim-status.pending { background:#ffdd0022; color:#ffdd00; border:1px solid #ffdd0044; }
+.claim-status.paid { background:#00ff9d22; color:#00ff9d; border:1px solid #00ff9d44; }
+
+.connect-prompt { max-width:400px; margin:40px auto; text-align:center; }
+.connect-prompt p { color:#888; font-size:13px; margin-bottom:16px; }
+
+#refreshBtn { padding:7px 18px; border-radius:8px; border:2px solid #00f0ff; background:transparent; color:#00f0ff; font-family:'Orbitron',sans-serif; font-size:11px; font-weight:bold; cursor:pointer; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h2>PORTFOLIO</h2>
+  <div class="wallet-bar" id="walletBar"></div>
+
+  <div class="nav-row">
+    <a class="nav-btn" href="arcade.html">&#127918; Arcade</a>
+    <a class="nav-btn" href="exchange.html">&#8645; Exchange</a>
+    <a class="nav-btn" href="index.html">&#8592; Home</a>
+    <button id="refreshBtn" onclick="loadPortfolio()">&#8635; Refresh</button>
+  </div>
+
+  <div id="connectPrompt" class="connect-prompt" style="display:none">
+    <p>Connect your wallet to view your portfolio</p>
+    <button onclick="connectWallet().then(loadPortfolio).catch(e=>alert(e.message))" style="padding:10px 24px;border-radius:10px;border:none;background:linear-gradient(135deg,#00ff9d,#00ffc3);color:#000;font-weight:bold;cursor:pointer;font-family:Orbitron,sans-serif">CONNECT WALLET</button>
+  </div>
+
+  <div id="portfolioContent">
+    <div class="stat-grid">
+      <div class="stat-card monet-card">
+        <div class="stat-label">MONET BALANCE</div>
+        <div class="stat-value" id="monetBal">—</div>
+        <div class="stat-sub">$MONET</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">SOL BALANCE</div>
+        <div class="stat-value" id="solBal">—</div>
+        <div class="stat-sub">Solana</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">TOTAL TOKENS</div>
+        <div class="stat-value" id="tokenCount">—</div>
+        <div class="stat-sub">in wallet</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">PENDING WINS</div>
+        <div class="stat-value" id="pendingWins">—</div>
+        <div class="stat-sub">MONET</div>
+      </div>
+    </div>
+
+    <div class="section-title">ALL TOKENS</div>
+    <div class="token-list" id="tokenList">
+      <div style="color:#555;font-size:13px;padding:20px">Loading tokens…</div>
+    </div>
+
+    <div class="claims-section">
+      <div class="section-title" style="padding:0;margin-bottom:8px">PENDING WINNINGS</div>
+      <div id="claimsList"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script>
+renderWalletBar('walletBar');
+
+async function loadPortfolio() {
+  if (!WalletState.connected) {
+    document.getElementById('connectPrompt').style.display='block';
+    document.getElementById('portfolioContent').style.display='none';
+    return;
+  }
+  document.getElementById('connectPrompt').style.display='none';
+  document.getElementById('portfolioContent').style.display='block';
+  document.getElementById('monetBal').textContent='…';
+  document.getElementById('tokenList').innerHTML='<div style="color:#555;font-size:13px;padding:20px">Scanning wallet…</div>';
+
+  await refreshBalances();
+  renderPortfolio();
+}
+
+function renderPortfolio() {
+  document.getElementById('monetBal').textContent = WalletState.monetBalance.toFixed(2);
+  document.getElementById('solBal').textContent = WalletState.solBalance.toFixed(4);
+  document.getElementById('tokenCount').textContent = WalletState.tokens.length;
+
+  const claims = JSON.parse(localStorage.getItem('pending_claims') || '[]');
+  const myAddr = WalletState.address;
+  const myClaims = claims.filter(c => c.wallet === myAddr);
+  const pendingAmt = myClaims.filter(c=>c.status==='pending').reduce((s,c)=>s+c.payout,0);
+  document.getElementById('pendingWins').textContent = pendingAmt.toFixed(2);
+
+  // Token list
+  const list = document.getElementById('tokenList');
+  if (WalletState.tokens.length === 0) {
+    list.innerHTML = '<div style="color:#555;font-size:13px;padding:16px">No tokens found in this wallet</div>';
+  } else {
+    list.innerHTML = WalletState.tokens.map(t => `
+      <div class="token-row ${t.isMonet?'monet-row':''}">
+        <div>
+          <div class="token-name">${t.isMonet ? '&#11088; $MONET' : 'Token'} ${t.isMonet ? '<span class="token-badge">ARCADE COIN</span>' : ''}</div>
+          <div class="token-mint">${t.mint}</div>
+        </div>
+        <div class="token-bal">${t.balance.toLocaleString(undefined, {maximumFractionDigits:4})}</div>
+      </div>
+    `).join('');
+  }
+
+  // Claims
+  const claimsList = document.getElementById('claimsList');
+  if (myClaims.length === 0) {
+    claimsList.innerHTML = '<div style="color:#555;font-size:12px;padding:8px">No pending claims</div>';
+  } else {
+    claimsList.innerHTML = myClaims.map(c => `
+      <div class="claim-row">
+        <div>
+          <div style="font-size:13px;color:#fff">${c.game} — Score: ${c.score}</div>
+          <div style="font-size:10px;color:#888">${new Date(c.claimedAt).toLocaleString()}</div>
+          <div style="font-size:10px;color:#555;font-family:monospace">tx: ${c.entryTx?.slice(0,16)}…</div>
+        </div>
+        <div style="text-align:right">
+          <div style="color:#00ff9d;font-weight:bold">${c.payout} MONET</div>
+          <span class="claim-status ${c.status}">${c.status.toUpperCase()}</span>
+        </div>
+      </div>
+    `).join('');
+  }
+}
+
+document.addEventListener('walletConnected', loadPortfolio);
+document.addEventListener('balanceUpdated', renderPortfolio);
+
+loadPortfolio();
+</script>
+</body>
+</html>

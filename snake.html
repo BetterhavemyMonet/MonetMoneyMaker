@@ -41,7 +41,7 @@ const CELL = 20, COLS = 21, ROWS = 21;
 const W = COLS * CELL, H = ROWS * CELL;
 canvas.width = W; canvas.height = H;
 
-const img = new Image(); img.src = '/monetmario.jpg';
+const img = new Image(); img.src = '/character.png';
 
 let snake, dir, nextDir, food, score, gameRunning, intervalId, bestScore;
 bestScore = parseInt(localStorage.getItem('snake_best')||'0');
