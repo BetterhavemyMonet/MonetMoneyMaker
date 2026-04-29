@@ -1,33 +1,43 @@
 <!DOCTYPE html>
 <html>
-<body style="background:black;color:white;text-align:center">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<h2>Dodger</h2>
-<p>Avoid the block!</p>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 
-<div id="player" style="width:50px;height:50px;background:lime;position:absolute;bottom:20px;left:50%;"></div>
-<div id="enemy" style="width:50px;height:50px;background:red;position:absolute;top:0;left:50%;"></div>
+<style>
+body {
+  background: radial-gradient(circle at top,#0b0f1a,#02040a);
+  color:white;
+  text-align:center;
+  font-family:'Orbitron',sans-serif;
+}
 
-<script>
-let enemy = document.getElementById("enemy");
-let player = document.getElementById("player");
+h1, h2 {
+  background: linear-gradient(90deg,#00f0ff,#a855ff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 0 10px rgba(0,255,255,0.7);
+}
 
-let y=0;
+button {
+  margin-top:15px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:linear-gradient(135deg,#00ff9d,#00ffc3);
+  color:black;
+  font-weight:bold;
+  box-shadow:0 0 15px rgba(0,255,150,0.5);
+}
+</style>
+</head>
 
-setInterval(()=>{
-  y+=5;
-  enemy.style.top = y+"px";
+<body>
 
-  if(y > window.innerHeight){
-    y=0;
-    enemy.style.left = Math.random()*300 + "px";
-  }
-},50);
+<h2>GAME LOADING...</h2>
 
-document.addEventListener("mousemove", e=>{
-  player.style.left = e.clientX+"px";
-});
-</script>
+<p>We’ll reinsert logic next</p>
 
 </body>
 </html>

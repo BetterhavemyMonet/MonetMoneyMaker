@@ -2,66 +2,42 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monet Arcade</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 
 <style>
 body {
-  background:#02040a;
+  background: radial-gradient(circle at top,#0b0f1a,#02040a);
   color:white;
   text-align:center;
-  font-family:sans-serif;
+  font-family:'Orbitron',sans-serif;
 }
 
-h1 { color:#00f0ff; }
-
-.grid {
-  display:grid;
-  grid-template-columns:repeat(2,1fr);
-  gap:15px;
-  padding:15px;
-}
-
-.card {
-  background:#111;
-  padding:15px;
-  border-radius:12px;
-  box-shadow:0 0 15px rgba(0,255,200,0.2);
-  cursor:pointer;
+h1, h2 {
+  background: linear-gradient(90deg,#00f0ff,#a855ff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 0 10px rgba(0,255,255,0.7);
 }
 
 button {
-  margin-top:10px;
-  padding:10px;
+  margin-top:15px;
+  padding:12px;
   border:none;
-  border-radius:8px;
-  background:#00ff9d;
+  border-radius:10px;
+  background:linear-gradient(135deg,#00ff9d,#00ffc3);
+  color:black;
   font-weight:bold;
+  box-shadow:0 0 15px rgba(0,255,150,0.5);
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎮 MONET ARCADE</h1>
+<h2>GAME LOADING...</h2>
 
-<div class="grid">
-
-<div class="card">
-  <p>⚡ Reaction Speed</p>
-  <button onclick="location.href='reaction.html'">Play</button>
-</div>
-
-<div class="card">
-  <p>🟢 Tap Frenzy</p>
-  <button onclick="location.href='tap.html'">Play</button>
-</div>
-
-<div class="card">
-  <p>🟣 Dodger</p>
-  <button onclick="location.href='dodger.html'">Play</button>
-</div>
-
-</div>
+<p>We’ll reinsert logic next</p>
 
 </body>
 </html>

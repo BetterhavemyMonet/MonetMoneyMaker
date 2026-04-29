@@ -1,31 +1,43 @@
 <!DOCTYPE html>
 <html>
-<body style="background:black;color:white;text-align:center">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-<h2>Reaction Speed</h2>
-<button onclick="start()">Start</button>
-<p id="msg"></p>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 
-<script>
-let time;
-
-function start(){
-  document.getElementById("msg").innerText="Wait...";
-  setTimeout(()=>{
-    time = Date.now();
-    document.getElementById("msg").innerText="CLICK!";
-  }, Math.random()*3000);
+<style>
+body {
+  background: radial-gradient(circle at top,#0b0f1a,#02040a);
+  color:white;
+  text-align:center;
+  font-family:'Orbitron',sans-serif;
 }
 
-document.body.onclick=()=>{
-  if(time){
-    let result = Date.now() - time;
-    alert("Reaction: " + result + " ms");
-    localStorage.setItem("score", result);
-    time = null;
-  }
+h1, h2 {
+  background: linear-gradient(90deg,#00f0ff,#a855ff);
+  -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent;
+  text-shadow:0 0 10px rgba(0,255,255,0.7);
 }
-</script>
+
+button {
+  margin-top:15px;
+  padding:12px;
+  border:none;
+  border-radius:10px;
+  background:linear-gradient(135deg,#00ff9d,#00ffc3);
+  color:black;
+  font-weight:bold;
+  box-shadow:0 0 15px rgba(0,255,150,0.5);
+}
+</style>
+</head>
+
+<body>
+
+<h2>GAME LOADING...</h2>
+
+<p>We’ll reinsert logic next</p>
 
 </body>
 </html>
