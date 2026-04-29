@@ -3,28 +3,72 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monet Arcade</title>
+<title>Monet Money Arcade</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap" rel="stylesheet">
+
 <style>
 body {
   margin:0;
-  background:#02040a;
+  font-family:'Orbitron',sans-serif;
+  background: radial-gradient(circle at top,#0b0f1a,#02040a);
   color:white;
-  font-family:sans-serif;
   text-align:center;
 }
-img {
+
+.logo {
+  margin-top:30px;
+}
+
+.hero img {
   width:90%;
   max-width:420px;
-  margin:40px auto;
+  margin:20px auto;
   display:block;
+  border-radius:16px;
+  box-shadow:0 0 25px rgba(0,255,200,0.3);
+}
+
+h1 {
+  color:#5df2ff;
+  margin-top:10px;
+}
+
+.btn {
+  display:block;
+  width:80%;
+  max-width:300px;
+  margin:12px auto;
+  padding:14px;
+  border-radius:10px;
+  font-weight:bold;
+  border:none;
+  cursor:pointer;
+}
+
+.connect {
+  background:#00ff9d;
+  color:black;
+}
+
+.exchange {
+  background:transparent;
+  border:2px solid #d14bff;
+  color:#d14bff;
 }
 </style>
 </head>
+
 <body>
 
-<h1>Monet Arcade</h1>
+<h1>MONET MONEY ARCADE</h1>
 
-<img src="/monetmario.jpg" alt="Monet Arcade">
+<div class="hero">
+  <img src="/monetmario.jpg" alt="Monet Arcade">
+</div>
+
+<button class="btn connect">CONNECT TO PLAY</button>
+<button class="btn exchange">EXCHANGE</button>
 
 </body>
 </html>
