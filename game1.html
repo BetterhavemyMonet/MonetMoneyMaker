@@ -6,33 +6,89 @@
 
 <body>
 
-<h2>Click Speed (Leaderboard Mode)</h2>
+<h2>Click Speed (Secure Pot)</h2>
+
+<p>Pot: <span id="pot">0</span></p>
+<button onclick="enter()">Enter Game</button>
+
+<br><br>
 
 <button onclick="click()">CLICK</button>
+
 <p>Score: <span id="score">0</span></p>
 
 <script>
 let score = 0;
+let sessionId = null;
 
+// get pot
+async function loadPot(){
+  const res = await fetch("http://localhost:3001/pot");
+  const data = await res.json();
+  document.getElementById("pot").innerText = data.pot;
+}
+loadPot();
+
+// enter game
+async function enter(){
+  const res = await fetch("http://localhost:3001/enter", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({
+      player: localStorage.getItem("player_name")
+    })
+  });
+
+  const data = await res.json();
+
+  sessionId = data.sessionId;
+
+  document.getElementById("pot").innerText = data.pot;
+
+  alert("Entered!");
+}
+
+// click logic
 function click(){
+  if(!sessionId){
+    alert("Enter first!");
+    return;
+  }
+
   score++;
   document.getElementById("score").innerText = score;
 
   if(score >= 20){
-    saveScore(score);
-    alert("Game Over! Score saved.");
-    score = 0;
+    win();
   }
 }
 
-function saveScore(score){
-  let name = prompt("Enter name:");
+// win
+async function win(){
+  const res = await fetch("http://localhost:3001/win", {
+    method:"POST",
+    headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({ sessionId })
+  });
 
-  let board = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+  const data = await res.json();
 
-  board.push({name, score});
+  if(data.error){
+    alert("Invalid win attempt");
+    return;
+  }
 
-  localStorage.setItem("leaderboard", JSON.stringify(board));
+  alert(
+    "WINNER!\n\n" +
+    "You get: " + data.payout + "\n" +
+    "Treasury: " + data.treasury
+  );
+
+  sessionId = null;
+  score = 0;
+  document.getElementById("score").innerText = 0;
+
+  loadPot();
 }
 </script>
 
