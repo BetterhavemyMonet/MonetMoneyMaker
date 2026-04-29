@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monet Runner</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+body {
+  background-image: url('/monetmario.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background: rgba(2,4,10,0.82);
+  pointer-events:none;
+  z-index:0;
+}
+.page { position:relative; z-index:1; padding-bottom:20px; }
+canvas { display:block; margin:8px auto; border:2px solid #a855ff; box-shadow:0 0 20px #a855ff66; border-radius:6px; background:#000; }
+#info { font-size:13px; color:#00f0ff; margin:4px 0; }
+#msg { font-size:17px; min-height:24px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
+.tabs { display:flex; justify-content:center; gap:10px; margin:8px 0; }
+.tab { cursor:pointer; padding:7px 18px; border-radius:8px; border:2px solid #a855ff; background:transparent; color:#a855ff; font-family:'Orbitron',sans-serif; font-size:12px; font-weight:bold; }
+.tab.active { background:#a855ff; color:#000; }
+.section { display:none; }
+.section.active { display:block; }
+.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:12px; padding:8px 16px; }
+
+/* Level creator */
+#creator { padding:0 10px; }
+.creator-grid-wrap { overflow-x:auto; margin:8px auto; max-width:580px; }
+#creatorGrid { display:grid; grid-template-columns:repeat(40,14px); grid-template-rows:repeat(3,20px); gap:2px; width:max-content; margin:0 auto; }
+.gc {
+  width:14px; height:20px; border-radius:2px; cursor:pointer; border:1px solid #222;
+  background:#111; transition:background 0.1s;
+}
+.gc[data-t="0"].on { background:#00ff9d; box-shadow:0 0 4px #00ff9d; }
+.gc[data-t="1"].on { background:#a855ff; box-shadow:0 0 4px #a855ff; }
+.gc[data-t="2"].on { background:#00f0ff; box-shadow:0 0 4px #00f0ff; }
+.row-label { font-size:9px; color:#888; text-align:left; margin:2px 0; }
+.legend { display:flex; gap:16px; justify-content:center; font-size:11px; margin:6px 0; }
+.leg-dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle; }
+#levelCode { width:90%; max-width:400px; padding:6px; background:#111; color:#00f0ff; border:1px solid #333; border-radius:6px; font-size:11px; font-family:monospace; }
+#levelCodeIn { width:90%; max-width:400px; padding:6px; background:#111; color:#fff; border:1px solid #333; border-radius:6px; font-size:11px; font-family:monospace; }
+#levelLB { max-width:360px; margin:8px auto; font-size:12px; }
+#levelLB table { width:100%; border-collapse:collapse; }
+#levelLB td, #levelLB th { padding:4px 8px; border-bottom:1px solid #222; }
+#levelLB th { color:#a855ff; }
+</style>
+</head>
+<body>
+<div class="page">
+<h2>MONET RUNNER</h2>
+
+<div class="tabs">
+  <button class="tab active" onclick="switchTab('play')">PLAY</button>
+  <button class="tab" onclick="switchTab('create')">CREATE LEVEL</button>
+  <button class="tab" onclick="switchTab('challenge')">CHALLENGE</button>
+</div>
+
+<!-- PLAY TAB -->
+<div class="section active" id="sec-play">
+  <div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="best">0</span> &nbsp;|&nbsp; Speed: <span id="spd">5</span></div>
+  <div id="msg">Press SPACE or tap to start</div>
+  <canvas id="c" width="600" height="200"></canvas>
+  <br>
+  <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+  <button class="btn" onclick="startEndless()" style="margin-left:8px">ENDLESS</button>
+</div>
+
+<!-- CREATE TAB -->
+<div class="section" id="sec-create">
+  <p style="color:#aaa;font-size:12px;margin:4px">Place obstacles across 40 slots. Share your code for others to beat!</p>
+  <div class="legend">
+    <span><span class="leg-dot" style="background:#00ff9d"></span>Short</span>
+    <span><span class="leg-dot" style="background:#a855ff"></span>Tall</span>
+    <span><span class="leg-dot" style="background:#00f0ff"></span>Bird</span>
+  </div>
+  <div class="row-label" style="max-width:580px;margin:0 auto;padding-left:4px">↑ Bird &nbsp;&nbsp; Tall &nbsp;&nbsp; Short ↓</div>
+  <div class="creator-grid-wrap">
+    <div id="creatorGrid"></div>
+  </div>
+  <br>
+  <button class="btn" onclick="clearGrid()">CLEAR</button>
+  <button class="btn" onclick="testLevel()" style="margin-left:8px">TEST LEVEL</button>
+  <button class="btn" onclick="generateCode()" style="margin-left:8px">GET CODE</button>
+  <br><br>
+  <div id="codeOut" style="display:none">
+    <p style="color:#00ff9d;font-size:12px;margin:4px">Your level code (share this!):</p>
+    <input id="levelCode" readonly onclick="this.select()">
+    <br>
+    <button class="btn" onclick="copyCode()" style="margin-top:6px">COPY CODE</button>
+  </div>
+  <br>
+  <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+</div>
+
+<!-- CHALLENGE TAB -->
+<div class="section" id="sec-challenge">
+  <p style="color:#aaa;font-size:12px;margin:4px 0">Paste a friend's level code to compete!</p>
+  <input id="levelCodeIn" placeholder="Paste level code here...">
+  <br><br>
+  <button class="btn" onclick="loadChallenge()">LOAD &amp; PLAY</button>
+  <div id="challengeInfo" style="display:none;margin-top:8px">
+    <div id="info2" style="font-size:13px;color:#00f0ff">Score: <span id="score2">0</span></div>
+    <div id="msg2" style="font-size:17px;min-height:24px;color:#00ff9d;font-family:Orbitron,sans-serif"></div>
+    <canvas id="c2" width="600" height="200" style="display:block;margin:8px auto;border:2px solid #00f0ff;box-shadow:0 0 20px #00f0ff66;border-radius:6px;background:#000;"></canvas>
+    <div id="levelLB">
+      <p style="color:#a855ff;font-size:12px;margin:4px">LEVEL LEADERBOARD</p>
+      <table id="lbTable"><thead><tr><th>#</th><th>Player</th><th>Score</th></tr></thead><tbody id="lbBody"></tbody></table>
+    </div>
+  </div>
+  <br>
+  <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+</div>
+</div>
+
+<script>
+const bgImg = new Image(); bgImg.src = '/monetmario.jpg';
+const charImg = new Image(); charImg.src = '/monetmario.jpg';
+
+// ─── SHARED CONSTANTS ────────────────────────────────────────────────────────
+const GROUND = 160, CHAR_W = 36, CHAR_H = 40;
+let bestScore = parseInt(localStorage.getItem('dino_best')||'0');
+document.getElementById('best').textContent = bestScore;
+
+// ─── TAB SWITCHING ────────────────────────────────────────────────────────────
+function switchTab(t) {
+  document.querySelectorAll('.tab').forEach((b,i)=>{ b.classList.toggle('active', ['play','create','challenge'][i]===t); });
+  document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
+  document.getElementById('sec-'+t).classList.add('active');
+  if (t==='create') buildGrid();
+}
+
+// ─── ENDLESS RUNNER ───────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+let player, obstacles, score, speed, frameCount, gameRunning, animId, groundX=0;
+
+function startEndless() {
+  player = { x:70, y:GROUND-CHAR_H, vy:0, onGround:true };
+  obstacles = []; score = 0; speed = 5; frameCount = 0; gameRunning = true;
+  document.getElementById('msg').textContent = '';
+  if (animId) cancelAnimationFrame(animId);
+  endlessLoop();
+}
+
+function endlessLoop() {
+  drawScene(ctx, canvas.width, canvas.height);
+  if (gameRunning) updateEndless();
+  animId = requestAnimationFrame(endlessLoop);
+}
+
+function updateEndless() {
+  frameCount++;
+  score += 0.12;
+  speed = 5 + Math.floor(score/150)*0.4;
+  document.getElementById('score').textContent = Math.floor(score);
+  document.getElementById('spd').textContent = speed.toFixed(1);
+  if (Math.floor(score) > bestScore) {
+    bestScore = Math.floor(score);
+    document.getElementById('best').textContent = bestScore;
+    localStorage.setItem('dino_best', bestScore);
+  }
+  updatePhysics(player);
+  if (frameCount % Math.max(35, 90 - Math.floor(score/80)) === 0) {
+    obstacles.push(makeRandomObs());
+  }
+  obstacles.forEach(o=>o.x -= speed);
+  obstacles = obstacles.filter(o=>o.x > -60);
+  checkCollisions(player, obstacles, endGame);
+}
+
+function endGame() {
+  gameRunning = false;
+  document.getElementById('msg').textContent = 'GAME OVER — Score: ' + Math.floor(score);
+  saveScore(Math.floor(score));
+}
+
+function makeRandomObs() {
+  const types = [
+    {w:18,h:38,y:GROUND-38,color:'#00ff9d',bird:false},
+    {w:22,h:52,y:GROUND-52,color:'#a855ff',bird:false},
+    {w:34,h:24,y:GROUND-24,color:'#ff4488',bird:false},
+    {w:30,h:20,y:GROUND-80,color:'#00f0ff',bird:true},
+  ];
+  let t = types[Math.floor(Math.random()*types.length)];
+  return Object.assign({x:W+20}, t);
+}
+
+function updatePhysics(p) {
+  p.vy += 0.75;
+  p.y += p.vy;
+  if (p.y >= GROUND - CHAR_H) { p.y = GROUND-CHAR_H; p.vy=0; p.onGround=true; }
+}
+
+function checkCollisions(p, obs, onDie) {
+  obs.forEach(o=>{
+    if (p.x+8 < o.x+o.w && p.x+CHAR_W-8 > o.x && p.y+8 < o.y+o.h && p.y+CHAR_H-8 > o.y) onDie();
+  });
+}
+
+function drawScene(c, w, h) {
+  c.clearRect(0,0,w,h);
+  if (bgImg.complete) {
+    c.globalAlpha = 0.08;
+    c.drawImage(bgImg,0,0,w,h);
+    c.globalAlpha = 1;
+  }
+  // Sky gradient
+  let grad = c.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(2,4,10,0.6)');
+  grad.addColorStop(1,'rgba(11,15,26,0.7)');
+  c.fillStyle = grad; c.fillRect(0,0,w,h);
+
+  // Stars
+  c.fillStyle='rgba(255,255,255,0.6)';
+  for(let i=0;i<20;i++){c.fillRect((i*97+frameCount*0.3)%w,(i*53)%100,1,1);}
+
+  // Ground
+  groundX = (groundX - speed + w) % w;
+  c.fillStyle = '#1a0d2e'; c.fillRect(0,GROUND+2,w,h-GROUND-2);
+  c.strokeStyle = '#00f0ff'; c.lineWidth=2;
+  c.beginPath(); c.moveTo(0,GROUND+2); c.lineTo(w,GROUND+2); c.stroke();
+  c.strokeStyle = '#a855ff33'; c.lineWidth=1;
+  for(let i=0;i<w/40+1;i++){
+    let x=(groundX+i*40)%w;
+    c.beginPath(); c.moveTo(x,GROUND+2); c.lineTo(x,h); c.stroke();
+  }
+
+  // Obstacles
+  obstacles.forEach(o=>{
+    c.fillStyle = o.color;
+    c.shadowColor = o.color; c.shadowBlur = 8;
+    if (o.bird) {
+      c.beginPath(); c.ellipse(o.x+o.w/2,o.y+o.h/2,o.w/2,o.h/2,0,0,Math.PI*2);
+      c.fill();
+      c.fillStyle='rgba(255,255,255,0.3)';
+      c.beginPath(); c.ellipse(o.x+o.w*0.35,o.y+o.h*0.35,o.w*0.2,o.h*0.2,0,0,Math.PI*2); c.fill();
+    } else {
+      c.beginPath(); c.roundRect(o.x,o.y,o.w,o.h,3); c.fill();
+      c.fillStyle='rgba(255,255,255,0.15)'; c.fillRect(o.x+2,o.y+2,o.w-4,4);
+    }
+    c.shadowBlur=0;
+  });
+
+  // Character
+  if (charImg.complete) {
+    c.drawImage(charImg, player.x, player.y, CHAR_W, CHAR_H);
+  } else {
+    c.fillStyle='#00ff9d'; c.fillRect(player.x,player.y,CHAR_W,CHAR_H);
+  }
+  c.shadowColor='#00ff9d'; c.shadowBlur=10; c.shadowBlur=0;
+}
+
+document.addEventListener('keydown', e=>{
+  if (e.code==='Space'||e.code==='ArrowUp') {
+    if (!gameRunning) { startEndless(); return; }
+    if (player.onGround) { player.vy=-15; player.onGround=false; }
+    e.preventDefault();
+  }
+  if (e.code==='ArrowDown' && gameRunning) { player.vy=8; e.preventDefault(); }
+});
+canvas.addEventListener('touchstart', e=>{ if(!gameRunning){startEndless();}else if(player.onGround){player.vy=-15;player.onGround=false;} e.preventDefault(); },{passive:false});
+
+// Initial idle draw
+(function idleDraw(){
+  if(!gameRunning){ drawScene(ctx,W,H); }
+  requestAnimationFrame(idleDraw);
+})();
+
+// ─── LEVEL CREATOR ────────────────────────────────────────────────────────────
+const SLOTS=40, ROWS_C=3;
+let grid = Array.from({length:ROWS_C},()=>new Array(SLOTS).fill(false));
+let lastGenCode='';
+
+function buildGrid() {
+  const g=document.getElementById('creatorGrid');
+  g.innerHTML='';
+  for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++) {
+    let cell=document.createElement('div');
+    cell.className='gc'; cell.dataset.r=r; cell.dataset.s=s; cell.dataset.t=r;
+    if(grid[r][s]) cell.classList.add('on');
+    cell.addEventListener('click',()=>{ grid[r][s]=!grid[r][s]; cell.classList.toggle('on',grid[r][s]); });
+    g.appendChild(cell);
+  }
+}
+
+function clearGrid() {
+  grid=Array.from({length:ROWS_C},()=>new Array(SLOTS).fill(false));
+  buildGrid();
+  document.getElementById('codeOut').style.display='none';
+}
+
+function encodeLevel(g) {
+  let pairs=[];
+  for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++) if(g[r][s]) pairs.push([s,r]);
+  return btoa(JSON.stringify(pairs));
+}
+
+function decodeLevel(code) {
+  try { return JSON.parse(atob(code)); } catch(e) { return null; }
+}
+
+function generateCode() {
+  lastGenCode=encodeLevel(grid);
+  document.getElementById('levelCode').value=lastGenCode;
+  document.getElementById('codeOut').style.display='block';
+}
+
+function copyCode() {
+  navigator.clipboard.writeText(document.getElementById('levelCode').value);
+  alert('Level code copied!');
+}
+
+function testLevel() {
+  lastGenCode=encodeLevel(grid);
+  playCustomLevel(lastGenCode, ctx, canvas, 'msg', 'score');
+}
+
+// ─── CUSTOM LEVEL PLAYER ─────────────────────────────────────────────────────
+function obsFromPair(pair, canvasW) {
+  let [slot, type] = pair;
+  const defs = [
+    {w:18,h:38,dy:-38,color:'#00ff9d',bird:false},
+    {w:22,h:52,dy:-52,color:'#a855ff',bird:false},
+    {w:30,h:20,dy:-80,color:'#00f0ff',bird:true},
+  ];
+  let d=defs[type]||defs[0];
+  return { x: canvasW+80 + slot*120, y: GROUND+d.dy, w:d.w, h:d.h, color:d.color, bird:d.bird };
+}
+
+function playCustomLevel(code, c, cv, msgId, scoreId) {
+  let pairs = decodeLevel(code);
+  if (!pairs||pairs.length===0) { alert('Empty or invalid level!'); return; }
+  let p2 = {x:70, y:GROUND-CHAR_H, vy:0, onGround:true};
+  let obs2 = pairs.map(pr=>obsFromPair(pr, cv.width));
+  let sc2=0, speed2=5, fc2=0, running=true, done=false;
+  let aid2;
+  const MSG=document.getElementById(msgId);
+  MSG.textContent='';
+
+  function frame2() {
+    drawScene(c, cv.width, cv.height);
+    if(running) {
+      fc2++; sc2+=0.12;
+      document.getElementById(scoreId).textContent=Math.floor(sc2);
+      updatePhysics(p2);
+      obs2.forEach(o=>o.x-=speed2);
+      obs2=obs2.filter(o=>o.x>-60);
+      checkCollisions(p2, obs2, ()=>{ running=false; done=true; });
+      if(!done && obs2.length===0) { running=false; done=true; }
+    }
+    obs2.forEach(o=>{
+      c.fillStyle=o.color; c.shadowColor=o.color; c.shadowBlur=8;
+      if(o.bird){c.beginPath();c.ellipse(o.x+o.w/2,o.y+o.h/2,o.w/2,o.h/2,0,0,Math.PI*2);c.fill();}
+      else{c.beginPath();c.roundRect(o.x,o.y,o.w,o.h,3);c.fill();}
+      c.shadowBlur=0;
+    });
+    if(charImg.complete) c.drawImage(charImg,p2.x,p2.y,CHAR_W,CHAR_H);
+    if(done && !running) {
+      MSG.textContent = obs2.length===0 ? 'LEVEL CLEAR! Score: '+Math.floor(sc2) : 'CRASHED! Score: '+Math.floor(sc2);
+      cancelAnimationFrame(aid2);
+      return;
+    }
+    aid2=requestAnimationFrame(frame2);
+  }
+
+  function jump2(){if(p2.onGround){p2.vy=-15;p2.onGround=false;}}
+  function onKey2(e){if(e.code==='Space'||e.code==='ArrowUp'){jump2();e.preventDefault();}}
+  document.addEventListener('keydown',onKey2);
+  cv.addEventListener('touchstart',jump2,{passive:true});
+  if(aid2) cancelAnimationFrame(aid2);
+  aid2=requestAnimationFrame(frame2);
+  MSG.textContent='SPACE / Tap to jump!';
+}
+
+// ─── CHALLENGE TAB ────────────────────────────────────────────────────────────
+function loadChallenge() {
+  let code=document.getElementById('levelCodeIn').value.trim();
+  if(!code){alert('Paste a level code first!');return;}
+  let pairs=decodeLevel(code);
+  if(!pairs){alert('Invalid code!');return;}
+  document.getElementById('challengeInfo').style.display='block';
+  showLevelLB(code);
+  playCustomLevelChallenge(code);
+}
+
+function playCustomLevelChallenge(code) {
+  const cv2=document.getElementById('c2'), c2=cv2.getContext('2d');
+  let pairs=decodeLevel(code);
+  let p3={x:70,y:GROUND-CHAR_H,vy:0,onGround:true};
+  let obs3=pairs.map(pr=>obsFromPair(pr,cv2.width));
+  let sc3=0,running3=true,done3=false,aid3;
+  const MSG2=document.getElementById('msg2');
+  MSG2.textContent='SPACE / Tap to jump!';
+
+  function frame3(){
+    drawScene2(c2,cv2.width,cv2.height,obs3,p3);
+    if(running3){
+      sc3+=0.12;
+      document.getElementById('score2').textContent=Math.floor(sc3);
+      updatePhysics(p3);
+      obs3.forEach(o=>o.x-=5);
+      obs3=obs3.filter(o=>o.x>-60);
+      checkCollisions(p3,obs3,()=>{running3=false;done3=true;});
+      if(!done3&&obs3.length===0){running3=false;done3=true;}
+    }
+    if(done3&&!running3){
+      let msg=obs3.length===0?'LEVEL CLEAR! ':'CRASHED! ';
+      MSG2.textContent=msg+'Score: '+Math.floor(sc3);
+      saveChallengeLB(code, Math.floor(sc3));
+      showLevelLB(code);
+      cancelAnimationFrame(aid3);
+      return;
+    }
+    aid3=requestAnimationFrame(frame3);
+  }
+  function jump3(){if(p3.onGround){p3.vy=-15;p3.onGround=false;}}
+  document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp')jump3();});
+  cv2.addEventListener('touchstart',jump3,{passive:true});
+  if(aid3)cancelAnimationFrame(aid3);
+  aid3=requestAnimationFrame(frame3);
+}
+
+function drawScene2(c,w,h,obs,p){
+  c.clearRect(0,0,w,h);
+  if(bgImg.complete){c.globalAlpha=0.08;c.drawImage(bgImg,0,0,w,h);c.globalAlpha=1;}
+  let grad=c.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,'rgba(2,4,10,0.6)'); grad.addColorStop(1,'rgba(11,15,26,0.7)');
+  c.fillStyle=grad; c.fillRect(0,0,w,h);
+  c.fillStyle='#1a0d2e'; c.fillRect(0,GROUND+2,w,h-GROUND-2);
+  c.strokeStyle='#00f0ff'; c.lineWidth=2;
+  c.beginPath(); c.moveTo(0,GROUND+2); c.lineTo(w,GROUND+2); c.stroke();
+  obs.forEach(o=>{
+    c.fillStyle=o.color; c.shadowColor=o.color; c.shadowBlur=8;
+    if(o.bird){c.beginPath();c.ellipse(o.x+o.w/2,o.y+o.h/2,o.w/2,o.h/2,0,0,Math.PI*2);c.fill();}
+    else{c.beginPath();c.roundRect(o.x,o.y,o.w,o.h,3);c.fill();}
+    c.shadowBlur=0;
+  });
+  if(charImg.complete) c.drawImage(charImg,p.x,p.y,CHAR_W,CHAR_H);
+}
+
+function saveChallengeLB(code, s) {
+  let key='lvl_'+code.slice(0,16);
+  let lb=JSON.parse(localStorage.getItem(key)||'[]');
+  lb.push({name:localStorage.getItem('player_name')||'Player',score:s});
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem(key, JSON.stringify(lb.slice(0,10)));
+}
+
+function showLevelLB(code) {
+  let key='lvl_'+code.slice(0,16);
+  let lb=JSON.parse(localStorage.getItem(key)||'[]');
+  let tbody=document.getElementById('lbBody');
+  tbody.innerHTML=lb.map((e,i)=>`<tr><td>${i+1}</td><td>${e.name}</td><td>${e.score}</td></tr>`).join('');
+}
+
+function saveScore(s){
+  let lb=JSON.parse(localStorage.getItem('leaderboard')||'[]');
+  lb.push({name:localStorage.getItem('player_name')||'Player',game:'Dino Runner',score:s,date:new Date().toLocaleDateString()});
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
+}
+</script>
+</body>
+</html>

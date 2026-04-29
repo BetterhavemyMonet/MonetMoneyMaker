@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monet Snake</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+canvas { display:block; margin:10px auto; border:2px solid #00ff9d; box-shadow:0 0 20px #00ff9d55; border-radius:6px; }
+#info { font-size:14px; color:#00f0ff; margin:6px 0; }
+#msg { font-size:18px; min-height:26px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
+.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:13px; }
+#dpad { display:none; margin:8px auto; width:120px; height:120px; position:relative; }
+#dpad button { position:absolute; width:36px; height:36px; border-radius:6px; font-size:18px; padding:0; margin:0; }
+#dpad .up { top:0; left:42px; }
+#dpad .down { bottom:0; left:42px; }
+#dpad .left { top:42px; left:0; }
+#dpad .right { top:42px; right:0; }
+@media (pointer:coarse) { #dpad { display:block; } }
+</style>
+</head>
+<body>
+<h2>MONET SNAKE</h2>
+<div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="best">0</span></div>
+<div id="msg">Press SPACE or Tap to Start</div>
+<canvas id="c" width="420" height="420"></canvas>
+<div id="dpad">
+  <button class="up" onclick="setDir(0,-1)">▲</button>
+  <button class="down" onclick="setDir(0,1)">▼</button>
+  <button class="left" onclick="setDir(-1,0)">◀</button>
+  <button class="right" onclick="setDir(1,0)">▶</button>
+</div>
+<br>
+<button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+<button class="btn" onclick="startGame()" style="margin-left:12px">START</button>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const CELL = 20, COLS = 21, ROWS = 21;
+const W = COLS * CELL, H = ROWS * CELL;
+canvas.width = W; canvas.height = H;
+
+const img = new Image(); img.src = '/monetmario.jpg';
+
+let snake, dir, nextDir, food, score, gameRunning, intervalId, bestScore;
+bestScore = parseInt(localStorage.getItem('snake_best')||'0');
+document.getElementById('best').textContent = bestScore;
+
+function startGame() {
+  snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
+  dir = {x:1,y:0}; nextDir = {x:1,y:0};
+  score = 0; gameRunning = true;
+  document.getElementById('msg').textContent = '';
+  placeFood();
+  if (intervalId) clearInterval(intervalId);
+  intervalId = setInterval(tick, 120);
+}
+
+function placeFood() {
+  let empty;
+  do {
+    empty = {x:Math.floor(Math.random()*COLS), y:Math.floor(Math.random()*ROWS)};
+  } while (snake.some(s=>s.x===empty.x&&s.y===empty.y));
+  food = empty;
+}
+
+function tick() {
+  if (!gameRunning) return;
+  dir = nextDir;
+  let head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
+
+  if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)) {
+    gameRunning = false;
+    clearInterval(intervalId);
+    document.getElementById('msg').textContent = 'GAME OVER — Score: ' + score;
+    saveScore(score);
+    draw();
+    return;
+  }
+
+  snake.unshift(head);
+  if (head.x===food.x && head.y===food.y) {
+    score += 10;
+    if (score > bestScore) { bestScore = score; localStorage.setItem('snake_best', bestScore); document.getElementById('best').textContent = bestScore; }
+    document.getElementById('score').textContent = score;
+    placeFood();
+  } else {
+    snake.pop();
+  }
+  draw();
+}
+
+function draw() {
+  ctx.fillStyle = '#02040a';
+  ctx.fillRect(0,0,W,H);
+
+  ctx.strokeStyle = '#0a1428';
+  ctx.lineWidth = 0.5;
+  for (let x=0;x<COLS;x++) { ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,H); ctx.stroke(); }
+  for (let y=0;y<ROWS;y++) { ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(W,y*CELL); ctx.stroke(); }
+
+  snake.forEach((s, i) => {
+    if (i === 0) {
+      if (img.complete) {
+        ctx.drawImage(img, s.x*CELL, s.y*CELL, CELL, CELL);
+      } else {
+        ctx.fillStyle = '#00ff9d';
+        ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2);
+      }
+    } else {
+      let t = 1 - i / snake.length;
+      ctx.fillStyle = `rgba(0, ${Math.floor(180 + 75*t)}, ${Math.floor(100 + 57*t)}, 0.9)`;
+      ctx.shadowColor = '#00ff9d';
+      ctx.shadowBlur = 4;
+      ctx.beginPath();
+      ctx.roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, 3);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+    }
+  });
+
+  ctx.fillStyle = '#ff4488';
+  ctx.shadowColor = '#ff4488';
+  ctx.shadowBlur = 12;
+  ctx.beginPath();
+  ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL/2-2, 0, Math.PI*2);
+  ctx.fill();
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#ffff00';
+  ctx.font = '10px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('$', food.x*CELL+CELL/2, food.y*CELL+CELL/2+4);
+}
+
+function setDir(x, y) {
+  if (!gameRunning) { startGame(); return; }
+  if (x !== 0 && dir.x !== 0) return;
+  if (y !== 0 && dir.y !== 0) return;
+  nextDir = {x, y};
+}
+
+document.addEventListener('keydown', e => {
+  if (!gameRunning && (e.code==='Space'||e.code==='Enter')) { startGame(); return; }
+  if (e.code==='ArrowUp'||e.key==='w') setDir(0,-1);
+  if (e.code==='ArrowDown'||e.key==='s') setDir(0,1);
+  if (e.code==='ArrowLeft'||e.key==='a') setDir(-1,0);
+  if (e.code==='ArrowRight'||e.key==='d') setDir(1,0);
+  e.preventDefault();
+});
+
+let touchSX, touchSY;
+canvas.addEventListener('touchstart', e => {
+  if (!gameRunning) { startGame(); return; }
+  touchSX=e.touches[0].clientX; touchSY=e.touches[0].clientY; e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchend', e => {
+  let dx=e.changedTouches[0].clientX-touchSX, dy=e.changedTouches[0].clientY-touchSY;
+  if (Math.abs(dx)>Math.abs(dy)) setDir(dx>0?1:-1,0);
+  else setDir(0,dy>0?1:-1);
+  e.preventDefault();
+}, {passive:false});
+
+function saveScore(s) {
+  let lb = JSON.parse(localStorage.getItem('leaderboard')||'[]');
+  lb.push({ name: localStorage.getItem('player_name')||'Player', game:'Snake', score:s, date:new Date().toLocaleDateString() });
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem('leaderboard', JSON.stringify(lb.slice(0,20)));
+}
+
+draw();
+</script>
+</body>
+</html>

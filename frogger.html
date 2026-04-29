@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monet Frogger</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+canvas { display:block; margin:10px auto; border:2px solid #00f0ff; box-shadow:0 0 20px #00f0ff55; border-radius:6px; }
+#info { font-size:14px; color:#00f0ff; margin:6px 0; }
+#msg { font-size:20px; min-height:28px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
+.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:13px; }
+</style>
+</head>
+<body>
+<h2>MONET FROGGER</h2>
+<div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Lives: <span id="lives">3</span> &nbsp;|&nbsp; Level: <span id="level">1</span></div>
+<div id="msg">Press SPACE or Tap to Start</div>
+<canvas id="c" width="420" height="500"></canvas>
+<br>
+<button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+<button class="btn" id="startBtn" onclick="startGame()" style="margin-left:12px">START</button>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const COLS = 14, ROWS = 14, CELL = 30;
+const W = COLS * CELL, H = ROWS * CELL;
+canvas.width = W; canvas.height = H;
+
+let frog, cars, logs, score, lives, level, gameRunning, gameOver, animId;
+const img = new Image(); img.src = '/monetmario.jpg';
+
+const SAFE_ROWS = [0, 7, 13];
+const CAR_ROWS = [8,9,10,11,12];
+const LOG_ROWS = [1,2,3,4,5];
+
+function makeCars(lvl) {
+  let c = [];
+  CAR_ROWS.forEach((row, i) => {
+    let dir = i % 2 === 0 ? 1 : -1;
+    let spd = (0.8 + i * 0.3 + lvl * 0.2) * dir;
+    let count = 2 + i;
+    for (let j = 0; j < count; j++) {
+      c.push({ x: (j * (W / count)) % W, y: row * CELL, w: CELL * 1.6, h: CELL * 0.7, spd, row });
+    }
+  });
+  return c;
+}
+
+function makeLogs(lvl) {
+  let l = [];
+  LOG_ROWS.forEach((row, i) => {
+    let dir = i % 2 === 0 ? 1 : -1;
+    let spd = (0.5 + i * 0.2 + lvl * 0.15) * dir;
+    for (let j = 0; j < 3; j++) {
+      l.push({ x: j * (W / 3), y: row * CELL, w: CELL * 2.5, h: CELL * 0.8, spd, row });
+    }
+  });
+  return l;
+}
+
+function resetFrog() {
+  frog = { x: Math.floor(COLS / 2) * CELL, y: (ROWS - 1) * CELL, onLog: false, dead: false };
+}
+
+function startGame() {
+  score = 0; lives = 3; level = 1; gameOver = false; gameRunning = true;
+  cars = makeCars(1); logs = makeLogs(1);
+  resetFrog();
+  document.getElementById('msg').textContent = '';
+  if (animId) cancelAnimationFrame(animId);
+  loop();
+}
+
+function drawGround() {
+  for (let r = 0; r < ROWS; r++) {
+    let color;
+    if (r === 0) color = '#004400';
+    else if (r === 7 || r === 13) color = '#2a2a2a';
+    else if (LOG_ROWS.includes(r)) color = '#001a33';
+    else color = '#1a1a1a';
+    ctx.fillStyle = color;
+    ctx.fillRect(0, r * CELL, W, CELL);
+  }
+  ctx.strokeStyle = '#333'; ctx.lineWidth = 0.5;
+  for (let r = 1; r < ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r*CELL); ctx.lineTo(W, r*CELL); ctx.stroke(); }
+}
+
+function drawCars() {
+  cars.forEach(c => {
+    ctx.fillStyle = '#ff4444';
+    ctx.beginPath();
+    ctx.roundRect(c.x, c.y + CELL*0.15, c.w, c.h, 4);
+    ctx.fill();
+    ctx.fillStyle = '#ffff00';
+    let hx = c.spd > 0 ? c.x + c.w - 6 : c.x + 2;
+    ctx.fillRect(hx, c.y + CELL*0.2, 4, c.h * 0.4);
+  });
+}
+
+function drawLogs() {
+  logs.forEach(l => {
+    ctx.fillStyle = '#6b3c11';
+    ctx.beginPath();
+    ctx.roundRect(l.x, l.y + CELL*0.1, l.w, l.h, 6);
+    ctx.fill();
+    ctx.fillStyle = '#8b5e2a';
+    ctx.fillRect(l.x+4, l.y+CELL*0.25, l.w-8, l.h*0.35);
+  });
+}
+
+function drawFrog() {
+  if (frog.dead) return;
+  if (img.complete) {
+    ctx.drawImage(img, frog.x, frog.y, CELL, CELL);
+  } else {
+    ctx.fillStyle = '#00ff9d';
+    ctx.fillRect(frog.x+2, frog.y+2, CELL-4, CELL-4);
+  }
+}
+
+function drawGoal() {
+  ctx.fillStyle = '#00ff9d';
+  ctx.font = '10px Orbitron';
+  ctx.textAlign = 'center';
+  ctx.fillText('GOAL', W/2, CELL*0.7);
+  for (let i = 0; i < 3; i++) {
+    ctx.strokeStyle = '#00ff9d';
+    ctx.strokeRect(i * CELL*4 + CELL, CELL*0.05, CELL*2, CELL*0.85);
+  }
+}
+
+function update() {
+  cars.forEach(c => {
+    c.x += c.spd;
+    if (c.x > W) c.x = -c.w;
+    if (c.x < -c.w) c.x = W;
+  });
+  logs.forEach(l => {
+    l.x += l.spd;
+    if (l.x > W) l.x = -l.w;
+    if (l.x < -l.w) l.x = W;
+  });
+
+  if (frog.dead) return;
+
+  let fr = Math.round(frog.y / CELL);
+
+  if (LOG_ROWS.includes(fr)) {
+    let onLog = false;
+    logs.forEach(l => {
+      if (l.row === fr && frog.x + CELL*0.5 > l.x && frog.x + CELL*0.5 < l.x + l.w) {
+        frog.x += l.spd;
+        onLog = true;
+      }
+    });
+    if (!onLog) { die(); return; }
+    if (frog.x < 0 || frog.x > W - CELL) { die(); return; }
+  }
+
+  if (CAR_ROWS.includes(fr)) {
+    cars.forEach(c => {
+      if (c.row === fr &&
+          frog.x + 4 < c.x + c.w &&
+          frog.x + CELL - 4 > c.x &&
+          frog.y + 4 < c.y + c.h + CELL*0.15 &&
+          frog.y + CELL - 4 > c.y + CELL*0.15) {
+        die();
+      }
+    });
+  }
+
+  if (fr === 0) {
+    score += 50 * level;
+    level++;
+    cars = makeCars(level);
+    logs = makeLogs(level);
+    resetFrog();
+    document.getElementById('score').textContent = score;
+    document.getElementById('level').textContent = level;
+  }
+}
+
+function die() {
+  frog.dead = true;
+  lives--;
+  document.getElementById('lives').textContent = lives;
+  if (lives <= 0) {
+    gameOver = true;
+    gameRunning = false;
+    document.getElementById('msg').textContent = 'GAME OVER — Score: ' + score;
+    saveScore(score);
+    return;
+  }
+  setTimeout(() => { resetFrog(); }, 800);
+}
+
+function loop() {
+  ctx.clearRect(0,0,W,H);
+  drawGround();
+  drawGoal();
+  drawLogs();
+  drawCars();
+  drawFrog();
+  if (gameRunning) update();
+  document.getElementById('score').textContent = score;
+  animId = requestAnimationFrame(loop);
+}
+
+function move(dx, dy) {
+  if (!gameRunning || frog.dead) return;
+  frog.x = Math.max(0, Math.min(W - CELL, frog.x + dx * CELL));
+  frog.y = Math.max(0, Math.min((ROWS-1) * CELL, frog.y + dy * CELL));
+}
+
+document.addEventListener('keydown', e => {
+  if (!gameRunning && (e.code==='Space'||e.code==='Enter')) { startGame(); return; }
+  if (e.code==='ArrowUp'||e.key==='w') move(0,-1);
+  if (e.code==='ArrowDown'||e.key==='s') move(0,1);
+  if (e.code==='ArrowLeft'||e.key==='a') move(-1,0);
+  if (e.code==='ArrowRight'||e.key==='d') move(1,0);
+  e.preventDefault();
+});
+
+let touchStartX, touchStartY;
+canvas.addEventListener('touchstart', e => { touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; e.preventDefault(); }, {passive:false});
+canvas.addEventListener('touchend', e => {
+  if (!gameRunning) { startGame(); return; }
+  let dx = e.changedTouches[0].clientX - touchStartX;
+  let dy = e.changedTouches[0].clientY - touchStartY;
+  if (Math.abs(dx) > Math.abs(dy)) move(dx>0?1:-1, 0);
+  else move(0, dy>0?1:-1);
+  e.preventDefault();
+}, {passive:false});
+
+function saveScore(s) {
+  let lb = JSON.parse(localStorage.getItem('leaderboard')||'[]');
+  lb.push({ name: localStorage.getItem('player_name')||'Player', game:'Frogger', score:s, date:new Date().toLocaleDateString() });
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem('leaderboard', JSON.stringify(lb.slice(0,20)));
+}
+
+loop();
+</script>
+</body>
+</html>

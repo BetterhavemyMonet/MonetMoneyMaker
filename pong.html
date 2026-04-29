@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Monet Pong</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+body {
+  background-image: url('/monetmario.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+}
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(2,4,10,0.85);
+  pointer-events:none;
+  z-index:0;
+}
+.page { position:relative; z-index:1; padding-bottom:20px; }
+canvas { display:block; margin:10px auto; border:2px solid #00f0ff; box-shadow:0 0 24px #00f0ff55; border-radius:6px; }
+#msg { font-size:17px; min-height:24px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
+#info { font-size:13px; color:#aaa; margin:4px 0; }
+.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:12px; padding:8px 16px; }
+</style>
+</head>
+<body>
+<div class="page">
+<h2>MONET PONG</h2>
+<div id="info">Use W/S or drag to move. First to 7 wins!</div>
+<div id="msg">Press SPACE or Tap to Start</div>
+<canvas id="c" width="520" height="380"></canvas>
+<br>
+<button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+<button class="btn" onclick="startGame()" style="margin-left:8px">START</button>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+const W = canvas.width, H = canvas.height;
+const PAD_W=12, PAD_H=72, BALL_R=9;
+const WIN_SCORE=7;
+
+const bgImg = new Image(); bgImg.src='/monetmario.jpg';
+const charImg = new Image(); charImg.src='/monetmario.jpg';
+
+let ball, playerPad, cpuPad, playerScore, cpuScore, gameRunning, animId;
+let touchY=null;
+
+function startGame() {
+  playerPad = {x:18, y:H/2-PAD_H/2, score:0};
+  cpuPad    = {x:W-18-PAD_W, y:H/2-PAD_H/2};
+  playerScore=0; cpuScore=0;
+  launchBall();
+  gameRunning=true;
+  document.getElementById('msg').textContent='';
+  if(animId) cancelAnimationFrame(animId);
+  loop();
+}
+
+function launchBall() {
+  let angle=(Math.random()*60-30)*(Math.PI/180);
+  let dir=Math.random()<0.5?1:-1;
+  ball={ x:W/2, y:H/2, vx:dir*5*Math.cos(angle), vy:5*Math.sin(angle), r:BALL_R };
+}
+
+function loop() {
+  draw();
+  if(gameRunning) update();
+  animId=requestAnimationFrame(loop);
+}
+
+function update() {
+  ball.x+=ball.vx; ball.y+=ball.vy;
+  if(ball.y-ball.r<0){ball.y=ball.r;ball.vy*=-1;}
+  if(ball.y+ball.r>H){ball.y=H-ball.r;ball.vy*=-1;}
+
+  // Player paddle hit
+  if(ball.x-ball.r < playerPad.x+PAD_W && ball.x > playerPad.x &&
+     ball.y > playerPad.y && ball.y < playerPad.y+PAD_H) {
+    ball.x=playerPad.x+PAD_W+ball.r;
+    let rel=(ball.y-(playerPad.y+PAD_H/2))/(PAD_H/2);
+    let angle=rel*60*(Math.PI/180);
+    let spd=Math.min(Math.sqrt(ball.vx**2+ball.vy**2)*1.05,14);
+    ball.vx=Math.abs(Math.cos(angle)*spd);
+    ball.vy=Math.sin(angle)*spd;
+  }
+
+  // CPU paddle hit
+  if(ball.x+ball.r > cpuPad.x && ball.x < cpuPad.x+PAD_W &&
+     ball.y > cpuPad.y && ball.y < cpuPad.y+PAD_H) {
+    ball.x=cpuPad.x-ball.r;
+    let rel=(ball.y-(cpuPad.y+PAD_H/2))/(PAD_H/2);
+    let angle=rel*60*(Math.PI/180);
+    let spd=Math.min(Math.sqrt(ball.vx**2+ball.vy**2)*1.05,14);
+    ball.vx=-Math.abs(Math.cos(angle)*spd);
+    ball.vy=Math.sin(angle)*spd;
+  }
+
+  // CPU AI
+  let cpuCenter=cpuPad.y+PAD_H/2;
+  let diff=ball.y-cpuCenter;
+  let cpuSpd=Math.min(Math.abs(diff), 3.8+Math.min(playerScore+cpuScore,6)*0.15);
+  cpuPad.y+=Math.sign(diff)*cpuSpd;
+  cpuPad.y=Math.max(0,Math.min(H-PAD_H,cpuPad.y));
+
+  // Score
+  if(ball.x < 0) { cpuScore++; checkWin(); launchBall(); }
+  if(ball.x > W) { playerScore++; checkWin(); launchBall(); }
+}
+
+function checkWin() {
+  if(playerScore>=WIN_SCORE) { gameRunning=false; document.getElementById('msg').textContent='YOU WIN! 🏆'; saveScore(playerScore*100); }
+  if(cpuScore>=WIN_SCORE)    { gameRunning=false; document.getElementById('msg').textContent='CPU WINS!'; saveScore(playerScore*50); }
+}
+
+function draw() {
+  ctx.clearRect(0,0,W,H);
+  if(bgImg.complete){ctx.globalAlpha=0.07;ctx.drawImage(bgImg,0,0,W,H);ctx.globalAlpha=1;}
+
+  // Background
+  ctx.fillStyle='rgba(2,4,10,0.75)';ctx.fillRect(0,0,W,H);
+
+  // Center dashes
+  ctx.setLineDash([8,12]);ctx.strokeStyle='#ffffff22';ctx.lineWidth=2;
+  ctx.beginPath();ctx.moveTo(W/2,0);ctx.lineTo(W/2,H);ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Character portrait behind player paddle (decorative)
+  if(charImg.complete){
+    ctx.globalAlpha=0.18;
+    ctx.drawImage(charImg,0,H/2-60,80,80);
+    ctx.globalAlpha=1;
+  }
+
+  // Scores
+  ctx.font='bold 32px Orbitron';ctx.textAlign='center';
+  ctx.fillStyle='#00f0ff';ctx.shadowColor='#00f0ff';ctx.shadowBlur=10;
+  ctx.fillText(playerScore,W/4,50);
+  ctx.fillStyle='#ff4488';ctx.shadowColor='#ff4488';
+  ctx.fillText(cpuScore,3*W/4,50);
+  ctx.shadowBlur=0;
+
+  // Labels
+  ctx.font='10px Orbitron';ctx.fillStyle='#888';
+  ctx.fillText('YOU',W/4,68);ctx.fillText('CPU',3*W/4,68);
+
+  // Player paddle — with mini char image
+  ctx.fillStyle='#00f0ff';ctx.shadowColor='#00f0ff';ctx.shadowBlur=12;
+  ctx.beginPath();ctx.roundRect(playerPad.x,playerPad.y,PAD_W,PAD_H,4);ctx.fill();
+  ctx.shadowBlur=0;
+  if(charImg.complete){
+    ctx.save();ctx.beginPath();ctx.roundRect(playerPad.x,playerPad.y,PAD_W,PAD_H,4);ctx.clip();
+    ctx.drawImage(charImg,playerPad.x,playerPad.y,PAD_W,PAD_H);ctx.restore();
+  }
+
+  // CPU paddle
+  ctx.fillStyle='#ff4488';ctx.shadowColor='#ff4488';ctx.shadowBlur=12;
+  ctx.beginPath();ctx.roundRect(cpuPad.x,cpuPad.y,PAD_W,PAD_H,4);ctx.fill();
+  ctx.shadowBlur=0;
+
+  // Ball
+  ctx.fillStyle='#ffffff';ctx.shadowColor='#fff';ctx.shadowBlur=16;
+  ctx.beginPath();ctx.arc(ball?ball.x:W/2,ball?ball.y:H/2,BALL_R,0,Math.PI*2);ctx.fill();
+  ctx.shadowBlur=0;
+
+  ctx.textAlign='left';
+}
+
+// Controls
+document.addEventListener('keydown',e=>{
+  if(!gameRunning&&(e.code==='Space'||e.code==='Enter')){startGame();return;}
+  if(!gameRunning)return;
+  let spd=14;
+  if(e.code==='KeyW'||e.code==='ArrowUp'){playerPad.y=Math.max(0,playerPad.y-spd);}
+  if(e.code==='KeyS'||e.code==='ArrowDown'){playerPad.y=Math.min(H-PAD_H,playerPad.y+spd);}
+  e.preventDefault();
+});
+
+canvas.addEventListener('touchstart',e=>{
+  if(!gameRunning){startGame();return;}
+  touchY=e.touches[0].clientY; e.preventDefault();
+},{passive:false});
+canvas.addEventListener('touchmove',e=>{
+  if(touchY===null)return;
+  let dy=e.touches[0].clientY-touchY;
+  playerPad.y=Math.max(0,Math.min(H-PAD_H,playerPad.y+dy));
+  touchY=e.touches[0].clientY; e.preventDefault();
+},{passive:false});
+
+// Initial draw
+ctx.fillStyle='#02040a';ctx.fillRect(0,0,W,H);
+ctx.fillStyle='#00f0ff';ctx.font='18px Orbitron';ctx.textAlign='center';
+ctx.fillText('Press START to play',W/2,H/2);
+
+function saveScore(s){
+  let lb=JSON.parse(localStorage.getItem('leaderboard')||'[]');
+  lb.push({name:localStorage.getItem('player_name')||'Player',game:'Pong',score:s,date:new Date().toLocaleDateString()});
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
+}
+</script>
+</body>
+</html>

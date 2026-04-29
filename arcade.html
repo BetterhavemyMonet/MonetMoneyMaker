@@ -2,42 +2,196 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
+<title>Monet Money Arcade</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-
+<link rel="stylesheet" href="/styles.css">
 <style>
 body {
-  background: radial-gradient(circle at top,#0b0f1a,#02040a);
-  color:white;
-  text-align:center;
-  font-family:'Orbitron',sans-serif;
+  background-image: url('/monetmario.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height:100vh;
+}
+body::before {
+  content:'';
+  position:fixed;
+  inset:0;
+  background:rgba(2,4,10,0.83);
+  pointer-events:none;
+  z-index:0;
+}
+.page { position:relative; z-index:1; padding:10px 0 30px; }
+.subtitle { color:#aaa; font-size:12px; margin:-6px 0 16px; font-family:'Orbitron',sans-serif; }
+
+.grid {
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap:16px;
+  max-width:700px;
+  margin:0 auto;
+  padding:0 16px;
 }
 
-h1, h2 {
-  background: linear-gradient(90deg,#00f0ff,#a855ff);
+.card {
+  background:rgba(255,255,255,0.04);
+  border:1px solid rgba(255,255,255,0.1);
+  border-radius:14px;
+  padding:20px 12px 16px;
+  cursor:pointer;
+  transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
+  text-decoration:none;
+  display:block;
+}
+.card:hover {
+  transform:translateY(-4px);
+  box-shadow:0 0 24px var(--glow);
+  border-color: var(--accent);
+}
+.card-icon { font-size:36px; margin-bottom:8px; }
+.card-title {
+  font-family:'Orbitron',sans-serif;
+  font-size:12px;
+  font-weight:800;
+  color:#fff;
+  margin-bottom:4px;
+  background: linear-gradient(90deg, var(--accent), var(--accent2, var(--accent)));
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
-  text-shadow:0 0 10px rgba(0,255,255,0.7);
+}
+.card-desc { font-size:10px; color:#888; line-height:1.4; }
+.badge {
+  display:inline-block;
+  font-size:9px;
+  padding:2px 6px;
+  border-radius:20px;
+  margin-top:6px;
+  font-family:'Orbitron',sans-serif;
+  font-weight:bold;
+  background:rgba(168,85,255,0.2);
+  color:#a855ff;
+  border:1px solid #a855ff44;
 }
 
-button {
-  margin-top:15px;
-  padding:12px;
-  border:none;
-  border-radius:10px;
-  background:linear-gradient(135deg,#00ff9d,#00ffc3);
-  color:black;
+.nav-row { display:flex; justify-content:center; gap:10px; margin:20px 0 10px; flex-wrap:wrap; }
+.nav-btn {
+  padding:8px 20px;
+  border-radius:8px;
+  border:2px solid #a855ff;
+  background:transparent;
+  color:#a855ff;
+  font-family:'Orbitron',sans-serif;
+  font-size:11px;
   font-weight:bold;
-  box-shadow:0 0 15px rgba(0,255,150,0.5);
+  cursor:pointer;
+}
+.nav-btn:hover { background:#a855ff; color:#000; }
+
+.section-label {
+  color:#a855ff;
+  font-family:'Orbitron',sans-serif;
+  font-size:11px;
+  letter-spacing:2px;
+  text-transform:uppercase;
+  margin:20px 0 10px;
+  padding-left:16px;
+  text-align:left;
+  max-width:700px;
+  margin-left:auto;
+  margin-right:auto;
 }
 </style>
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800</head>display=swap" rel="stylesheet"><link rel="stylesheet" href="/styles.css"></head>
-
+</head>
 <body>
+<div class="page">
+<h1>MONET ARCADE</h1>
+<div class="subtitle">Choose your game</div>
 
-<h2>GAME LOADING...</h2>
+<div class="nav-row">
+  <button class="nav-btn" onclick="location.href='index.html'">&#8592; Home</button>
+  <button class="nav-btn" onclick="location.href='leaderboard.html'">&#127942; Scores</button>
+</div>
 
-<p>We’ll reinsert logic next</p>
+<div class="section-label">&#127918; New Games</div>
+<div class="grid">
 
-<button onclick="location.href="leaderboard.html"">Leaderboard</button></body>
+  <a class="card" href="pacman.html" style="--accent:#ffdd00;--accent2:#ff8800;--glow:#ffdd0044">
+    <div class="card-icon">&#128049;</div>
+    <div class="card-title">Monet Pac-Man</div>
+    <div class="card-desc">Eat dots, dodge ghosts. Power up and turn the tables!</div>
+    <span class="badge">NEW</span>
+  </a>
+
+  <a class="card" href="dino.html" style="--accent:#a855ff;--accent2:#00f0ff;--glow:#a855ff44">
+    <div class="card-icon">&#9889;</div>
+    <div class="card-title">Monet Runner</div>
+    <div class="card-desc">Jump over obstacles. Build &amp; share your own levels!</div>
+    <span class="badge">LEVEL CREATOR</span>
+  </a>
+
+  <a class="card" href="frogger.html" style="--accent:#00ff9d;--accent2:#00f0ff;--glow:#00ff9d44">
+    <div class="card-icon">&#128056;</div>
+    <div class="card-title">Monet Frogger</div>
+    <div class="card-desc">Cross traffic and river. Don't get squashed!</div>
+    <span class="badge">NEW</span>
+  </a>
+
+  <a class="card" href="snake.html" style="--accent:#00ff9d;--glow:#00ff9d44">
+    <div class="card-icon">&#128013;</div>
+    <div class="card-title">Monet Snake</div>
+    <div class="card-desc">Eat coins and grow. Don't bite yourself!</div>
+    <span class="badge">NEW</span>
+  </a>
+
+  <a class="card" href="pong.html" style="--accent:#00f0ff;--glow:#00f0ff44">
+    <div class="card-icon">&#127934;</div>
+    <div class="card-title">Monet Pong</div>
+    <div class="card-desc">Classic pong vs CPU. First to 7 wins!</div>
+    <span class="badge">NEW</span>
+  </a>
+
+</div>
+
+<div class="section-label">&#9889; Classic Games</div>
+<div class="grid">
+
+  <a class="card" href="dodger.html" style="--accent:#ff4488;--glow:#ff448844">
+    <div class="card-icon">&#128246;</div>
+    <div class="card-title">Dodger</div>
+    <div class="card-desc">Dodge incoming attacks and survive as long as possible.</div>
+  </a>
+
+  <a class="card" href="tap.html" style="--accent:#00ff9d;--glow:#00ff9d44">
+    <div class="card-icon">&#128270;</div>
+    <div class="card-title">Tap</div>
+    <div class="card-desc">Tap as fast as you can before time runs out!</div>
+  </a>
+
+  <a class="card" href="reaction.html" style="--accent:#ffdd00;--glow:#ffdd0044">
+    <div class="card-icon">&#9889;</div>
+    <div class="card-title">Reaction</div>
+    <div class="card-desc">Test your reaction speed. How fast are you?</div>
+  </a>
+
+  <a class="card" href="game1.html" style="--accent:#a855ff;--glow:#a855ff44">
+    <div class="card-icon">&#128161;</div>
+    <div class="card-title">Click Speed</div>
+    <div class="card-desc">Click 20 times as fast as possible. Auto payout!</div>
+  </a>
+
+  <a class="card" href="game2.html" style="--accent:#00f0ff;--glow:#00f0ff44">
+    <div class="card-icon">&#127922;</div>
+    <div class="card-title">Game 2</div>
+    <div class="card-desc">Play and compete for the high score.</div>
+  </a>
+
+  <a class="card" href="game3.html" style="--accent:#ff4488;--glow:#ff448844">
+    <div class="card-icon">&#127919;</div>
+    <div class="card-title">Game 3</div>
+    <div class="card-desc">Play and compete for the high score.</div>
+  </a>
+
+</div>
+</div>
+</body>
 </html>
