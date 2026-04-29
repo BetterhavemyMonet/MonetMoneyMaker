@@ -19,7 +19,6 @@ img {
   max-width:420px;
   margin:20px auto;
   display:block;
-  border-radius:16px;
 }
 
 button {
@@ -34,12 +33,26 @@ button {
 
 .connect { background:#00ff9d; color:black; }
 .exchange { border:2px solid #a855ff; background:none; color:#a855ff; }
+
+.wallet {
+  margin-top:10px;
+  font-size:14px;
+  color:#00ff9d;
+}
+
+.balance {
+  font-size:16px;
+  margin-bottom:10px;
+}
 </style>
 </head>
 
 <body>
 
 <h1>MONET MONEY ARCADE</h1>
+
+<div class="wallet" id="wallet">Not connected</div>
+<div class="balance">Balance: <span id="bal">0</span> MONET</div>
 
 <img src="/monetmario.jpg">
 
@@ -55,12 +68,17 @@ async function connectAndPlay() {
 
   try {
     const resp = await window.solana.connect();
-    console.log("Connected:", resp.publicKey.toString());
+    const addr = resp.publicKey.toString();
 
-    // after connect → go to arcade
+    document.getElementById("wallet").innerText = addr;
+
+    // fake stored balance for now
+    let bal = localStorage.getItem("monet_balance") || 0;
+    document.getElementById("bal").innerText = bal;
+
     window.location.href = "arcade.html";
 
-  } catch (err) {
+  } catch {
     alert("Connection failed");
   }
 }
