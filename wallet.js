@@ -1,27 +1,105 @@
 // ─── MONET ARCADE WALLET UTILITIES ───────────────────────────────────────────
-// Loaded by all pages. Requires solanaWeb3 from CDN.
+// Multi-wallet adapter: Phantom, Solflare, Backpack, Glow, Coin98, Trust
 
 const MONET_CONFIG = {
-  MINT:     '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
-  TREASURY: 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs',
-  ENTRY_FEE: 5,
-  PAYOUT_RATE: 0.80,
-  DECIMALS: 6,
-  RPC: 'https://api.mainnet-beta.solana.com',
-  SYMBOL: 'MONET',
+  MINT:         '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
+  TREASURY:     'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs',
+  ENTRY_FEE:    5,
+  PAYOUT_RATE:  0.80,
+  DECIMALS:     6,
+  RPC:          'https://api.mainnet-beta.solana.com',
+  SYMBOL:       'MONET',
 };
 
-const TOKEN_PROGRAM_ID_STR      = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
+const TOKEN_PROGRAM_ID_STR       = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const ASSOCIATED_TOKEN_PROGRAM_STR = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3';
+
+// ─── Wallet Definitions ───────────────────────────────────────────────────────
+const WALLET_DEFS = [
+  {
+    name:     'Phantom',
+    icon:     'https://phantom.app/img/phantom-logo.svg',
+    detect:   () => window.phantom?.solana?.isPhantom ? window.phantom.solana
+                  : window.solana?.isPhantom           ? window.solana
+                  : null,
+    install:  'https://phantom.app/',
+    deeplink: () => `https://phantom.app/ul/browse/${encodeURIComponent(location.href)}?ref=${encodeURIComponent(location.origin)}`,
+  },
+  {
+    name:     'Solflare',
+    icon:     'https://solflare.com/assets/logo.svg',
+    detect:   () => window.solflare?.isSolflare ? window.solflare : null,
+    install:  'https://solflare.com/',
+    deeplink: () => `https://solflare.com/ul/v1/browse/${encodeURIComponent(location.href)}?ref=${encodeURIComponent(location.origin)}`,
+  },
+  {
+    name:     'Backpack',
+    icon:     'https://avatars.githubusercontent.com/u/97015936?s=48',
+    detect:   () => window.backpack?.isBackpack ? window.backpack
+                  : window.xnft?.solana         ? window.xnft.solana
+                  : null,
+    install:  'https://backpack.app/',
+    deeplink: null,
+  },
+  {
+    name:     'Glow',
+    icon:     '',
+    detect:   () => window.glowSolana?.isGlow ? window.glowSolana
+                  : window.glow?.isGlow        ? window.glow
+                  : null,
+    install:  'https://glow.app/',
+    deeplink: null,
+  },
+  {
+    name:     'Coin98',
+    icon:     '',
+    detect:   () => window.coin98?.sol ?? null,
+    install:  'https://coin98.com/wallet',
+    deeplink: null,
+  },
+  {
+    name:     'Trust Wallet',
+    icon:     '',
+    detect:   () => window.trustwallet?.solana ?? null,
+    install:  'https://trustwallet.com/',
+    deeplink: null,
+  },
+  {
+    name:     'Math Wallet',
+    icon:     '',
+    detect:   () => window.solana?.isMathWallet ? window.solana : null,
+    install:  'https://mathwallet.org/',
+    deeplink: null,
+  },
+];
 
 // ─── State ────────────────────────────────────────────────────────────────────
 window.WalletState = {
-  connected: false,
-  address: null,
+  connected:    false,
+  address:      null,
   monetBalance: 0,
-  tokens: [],
-  solBalance: 0,
+  tokens:       [],
+  solBalance:   0,
+  walletName:   null,
+  _provider:    null,
 };
+
+// ─── Provider Access ──────────────────────────────────────────────────────────
+function getProvider() {
+  if (WalletState._provider) return WalletState._provider;
+  // fallback: try any available
+  for (const def of WALLET_DEFS) {
+    const p = def.detect();
+    if (p) return p;
+  }
+  return null;
+}
+
+function getAvailableWallets() {
+  return WALLET_DEFS
+    .map(def => ({ ...def, provider: def.detect() }))
+    .filter(w => w.provider !== null);
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 function getSolanaWeb3() {
@@ -83,41 +161,186 @@ function createTransferInstruction(sourcePubkey, destPubkey, ownerPubkey, rawAmo
   });
 }
 
+// ─── Wallet Picker Modal ──────────────────────────────────────────────────────
+function _injectModalStyles() {
+  if (document.getElementById('wm-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'wm-styles';
+  s.textContent = `
+    #wm-overlay {
+      position:fixed; inset:0; background:rgba(0,0,0,0.82); z-index:99999;
+      display:flex; align-items:center; justify-content:center;
+      font-family:'Orbitron',sans-serif;
+    }
+    #wm-box {
+      background:#0b0f1a; border:1px solid #a855ff;
+      border-radius:16px; padding:24px 20px 20px;
+      width:min(340px, 94vw); box-shadow:0 0 40px #a855ff44;
+      color:#fff; text-align:center;
+    }
+    #wm-title { font-size:14px; font-weight:800; color:#a855ff; margin-bottom:6px; }
+    #wm-sub   { font-size:11px; color:#888; margin-bottom:16px; }
+    .wm-btn {
+      display:flex; align-items:center; gap:12px;
+      width:100%; padding:11px 14px; margin-bottom:9px;
+      border-radius:10px; border:1px solid #333;
+      background:#111827; color:#fff; cursor:pointer;
+      font-family:'Orbitron',sans-serif; font-size:12px; font-weight:600;
+      transition:border-color .15s, box-shadow .15s;
+    }
+    .wm-btn:hover { border-color:#a855ff; box-shadow:0 0 12px #a855ff44; }
+    .wm-btn img  { width:24px; height:24px; border-radius:6px; object-fit:contain; background:#fff; }
+    .wm-btn .wm-icon-fallback { width:24px; height:24px; border-radius:6px; background:#222; display:flex; align-items:center; justify-content:center; font-size:16px; }
+    .wm-btn .wm-badge { margin-left:auto; font-size:9px; color:#00ff9d; border:1px solid #00ff9d44; padding:2px 7px; border-radius:20px; }
+    .wm-btn .wm-badge-install { color:#888; border-color:#33333380; }
+    #wm-cancel { color:#555; font-size:11px; cursor:pointer; margin-top:6px; background:none; border:none; font-family:inherit; }
+    #wm-cancel:hover { color:#ff4488; }
+    #wm-deeplink-notice { font-size:10px; color:#555; margin-top:12px; line-height:1.5; }
+  `;
+  document.head.appendChild(s);
+}
+
+function showWalletPicker() {
+  return new Promise((resolve, reject) => {
+    _injectModalStyles();
+    const overlay = document.createElement('div');
+    overlay.id = 'wm-overlay';
+
+    const available = getAvailableWallets();
+    const isMobile  = /iPhone|iPad|Android/i.test(navigator.userAgent);
+
+    let buttonsHtml = '';
+
+    if (available.length > 0) {
+      available.forEach(w => {
+        const iconHtml = w.icon
+          ? `<img src="${w.icon}" alt="${w.name}" onerror="this.style.display='none'">`
+          : `<span class="wm-icon-fallback">💳</span>`;
+        buttonsHtml += `
+          <button class="wm-btn" data-wallet="${w.name}">
+            ${iconHtml}
+            <span>${w.name}</span>
+            <span class="wm-badge">Detected</span>
+          </button>`;
+      });
+    }
+
+    // On mobile also show deeplink options for undetected wallets
+    if (isMobile) {
+      WALLET_DEFS.filter(d => !available.find(a => a.name === d.name) && d.deeplink).forEach(w => {
+        buttonsHtml += `
+          <button class="wm-btn" data-deeplink="${w.deeplink()}">
+            ${w.icon ? `<img src="${w.icon}" alt="${w.name}" onerror="this.style.display='none'">` : `<span class="wm-icon-fallback">📲</span>`}
+            <span>${w.name}</span>
+            <span class="wm-badge wm-badge-install">Open app</span>
+          </button>`;
+      });
+    }
+
+    if (available.length === 0 && !isMobile) {
+      buttonsHtml = `<p style="color:#888;font-size:12px">No Solana wallet detected.<br>Install <a href="https://phantom.app" target="_blank" style="color:#a855ff">Phantom</a> or <a href="https://solflare.com" target="_blank" style="color:#a855ff">Solflare</a> to continue.</p>`;
+    }
+
+    overlay.innerHTML = `
+      <div id="wm-box">
+        <div id="wm-title">SELECT WALLET</div>
+        <div id="wm-sub">Choose your Solana wallet to connect</div>
+        ${buttonsHtml}
+        <button id="wm-cancel">Cancel</button>
+        ${isMobile && available.length === 0 ? '<div id="wm-deeplink-notice">Tap an app above to open it, then return to this page.</div>' : ''}
+      </div>
+    `;
+
+    document.body.appendChild(overlay);
+
+    overlay.querySelectorAll('.wm-btn[data-wallet]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const name = btn.dataset.wallet;
+        const def  = WALLET_DEFS.find(d => d.name === name);
+        overlay.remove();
+        resolve({ provider: def.detect(), name });
+      });
+    });
+
+    overlay.querySelectorAll('.wm-btn[data-deeplink]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        overlay.remove();
+        window.location.href = btn.dataset.deeplink;
+        reject(new Error('Redirecting to wallet app…'));
+      });
+    });
+
+    document.getElementById('wm-cancel').addEventListener('click', () => {
+      overlay.remove();
+      reject(new Error('Wallet selection cancelled'));
+    });
+  });
+}
+
 // ─── Connect Wallet ───────────────────────────────────────────────────────────
 async function connectWallet() {
-  if (!window.solana) throw new Error('Phantom Wallet not installed');
-  const resp = await window.solana.connect();
-  const address = resp.publicKey.toString();
-  WalletState.connected = true;
-  WalletState.address = address;
+  const available = getAvailableWallets();
+
+  let chosen;
+  if (available.length === 1) {
+    chosen = { provider: available[0].provider, name: available[0].name };
+  } else {
+    // show picker even if 0 (handles install/deeplink case)
+    chosen = await showWalletPicker();
+  }
+
+  const provider = chosen.provider;
+  const resp = await provider.connect();
+  const address = (resp.publicKey || provider.publicKey).toString();
+
+  WalletState._provider    = provider;
+  WalletState.walletName   = chosen.name;
+  WalletState.connected    = true;
+  WalletState.address      = address;
   localStorage.setItem('wallet_address', address);
+  localStorage.setItem('wallet_name', chosen.name);
+
   await refreshBalances();
-  document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address } }));
+  document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletName: chosen.name } }));
   return address;
 }
 
 async function disconnectWallet() {
-  if (window.solana) await window.solana.disconnect();
-  WalletState.connected = false;
-  WalletState.address = null;
+  const p = getProvider();
+  if (p && p.disconnect) await p.disconnect().catch(() => {});
+  WalletState.connected    = false;
+  WalletState.address      = null;
   WalletState.monetBalance = 0;
-  WalletState.tokens = [];
+  WalletState.tokens       = [];
+  WalletState._provider    = null;
+  WalletState.walletName   = null;
   localStorage.removeItem('wallet_address');
+  localStorage.removeItem('wallet_name');
   document.dispatchEvent(new CustomEvent('walletDisconnected'));
 }
 
 // ─── Auto-reconnect ───────────────────────────────────────────────────────────
 async function tryAutoConnect() {
-  if (window.solana && window.solana.isConnected) {
-    try {
-      const resp = await window.solana.connect({ onlyIfTrusted: true });
-      WalletState.connected = true;
-      WalletState.address = resp.publicKey.toString();
-      localStorage.setItem('wallet_address', WalletState.address);
-      await refreshBalances();
-      document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address: WalletState.address } }));
-    } catch(e) { /* not previously trusted */ }
-  }
+  const savedName    = localStorage.getItem('wallet_name');
+  const savedAddress = localStorage.getItem('wallet_address');
+  if (!savedAddress) return;
+
+  // Try to find the previously used wallet
+  const def = WALLET_DEFS.find(d => d.name === savedName);
+  const provider = def ? def.detect() : getAvailableWallets()[0]?.provider;
+  if (!provider) return;
+
+  try {
+    const resp = await provider.connect({ onlyIfTrusted: true });
+    const address = (resp.publicKey || provider.publicKey).toString();
+    WalletState._provider    = provider;
+    WalletState.walletName   = savedName || def?.name;
+    WalletState.connected    = true;
+    WalletState.address      = address;
+    localStorage.setItem('wallet_address', address);
+    await refreshBalances();
+    document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address } }));
+  } catch(e) { /* not previously trusted */ }
 }
 
 // ─── Balances ─────────────────────────────────────────────────────────────────
@@ -125,8 +348,8 @@ async function refreshBalances() {
   if (!WalletState.address) return;
   await Promise.all([
     getMonetBalance().then(b => { WalletState.monetBalance = b; }),
-    getSolBalance().then(b => { WalletState.solBalance = b; }),
-    getAllTokens().then(t => { WalletState.tokens = t; }),
+    getSolBalance().then(b   => { WalletState.solBalance   = b; }),
+    getAllTokens().then(t    => { WalletState.tokens        = t; }),
   ]);
   document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
 }
@@ -134,10 +357,9 @@ async function refreshBalances() {
 async function getMonetBalance() {
   if (!WalletState.address) return 0;
   try {
-    const conn = getConnection();
-    const w = getSolanaWeb3();
-    const TOKEN_PROGRAM_ID = new w.PublicKey(TOKEN_PROGRAM_ID_STR);
-    const mint = new w.PublicKey(MONET_CONFIG.MINT);
+    const conn  = getConnection();
+    const w     = getSolanaWeb3();
+    const mint  = new w.PublicKey(MONET_CONFIG.MINT);
     const owner = new w.PublicKey(WalletState.address);
     const accounts = await conn.getParsedTokenAccountsByOwner(owner, { mint });
     if (accounts.value.length === 0) return 0;
@@ -149,18 +371,17 @@ async function getSolBalance() {
   if (!WalletState.address) return 0;
   try {
     const conn = getConnection();
-    const w = getSolanaWeb3();
+    const w    = getSolanaWeb3();
     const lamports = await conn.getBalance(new w.PublicKey(WalletState.address));
     return lamports / 1e9;
   } catch(e) { return 0; }
 }
 
-// ─── Portfolio: All tokens ─────────────────────────────────────────────────────
 async function getAllTokens() {
   if (!WalletState.address) return [];
   try {
-    const conn = getConnection();
-    const w = getSolanaWeb3();
+    const conn  = getConnection();
+    const w     = getSolanaWeb3();
     const TOKEN_PROGRAM_ID = new w.PublicKey(TOKEN_PROGRAM_ID_STR);
     const owner = new w.PublicKey(WalletState.address);
     const accounts = await conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID });
@@ -168,11 +389,11 @@ async function getAllTokens() {
       .map(a => {
         const info = a.account.data.parsed.info;
         return {
-          mint: info.mint,
-          balance: info.tokenAmount.uiAmount || 0,
+          mint:     info.mint,
+          balance:  info.tokenAmount.uiAmount || 0,
           decimals: info.tokenAmount.decimals,
-          isMonet: info.mint === MONET_CONFIG.MINT,
-          address: a.pubkey.toString(),
+          isMonet:  info.mint === MONET_CONFIG.MINT,
+          address:  a.pubkey.toString(),
         };
       })
       .filter(t => t.balance > 0)
@@ -187,11 +408,13 @@ async function payEntryFee(gameName) {
     throw new Error(`Insufficient MONET. Need ${MONET_CONFIG.ENTRY_FEE}, have ${WalletState.monetBalance.toFixed(2)}`);
   }
 
-  const w = getSolanaWeb3();
-  const conn = getConnection();
+  const provider  = getProvider();
+  if (!provider)  throw new Error('No wallet provider found');
 
-  const payer   = new w.PublicKey(WalletState.address);
-  const mint    = new w.PublicKey(MONET_CONFIG.MINT);
+  const w        = getSolanaWeb3();
+  const conn     = getConnection();
+  const payer    = new w.PublicKey(WalletState.address);
+  const mint     = new w.PublicKey(MONET_CONFIG.MINT);
   const treasury = new w.PublicKey(MONET_CONFIG.TREASURY);
 
   const sourceATA = getATA(mint, payer);
@@ -202,30 +425,28 @@ async function payEntryFee(gameName) {
   const { blockhash } = await conn.getLatestBlockhash();
   tx.recentBlockhash = blockhash;
 
-  // Create treasury ATA if it doesn't exist
   const destATAInfo = await conn.getAccountInfo(destATA);
-  if (!destATAInfo) {
-    tx.add(createATAInstruction(payer, destATA, treasury, mint));
+  if (!destATAInfo) tx.add(createATAInstruction(payer, destATA, treasury, mint));
+
+  tx.add(createTransferInstruction(sourceATA, destATA, payer, toRawAmount(MONET_CONFIG.ENTRY_FEE)));
+
+  // Support both signAndSendTransaction and signTransaction APIs
+  let txId;
+  if (provider.signAndSendTransaction) {
+    const result = await provider.signAndSendTransaction(tx);
+    txId = result.signature || result;
+  } else {
+    const signed = await provider.signTransaction(tx);
+    txId = await conn.sendRawTransaction(signed.serialize());
   }
 
-  // Transfer MONET
-  const rawAmount = toRawAmount(MONET_CONFIG.ENTRY_FEE);
-  tx.add(createTransferInstruction(sourceATA, destATA, payer, rawAmount));
-
-  const signed = await window.solana.signAndSendTransaction(tx);
-  const txId = signed.signature;
-
-  // Confirm
   await conn.confirmTransaction(txId, 'confirmed');
 
-  // Update balance
   WalletState.monetBalance -= MONET_CONFIG.ENTRY_FEE;
   document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
 
-  // Store session
   const session = { game: gameName, txId, paidAt: Date.now(), wallet: WalletState.address, entryFee: MONET_CONFIG.ENTRY_FEE };
   sessionStorage.setItem('game_session', JSON.stringify(session));
-
   return txId;
 }
 
@@ -235,14 +456,14 @@ function recordWin(gameName, score) {
   if (!session) return false;
   const payout = MONET_CONFIG.ENTRY_FEE * MONET_CONFIG.PAYOUT_RATE;
   const claim = {
-    id: Date.now().toString(36),
-    wallet: WalletState.address || session.wallet,
-    game: gameName,
+    id:        Date.now().toString(36),
+    wallet:    WalletState.address || session.wallet,
+    game:      gameName,
     score,
     payout,
-    entryTx: session.txId,
+    entryTx:   session.txId,
     claimedAt: new Date().toISOString(),
-    status: 'pending',
+    status:    'pending',
   };
   const claims = JSON.parse(localStorage.getItem('pending_claims') || '[]');
   claims.push(claim);
@@ -257,7 +478,7 @@ function hasValidSession(gameName) {
     const s = JSON.parse(sessionStorage.getItem('game_session') || 'null');
     if (!s) return false;
     if (s.game !== gameName) return false;
-    if (Date.now() - s.paidAt > 30 * 60 * 1000) return false; // 30 min session
+    if (Date.now() - s.paidAt > 30 * 60 * 1000) return false;
     return true;
   } catch { return false; }
 }
@@ -268,8 +489,10 @@ function renderWalletBar(containerId) {
   if (!el) return;
   function render() {
     if (WalletState.connected) {
-      const short = WalletState.address.slice(0,4)+'...'+WalletState.address.slice(-4);
+      const short = WalletState.address.slice(0,4) + '...' + WalletState.address.slice(-4);
+      const wname = WalletState.walletName ? `<span style="color:#888;font-size:10px;margin-right:6px">${WalletState.walletName}</span>` : '';
       el.innerHTML = `
+        ${wname}
         <span style="color:#00ff9d;font-size:12px">&#9679; ${short}</span>
         <span style="color:#a855ff;font-size:13px;margin:0 10px"><b>${WalletState.monetBalance.toFixed(2)} MONET</b></span>
         <span style="color:#888;font-size:11px">${WalletState.solBalance.toFixed(3)} SOL</span>
@@ -280,12 +503,12 @@ function renderWalletBar(containerId) {
     }
   }
   render();
-  document.addEventListener('walletConnected', render);
+  document.addEventListener('walletConnected',   render);
   document.addEventListener('walletDisconnected', render);
-  document.addEventListener('balanceUpdated', render);
+  document.addEventListener('balanceUpdated',     render);
 }
 
-// Auto-init
+// ─── Auto-init ────────────────────────────────────────────────────────────────
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', tryAutoConnect);
 } else {
