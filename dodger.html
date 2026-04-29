@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:white;text-align:center">
+
+<h2>Dodger</h2>
+<p>Avoid the block!</p>
+
+<div id="player" style="width:50px;height:50px;background:lime;position:absolute;bottom:20px;left:50%;"></div>
+<div id="enemy" style="width:50px;height:50px;background:red;position:absolute;top:0;left:50%;"></div>
+
+<script>
+let enemy = document.getElementById("enemy");
+let player = document.getElementById("player");
+
+let y=0;
+
+setInterval(()=>{
+  y+=5;
+  enemy.style.top = y+"px";
+
+  if(y > window.innerHeight){
+    y=0;
+    enemy.style.left = Math.random()*300 + "px";
+  }
+},50);
+
+document.addEventListener("mousemove", e=>{
+  player.style.left = e.clientX+"px";
+});
+</script>
+
+</body>
+</html>

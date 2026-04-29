@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:white;text-align:center">
+
+<h2>Tap Frenzy (10 seconds)</h2>
+<button onclick="tap()">TAP</button>
+
+<p>Score: <span id="s">0</span></p>
+
+<script>
+let score=0;
+let running=false;
+
+function tap(){
+  if(!running){
+    running=true;
+    setTimeout(()=>{alert("Final Score: "+score);},10000);
+  }
+  score++;
+  document.getElementById("s").innerText=score;
+}
+</script>
+
+</body>
+</html>

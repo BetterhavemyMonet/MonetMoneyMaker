@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:white;text-align:center">
+
+<h2>Reaction Speed</h2>
+<button onclick="start()">Start</button>
+<p id="msg"></p>
+
+<script>
+let time;
+
+function start(){
+  document.getElementById("msg").innerText="Wait...";
+  setTimeout(()=>{
+    time = Date.now();
+    document.getElementById("msg").innerText="CLICK!";
+  }, Math.random()*3000);
+}
+
+document.body.onclick=()=>{
+  if(time){
+    let result = Date.now() - time;
+    alert("Reaction: " + result + " ms");
+    localStorage.setItem("score", result);
+    time = null;
+  }
+}
+</script>
+
+</body>
+</html>
