@@ -1,43 +1,31 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Monet Arcade</title>
-
-<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600&display=swap" rel="stylesheet">
+<title>Arcade</title>
 
 <style>
 body {
-  margin:0;
   background:#02040a;
-  font-family:'Orbitron',sans-serif;
   color:white;
+  font-family:sans-serif;
   text-align:center;
 }
 
-h1 {
-  margin:20px 0;
-  color:#00f0ff;
-}
+h1 { color:#00f0ff; }
 
 .grid {
   display:grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap:15px;
-  padding:15px;
+  grid-template-columns:repeat(2,1fr);
+  gap:12px;
+  padding:12px;
 }
 
 .card {
-  background:rgba(255,255,255,0.05);
-  border-radius:12px;
+  background:#111;
   padding:15px;
-  box-shadow:0 0 15px rgba(0,255,200,0.2);
-  cursor:pointer;
-}
-
-.card:hover {
-  transform:scale(1.03);
+  border-radius:12px;
+  box-shadow:0 0 10px rgba(0,255,200,0.3);
 }
 
 button {
@@ -46,42 +34,32 @@ button {
   border:none;
   border-radius:8px;
   background:#00ff9d;
-  font-weight:bold;
 }
 </style>
 </head>
 
 <body>
 
-<h1>🎮 ARCADE</h1>
+<h1>🎮 MONET ARCADE</h1>
 
 <div class="grid">
-  <div class="card" onclick="play('game1')">
-    <p>Token Dash</p>
-    <button>Play</button>
-  </div>
 
-  <div class="card" onclick="play('game2')">
-    <p>Crypto Jump</p>
-    <button>Play</button>
-  </div>
-
-  <div class="card" onclick="play('game3')">
-    <p>Solana Runner</p>
-    <button>Play</button>
-  </div>
-
-  <div class="card" onclick="play('game4')">
-    <p>Monet Quest</p>
-    <button>Play</button>
-  </div>
+<div class="card">
+  <p>Click Speed</p>
+  <button onclick="location.href='game1.html'">Play</button>
 </div>
 
-<script>
-function play(game) {
-  alert("Launching " + game + " (we’ll plug your real games next)");
-}
-</script>
+<div class="card">
+  <p>Number Guess</p>
+  <button onclick="location.href='game2.html'">Play</button>
+</div>
+
+<div class="card">
+  <p>Reaction Test</p>
+  <button onclick="location.href='game3.html'">Play</button>
+</div>
+
+</div>
 
 </body>
 </html>

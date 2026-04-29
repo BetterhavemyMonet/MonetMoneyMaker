@@ -1,0 +1,13 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:white;text-align:center">
+<h2>Click Speed Game</h2>
+<button onclick="score++">CLICK FAST</button>
+<p id="s">0</p>
+
+<script>
+let score=0;
+setInterval(()=>document.getElementById("s").innerText=score,200);
+</script>
+</body>
+</html>

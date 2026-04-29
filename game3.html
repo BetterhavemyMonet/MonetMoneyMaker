@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<body style="background:black;color:white;text-align:center">
+<h2>Reaction Test</h2>
+<button onclick="start()">Start</button>
+<p id="r"></p>
+
+<script>
+let t;
+function start(){
+ document.getElementById("r").innerText="Wait...";
+ setTimeout(()=>{
+  t=Date.now();
+  document.getElementById("r").innerText="CLICK!";
+ },Math.random()*3000);
+}
+document.body.onclick=()=>{
+ if(t){
+  alert(Date.now()-t+" ms");
+  t=null;
+ }
+};
+</script>
+</body>
+</html>
