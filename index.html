@@ -11,34 +11,38 @@
 body {
   margin:0;
   background: radial-gradient(circle at top,#0b0f1a,#02040a);
-  color:white;
   font-family:'Orbitron',sans-serif;
+  color:white;
   text-align:center;
 }
 
-/* 🔥 TITLE STYLE */
+/* 🔮 GLOW TITLE */
 .title {
-  font-size:28px;
+  font-size:30px;
   margin-top:20px;
   background: linear-gradient(90deg,#00f0ff,#a855ff);
   -webkit-background-clip:text;
   -webkit-text-fill-color:transparent;
-  text-shadow:0 0 10px rgba(0,255,255,0.6);
+  text-shadow:
+    0 0 10px rgba(0,255,255,0.7),
+    0 0 20px rgba(168,85,255,0.6);
   letter-spacing:2px;
 }
 
-/* 🎮 IMAGE */
-img {
+/* 🎮 HERO IMAGE */
+.hero img {
   width:90%;
   max-width:420px;
-  margin:30px auto;
+  margin:25px auto;
   display:block;
-  border-radius:16px;
-  box-shadow:0 0 25px rgba(0,255,200,0.25);
+  border-radius:18px;
+  box-shadow:
+    0 0 25px rgba(0,255,200,0.3),
+    0 0 50px rgba(168,85,255,0.2);
 }
 
 /* 🔘 BUTTONS */
-button {
+.btn {
   display:block;
   width:80%;
   max-width:300px;
@@ -47,17 +51,33 @@ button {
   border-radius:12px;
   font-weight:bold;
   border:none;
+  cursor:pointer;
+  font-size:15px;
 }
 
+/* CONNECT BUTTON */
 .connect {
-  background:#00ff9d;
+  background:linear-gradient(135deg,#00ff9d,#00ffc3);
   color:black;
+  box-shadow:0 0 15px rgba(0,255,150,0.5);
 }
 
+/* EXCHANGE BUTTON */
 .exchange {
   background:transparent;
-  border:2px solid #d14bff;
-  color:#d14bff;
+  border:2px solid #a855ff;
+  color:#a855ff;
+  box-shadow:0 0 10px rgba(168,85,255,0.4);
+}
+
+/* SECTION BOX */
+.section {
+  margin-top:30px;
+}
+
+.subtitle {
+  color:#00f0ff;
+  margin-bottom:10px;
 }
 </style>
 </head>
@@ -66,10 +86,17 @@ button {
 
 <h1 class="title">MONET MONEY ARCADE</h1>
 
-<img src="/monetmario.jpg">
+<div class="hero">
+  <img src="/monetmario.jpg">
+</div>
 
-<button class="connect" onclick="connectWallet()">CONNECT TO PLAY</button>
-<button class="exchange" onclick="goToExchange()">EXCHANGE</button>
+<button class="btn connect" onclick="connectWallet()">CONNECT TO PLAY</button>
+<button class="btn exchange" onclick="goToExchange()">EXCHANGE</button>
+
+<div class="section">
+  <h2 class="subtitle">Swap SOL → MONET</h2>
+  <button class="btn connect" onclick="goToExchange()">Launch Exchange</button>
+</div>
 
 <script>
 function connectWallet() {
