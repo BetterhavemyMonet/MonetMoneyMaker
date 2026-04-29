@@ -6,66 +6,36 @@
 
 <body>
 
-<h2>Click Speed (Wallet Secured)</h2>
+<h2>Click Speed (Auto Payout)</h2>
 
-<p>Pot: <span id="pot">0</span></p>
 <button onclick="enter()">Enter Game</button>
-
 <br><br>
 
 <button onclick="click()">CLICK</button>
+
 <p>Score: <span id="score">0</span></p>
 
 <script>
 let score = 0;
 let sessionId = null;
 
-// load pot
-async function loadPot(){
-  const res = await fetch("http://localhost:3001/pot");
-  const data = await res.json();
-  document.getElementById("pot").innerText = data.pot;
-}
-loadPot();
-
-// enter game with signature
+// ENTER
 async function enter(){
-  if (!window.solana) {
-    alert("Install Phantom");
-    return;
-  }
-
-  const provider = window.solana;
-  const resp = await provider.connect();
-
-  const wallet = resp.publicKey.toString();
-  const message = "Enter Monet Arcade";
-
-  const encoded = new TextEncoder().encode(message);
-  const signed = await provider.signMessage(encoded, "utf8");
-
-  const signature = signed.signature.toString();
+  const wallet = window.solana.publicKey.toString();
 
   const res = await fetch("http://localhost:3001/enter", {
     method:"POST",
     headers:{"Content-Type":"application/json"},
-    body: JSON.stringify({ wallet, signature, message })
+    body: JSON.stringify({ wallet })
   });
 
   const data = await res.json();
-
-  if(data.error){
-    alert("Signature failed");
-    return;
-  }
-
   sessionId = data.sessionId;
-  document.getElementById("pot").innerText = data.pot;
 
-  alert("Entered securely!");
+  alert("Entered game!");
 }
 
-// click logic
+// GAME
 function click(){
   if(!sessionId){
     alert("Enter first!");
@@ -80,7 +50,7 @@ function click(){
   }
 }
 
-// win
+// WIN
 async function win(){
   const res = await fetch("http://localhost:3001/win", {
     method:"POST",
@@ -96,14 +66,12 @@ async function win(){
   }
 
   alert(
-    "WINNER!\n\n" +
-    "Wallet: " + data.winner + "\n" +
+    "YOU WON!\n\n" +
     "Payout: " + data.payout
   );
 
-  sessionId = null;
   score = 0;
-  loadPot();
+  sessionId = null;
 }
 </script>
 
