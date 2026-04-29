@@ -1,3 +1,4 @@
+<script>if(!localStorage.getItem("player_name")){window.location.href="login.html";}</script>
 <!DOCTYPE html>
 <html>
 <head>
@@ -49,7 +50,7 @@ button {
 
 <body>
 
-<h1>MONET MONEY ARCADE</h1>
+<h1>MONET MONEY ARCADE<br><span id="user"></span></h1>
 
 <div class="wallet" id="wallet">Not connected</div>
 <div class="balance">Balance: <span id="bal">0</span> MONET</div>

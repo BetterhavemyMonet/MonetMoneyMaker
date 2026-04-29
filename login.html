@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+
+<style>
+.container {
+  margin-top:80px;
+}
+
+input {
+  padding:12px;
+  width:70%;
+  max-width:300px;
+  border-radius:10px;
+  border:none;
+  margin:10px;
+  text-align:center;
+}
+
+.login-btn {
+  width:70%;
+  max-width:300px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>MONET ARCADE</h1>
+
+<input id="name" placeholder="Enter Username">
+
+<button class="login-btn" onclick="login()">ENTER ARCADE</button>
+
+<button onclick="connectWallet()">CONNECT WALLET</button>
+
+</div>
+
+<script>
+function login(){
+  let name = document.getElementById("name").value;
+
+  if(!name){
+    alert("Enter a username");
+    return;
+  }
+
+  localStorage.setItem("player_name", name);
+
+  window.location.href = "index.html";
+}
+
+async function connectWallet(){
+  if(!window.solana){
+    alert("Install Phantom");
+    return;
+  }
+
+  const resp = await window.solana.connect();
+  localStorage.setItem("wallet", resp.publicKey.toString());
+
+  alert("Wallet connected!");
+}
+</script>
+
+</body>
+</html>
