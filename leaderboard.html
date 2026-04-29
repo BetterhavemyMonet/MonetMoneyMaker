@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+<link rel="stylesheet" href="/styles.css">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+
+<body>
+
+<h2>🏆 LEADERBOARD</h2>
+
+<ul id="board"></ul>
+
+<script>
+let board = JSON.parse(localStorage.getItem("leaderboard") || "[]");
+
+// sort best scores (higher is better)
+board.sort((a,b)=>b.score - a.score);
+
+let list = document.getElementById("board");
+
+board.slice(0,10).forEach((p,i)=>{
+  let li = document.createElement("li");
+  li.innerText = (i+1)+". "+p.name+" - "+p.score;
+  list.appendChild(li);
+});
+</script>
+
+</body>
+</html>
