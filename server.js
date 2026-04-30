@@ -36,12 +36,12 @@ const ASSOC_PROG   = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3
 // the browser CORS/rate-limit 403s that hit these from the frontend.
 // Set SOLANA_RPC_URL env var (e.g. a Helius free-tier key) for best reliability.
 // Fallbacks are free public endpoints that work from Node.js (no CORS/key required).
+// Set SOLANA_RPC_URL secret for a dedicated RPC (Helius free tier recommended).
+// Fallbacks are public endpoints — mainnet-beta works fine server-side.
 const RPCS = [
   process.env.SOLANA_RPC_URL,
   'https://api.mainnet-beta.solana.com',
-  'https://solana-mainnet.rpc.extrnode.com',
   'https://mainnet.helius-rpc.com/',
-  'https://solana.public-rpc.com',
 ].filter(Boolean);
 
 // ─── Data helpers ──────────────────────────────────────────────────────────────
@@ -149,10 +149,9 @@ async function getTreasuryBalance() {
   try {
     const mint  = new PublicKey(MINT_ADDRESS);
     const owner = new PublicKey(TREASURY_ADDR);
-    const ata   = getATA(mint, owner);
     return withRpc(async conn => {
-      const info = await conn.getParsedAccountInfo(ata);
-      return info?.value?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+      const res = await conn.getParsedTokenAccountsByOwner(owner, { mint });
+      return res?.value?.[0]?.account?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
     });
   } catch { return 0; }
 }
@@ -182,28 +181,36 @@ app.get('/api/balance/:wallet', async (req, res) => {
   try {
     const owner = new PublicKey(req.params.wallet);
     const mint  = new PublicKey(MINT_ADDRESS);
-    const ata   = getATA(mint, owner);
 
-    const [ataInfo, solLamports] = await Promise.allSettled([
-      withRpc(conn => conn.getParsedAccountInfo(ata)),
+    // Use getParsedTokenAccountsByOwner filtered by mint — the most reliable
+    // way to get an SPL token balance. getParsedAccountInfo on a derived ATA
+    // can return un-parsed Buffer data depending on the RPC endpoint.
+    const [tokenResult, solResult] = await Promise.allSettled([
+      withRpc(conn => conn.getParsedTokenAccountsByOwner(owner, { mint })),
       withRpc(conn => conn.getBalance(owner)),
     ]);
 
-    const monetBalance = ataInfo.status === 'fulfilled'
-      ? (ataInfo.value?.value?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0)
-      : 0;
-    const solBalance = solLamports.status === 'fulfilled'
-      ? (solLamports.value ?? 0) / 1e9
+    let monetBalance = 0;
+    let hasAta       = false;
+    let ata          = null;
+    if (tokenResult.status === 'fulfilled' && tokenResult.value?.value?.length > 0) {
+      const acct   = tokenResult.value.value[0];
+      monetBalance = acct.account.data.parsed.info.tokenAmount.uiAmount ?? 0;
+      hasAta       = true;
+      ata          = acct.pubkey.toString();
+    } else {
+      // ATA doesn't exist yet — derive address for reference
+      ata = getATA(mint, owner).toString();
+    }
+
+    const solBalance = solResult.status === 'fulfilled'
+      ? (solResult.value ?? 0) / 1e9
       : 0;
 
-    res.json({
-      ok: true,
-      monet:  monetBalance,
-      sol:    solBalance,
-      ata:    ata.toString(),
-      hasAta: !!(ataInfo.status === 'fulfilled' && ataInfo.value?.value),
-    });
+    console.log(`[MONET] balance ${req.params.wallet.slice(0,8)}… monet=${monetBalance} sol=${solBalance} hasAta=${hasAta}`);
+    res.json({ ok: true, monet: monetBalance, sol: solBalance, ata, hasAta });
   } catch(e) {
+    console.error('[MONET] /api/balance error:', e.message);
     res.status(500).json({ error: e.message });
   }
 });

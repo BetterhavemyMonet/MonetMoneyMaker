@@ -15,9 +15,7 @@ const MONET_CONFIG = {
 // avoid browser CORS rate-limit 403s on these public endpoints.
 const RPC_ENDPOINTS = [
   'https://api.mainnet-beta.solana.com',
-  'https://solana-mainnet.rpc.extrnode.com',
   'https://mainnet.helius-rpc.com/',
-  'https://solana.public-rpc.com',
 ];
 
 const RPC_TIMEOUT_MS = 10000;
