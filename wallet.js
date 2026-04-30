@@ -13,12 +13,11 @@ const MONET_CONFIG = {
 // Ordered list of free public RPC endpoints — tried in sequence on failure
 const RPC_ENDPOINTS = [
   'https://rpc.ankr.com/solana',
-  'https://solana-mainnet.g.alchemy.com/v2/demo',
-  'https://api.mainnet-beta.solana.com',
   'https://solana-api.projectserum.com',
+  'https://api.mainnet-beta.solana.com',
 ];
 
-const RPC_TIMEOUT_MS = 7000;
+const RPC_TIMEOUT_MS = 6000;
 
 const TOKEN_PROGRAM_ID_STR       = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const ASSOCIATED_TOKEN_PROGRAM_STR = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3';
