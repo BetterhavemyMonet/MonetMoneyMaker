@@ -129,6 +129,18 @@
         animation:lb-spin 0.75s linear infinite;
       }
       .lb-spinner-lbl { font-size:10px; color:#a855ff; letter-spacing:1px; }
+      .lb-progress {
+        display:flex; gap:5px; margin-top:4px; width:100%; max-width:180px;
+      }
+      .lb-progress-seg {
+        flex:1; height:4px; border-radius:2px;
+        background:rgba(168,85,255,0.18);
+        transition:background 0.3s, box-shadow 0.3s;
+      }
+      .lb-progress-seg.active {
+        background:#a855ff;
+        box-shadow:0 0 7px #a855ff, 0 0 14px #a855ff88;
+      }
       .lb-pot-info {
         font-size:10px; color:#ffd700; margin-bottom:10px;
         background:rgba(255,215,0,0.07); border:1px solid #ffd70022;
@@ -224,6 +236,11 @@
       <div class="lb-spinner-row">
         <div class="lb-spinner"></div>
         <div class="lb-spinner-lbl" id="lb-spin-lbl">PREPARING CHALLENGE...</div>
+        <div class="lb-progress">
+          <div class="lb-progress-seg" id="lb-seg-1"></div>
+          <div class="lb-progress-seg" id="lb-seg-2"></div>
+          <div class="lb-progress-seg" id="lb-seg-3"></div>
+        </div>
       </div>
       <div class="lb-err" id="lb-err"></div>
     `;
@@ -270,6 +287,11 @@
       <div class="lb-spinner-row">
         <div class="lb-spinner"></div>
         <div class="lb-spinner-lbl" id="lb-spin-lbl">${label || 'PROCESSING...'}</div>
+        <div class="lb-progress">
+          <div class="lb-progress-seg" id="lb-seg-1"></div>
+          <div class="lb-progress-seg" id="lb-seg-2"></div>
+          <div class="lb-progress-seg" id="lb-seg-3"></div>
+        </div>
       </div>
       <div class="lb-err" id="lb-err"></div>
     `;
@@ -278,6 +300,13 @@
   function _setSpinLabel(txt) {
     const el = document.getElementById('lb-spin-lbl');
     if (el) el.textContent = txt;
+  }
+
+  function _setSpinStep(n) {
+    for (let i = 1; i <= 3; i++) {
+      const seg = document.getElementById('lb-seg-' + i);
+      if (seg) seg.classList.toggle('active', i <= n);
+    }
   }
 
   // ─── Actions ──────────────────────────────────────────────────────────────
@@ -323,10 +352,14 @@
       signing:    'SIGN IN YOUR WALLET...',
       confirming: 'CONFIRMING ON-CHAIN...',
     };
+    const STEP_NUM = { checking: 1, signing: 2, confirming: 3 };
 
     let txId;
     try {
-      txId = await payEntryFee(_gameName, step => { _setSpinLabel(STEP[step] || 'PROCESSING...'); }, _selectedWager);
+      txId = await payEntryFee(_gameName, step => {
+        _setSpinLabel(STEP[step] || 'PROCESSING...');
+        _setSpinStep(STEP_NUM[step] || 0);
+      }, _selectedWager);
     } catch (e) {
       _screenH2H();
       _setErr(e.message);
@@ -405,16 +438,21 @@
     }
 
     _screenPaying('CHECKING WALLET...');
+    _setSpinStep(1);
 
     const STEP = {
       checking:   'CHECKING WALLET...',
       signing:    'SIGN IN YOUR WALLET...',
       confirming: 'CONFIRMING ON-CHAIN...',
     };
+    const STEP_NUM = { checking: 1, signing: 2, confirming: 3 };
 
     let txId;
     try {
-      txId = await payEntryFee(_gameName, step => { _setSpinLabel(STEP[step] || 'PROCESSING...'); }, wager);
+      txId = await payEntryFee(_gameName, step => {
+        _setSpinLabel(STEP[step] || 'PROCESSING...');
+        _setSpinStep(STEP_NUM[step] || 0);
+      }, wager);
     } catch (e) {
       _screenJoin();
       _setErr(e.message);

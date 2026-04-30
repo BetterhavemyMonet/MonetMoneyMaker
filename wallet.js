@@ -689,6 +689,18 @@ function _injectPayGateStyles() {
       background:rgba(255,215,0,0.1); border:1px solid #ffd70044;
       border-radius:8px; padding:8px; margin-bottom:12px; font-size:11px; color:#ffd700;
     }
+    #pg-progress {
+      display:flex; gap:6px; width:100%; max-width:200px;
+    }
+    .pg-progress-seg {
+      flex:1; height:4px; border-radius:2px;
+      background:rgba(168,85,255,0.18);
+      transition:background 0.3s, box-shadow 0.3s;
+    }
+    .pg-progress-seg.active {
+      background:#a855ff;
+      box-shadow:0 0 7px #a855ff, 0 0 14px #a855ff88;
+    }
   `;
   document.head.appendChild(s);
 }
@@ -779,6 +791,11 @@ async function showPayGate(gameName, onSuccess) {
         <div id="pg-spinner">
           <div id="pg-spinner-ring"></div>
           <div id="pg-spinner-label">CHECKING WALLET...</div>
+          <div id="pg-progress">
+            <div class="pg-progress-seg" id="pg-seg-1"></div>
+            <div class="pg-progress-seg" id="pg-seg-2"></div>
+            <div class="pg-progress-seg" id="pg-seg-3"></div>
+          </div>
         </div>
         <div id="pg-err"></div>
         <button id="pg-back" onclick="pgBack()">&#8592; Back to Arcade</button>
@@ -824,8 +841,17 @@ async function pgPay() {
     signing:    'SIGN IN YOUR WALLET...',
     confirming: 'CONFIRMING ON-CHAIN...',
   };
+  const STEP_NUM = { checking: 1, signing: 2, confirming: 3 };
+  function _pgSetStep(n) {
+    for (let i = 1; i <= 3; i++) {
+      const seg = document.getElementById('pg-seg-' + i);
+      if (seg) seg.classList.toggle('active', i <= n);
+    }
+  }
+  _pgSetStep(1);
   function onProgress(step) {
     if (spinLbl && STEP_LABELS[step]) spinLbl.textContent = STEP_LABELS[step];
+    _pgSetStep(STEP_NUM[step] || 0);
   }
 
   try {
