@@ -1,758 +1,670 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Monet Runner</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css">
 <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
 body {
-  background-image: url('/title.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+  height: 100%; height: 100dvh; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: #02040a url('/title.jpg') center/cover fixed;
+  color: #fff; font-family: 'Orbitron', sans-serif; text-align: center;
 }
 body::before {
-  content:'';
-  position:fixed;
-  inset:0;
-  background: rgba(2,4,10,0.82);
-  pointer-events:none;
-  z-index:0;
+  content: ''; position: fixed; inset: 0;
+  background: rgba(2,4,10,0.82); pointer-events: none; z-index: 0;
 }
-.page { position:relative; z-index:1; padding-bottom:24px; }
+.game-wrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; align-items: stretch;
+  position: relative; z-index: 1; overflow: hidden;
+}
+
+/* Tabs */
+.tabs-row {
+  display: flex; justify-content: center; gap: 6px;
+  padding: 4px 6px; flex-shrink: 0; background: rgba(0,0,0,0.3);
+}
+.tab {
+  cursor: pointer; padding: 5px 14px; border-radius: 8px;
+  border: 2px solid #a855ff; background: transparent; color: #a855ff;
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: bold;
+}
+.tab.active { background: #a855ff; color: #000; }
+
+/* Sections */
+.section { display: none; flex: 1; min-height: 0; flex-direction: column; }
+.section.active { display: flex; }
+
+/* Play section */
+#sec-play { align-items: center; padding: 2px 8px 0; }
+.game-header {
+  display: flex; align-items: center; justify-content: center;
+  gap: 8px; flex-wrap: wrap; flex-shrink: 0; padding: 2px 0;
+}
+.game-title {
+  font-size: 12px; font-weight: 800;
+  background: linear-gradient(90deg, #a855ff, #00f0ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.game-hud { font-size: 10px; color: #00f0ff; }
+.coin-hud { font-size: 10px; color: #ffd700; }
+.game-msg { font-size: 11px; min-height: 15px; color: #00ff9d; font-family: 'Orbitron', sans-serif; flex-shrink: 0; }
+.canvas-wrap {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center; width: 100%;
+}
 canvas {
-  display:block;
-  margin:8px auto;
-  border:2px solid #a855ff;
-  box-shadow:0 0 20px #a855ff66;
-  border-radius:6px;
-  background:#000;
-  max-width:100%;
+  display: block; max-width: 100%; max-height: 100%;
+  border: 2px solid #a855ff; box-shadow: 0 0 20px #a855ff44; border-radius: 6px; background: #000;
 }
-#info { font-size:13px; color:#00f0ff; margin:4px 0; }
-#coinDisplay { font-size:12px; color:#ffd700; margin:2px 0; font-family:'Orbitron',sans-serif; }
-#msg { font-size:17px; min-height:24px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
-.tabs { display:flex; justify-content:center; gap:10px; margin:8px 0; flex-wrap:wrap; }
-.tab { cursor:pointer; padding:7px 18px; border-radius:8px; border:2px solid #a855ff; background:transparent; color:#a855ff; font-family:'Orbitron',sans-serif; font-size:12px; font-weight:bold; }
-.tab.active { background:#a855ff; color:#000; }
-.section { display:none; }
-.section.active { display:block; }
-.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:12px; padding:8px 16px; }
 
-#jumpBtn {
-  display:none;
-  width:min(90%, 400px);
-  padding:18px;
-  font-size:15px;
-  margin:6px auto;
-  border-radius:14px;
-  border:none;
-  background:linear-gradient(135deg,#a855ff,#7c3aed);
-  color:#fff;
-  font-family:'Orbitron',sans-serif;
-  font-weight:bold;
-  box-shadow:0 0 20px #a855ff66;
-  cursor:pointer;
-  -webkit-tap-highlight-color:transparent;
-  user-select:none;
+/* Create / Challenge sections */
+#sec-create, #sec-challenge {
+  overflow-y: auto; align-items: center;
+  padding: 6px 12px; text-align: center; gap: 6px;
 }
-@media (pointer:coarse) { #jumpBtn { display:block; } }
-
-/* Level creator */
-#creator { padding:0 10px; }
-.creator-grid-wrap { overflow-x:auto; margin:8px auto; max-width:580px; -webkit-overflow-scrolling:touch; }
-#creatorGrid { display:grid; grid-template-columns:repeat(40,14px); grid-template-rows:repeat(3,20px); gap:2px; width:max-content; margin:0 auto; }
-.gc { width:14px; height:20px; border-radius:2px; cursor:pointer; border:1px solid #222; background:#111; transition:background 0.1s; }
+#sec-create p, #sec-challenge p { color: #aaa; font-size: 11px; margin: 2px 0; }
+.creator-grid-wrap { overflow-x: auto; margin: 6px auto; max-width: 580px; -webkit-overflow-scrolling: touch; }
+#creatorGrid {
+  display: grid; grid-template-columns: repeat(40,14px);
+  grid-template-rows: repeat(3,20px); gap: 2px;
+  width: max-content; margin: 0 auto;
+}
+.gc { width:14px; height:20px; border-radius:2px; cursor:pointer; border:1px solid #222; background:#111; }
 .gc[data-t="0"].on { background:#00ff9d; box-shadow:0 0 4px #00ff9d; }
 .gc[data-t="1"].on { background:#a855ff; box-shadow:0 0 4px #a855ff; }
 .gc[data-t="2"].on { background:#00f0ff; box-shadow:0 0 4px #00f0ff; }
 .row-label { font-size:9px; color:#888; text-align:left; margin:2px 0; }
-.legend { display:flex; gap:16px; justify-content:center; font-size:11px; margin:6px 0; flex-wrap:wrap; }
-.leg-dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:4px; vertical-align:middle; }
-#levelCode { width:90%; max-width:400px; padding:6px; background:#111; color:#00f0ff; border:1px solid #333; border-radius:6px; font-size:11px; font-family:monospace; }
-#levelCodeIn { width:90%; max-width:400px; padding:6px; background:#111; color:#fff; border:1px solid #333; border-radius:6px; font-size:11px; font-family:monospace; }
-#levelLB { max-width:360px; margin:8px auto; font-size:12px; }
+.legend { display:flex; gap:12px; justify-content:center; font-size:10px; margin:4px 0; flex-wrap:wrap; }
+.leg-dot { display:inline-block; width:10px; height:10px; border-radius:2px; margin-right:3px; vertical-align:middle; }
+#levelCode,#levelCodeIn {
+  width:90%; max-width:340px; padding:5px; background:#111; color:#00f0ff;
+  border:1px solid #333; border-radius:6px; font-size:10px; font-family:monospace;
+}
+#levelCodeIn { color:#fff; }
+#levelLB { max-width:320px; margin:4px auto; font-size:11px; }
 #levelLB table { width:100%; border-collapse:collapse; }
-#levelLB td, #levelLB th { padding:4px 8px; border-bottom:1px solid #222; }
-#levelLB th { color:#a855ff; }
+#levelLB td,#levelLB th { padding:3px 6px; border-bottom:1px solid #222; }
+#levelLB th { color:#a855ff; font-size:10px; }
+.c2-wrap { width:100%; max-width:580px; margin:0 auto; }
+#c2 { display:block; margin:6px auto; border:2px solid #00f0ff; box-shadow:0 0 20px #00f0ff44; border-radius:6px; background:#000; max-width:100%; }
+.sec-btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:11px; padding:7px 14px; margin:3px; }
+
+/* Nintendo Controller */
+.ctrl-area {
+  height: 200px; flex-shrink: 0;
+  background: linear-gradient(180deg, #1e2126 0%, #14161a 100%);
+  border-top: 2px solid #2c2f35;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+}
+.ctrl-area.hidden { display: none; }
+.ctrl-body {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 380px; padding: 0 12px;
+}
+.ctrl-dpad { width: 126px; height: 126px; position: relative; flex-shrink: 0; }
+.ctrl-dpad-center {
+  position: absolute; width: 42px; height: 42px; top: 42px; left: 42px;
+  background: #252830; border: 1px solid #3a3e46; border-radius: 4px; pointer-events: none;
+}
+.ctrl-dpad button {
+  position: absolute; width: 42px; height: 42px;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #ccd0da; font-size: 16px;
+  cursor: pointer; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 0 #10121a, inset 0 1px 0 rgba(255,255,255,0.07);
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-dpad button:active {
+  background: linear-gradient(180deg, #3a3e46, #2e323b);
+  box-shadow: 0 1px 0 #10121500; transform: translateY(2px);
+}
+.dpad-up    { top: 0;    left: 42px; border-radius: 6px 6px 2px 2px; }
+.dpad-down  { bottom: 0; left: 42px; border-radius: 2px 2px 6px 6px; }
+.dpad-left  { top: 42px; left: 0;   border-radius: 6px 2px 2px 6px; opacity:0.3; pointer-events:none; }
+.dpad-right { top: 42px; right: 0;  border-radius: 2px 6px 6px 2px; opacity:0.3; pointer-events:none; }
+.ctrl-mid { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ctrl-start {
+  padding: 6px 16px; border-radius: 20px;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #a0a8b8;
+  font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700; letter-spacing: 1.5px;
+  cursor: pointer; box-shadow: 0 2px 0 #10121a, inset 0 1px 0 rgba(255,255,255,0.06);
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-start:active { transform: translateY(1px); box-shadow: none; }
+.ctrl-home {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #a0a8b8; font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 0 #10121a; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.ctrl-ab { width: 126px; height: 126px; position: relative; flex-shrink: 0; }
+.ctrl-btn-a, .ctrl-btn-b {
+  position: absolute; width: 48px; height: 48px; border-radius: 50%;
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 800;
+  cursor: pointer; border: none; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-btn-a {
+  background: radial-gradient(circle at 35% 35%, #22d060, #0f9040); color: #fff;
+  right: 4px; top: 20px; box-shadow: 0 5px 0 #085c28, inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.ctrl-btn-b {
+  background: radial-gradient(circle at 35% 35%, #4488ff, #2255cc); color: #fff;
+  left: 4px; bottom: 14px; box-shadow: 0 5px 0 #112288, inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.ctrl-btn-a:active, .ctrl-btn-b:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
 </style>
 </head>
 <body>
-<div class="page">
-<h2>MONET RUNNER</h2>
-
-<div class="tabs">
-  <button class="tab active" onclick="switchTab('play')">PLAY</button>
-  <button class="tab" onclick="switchTab('create')">CREATE LEVEL</button>
-  <button class="tab" onclick="switchTab('challenge')">CHALLENGE</button>
-</div>
-
-<!-- PLAY TAB -->
-<div class="section active" id="sec-play">
-  <div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="best">0</span> &nbsp;|&nbsp; Speed: <span id="spd">5</span></div>
-  <div id="coinDisplay">&#9733; Coins: <span id="coinCount">0</span></div>
-  <div id="msg">Press SPACE or tap to start</div>
-  <canvas id="c" width="600" height="200"></canvas>
-  <button id="jumpBtn" ontouchstart="handleJumpTouch(event)" onmousedown="handleJumpMouse()">&#9650; JUMP</button>
-  <br>
-  <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
-  <button class="btn" onclick="startEndless()" style="margin-left:8px">ENDLESS</button>
-</div>
-
-<!-- CREATE TAB -->
-<div class="section" id="sec-create">
-  <p style="color:#aaa;font-size:12px;margin:4px">Place obstacles across 40 slots. Share your code for others to beat!</p>
-  <div class="legend">
-    <span><span class="leg-dot" style="background:#00ff9d"></span>Short</span>
-    <span><span class="leg-dot" style="background:#a855ff"></span>Tall</span>
-    <span><span class="leg-dot" style="background:#00f0ff"></span>Bird</span>
+<div class="game-wrap">
+  <div class="tabs-row">
+    <button class="tab active" onclick="switchTab('play')">PLAY</button>
+    <button class="tab" onclick="switchTab('create')">CREATE</button>
+    <button class="tab" onclick="switchTab('challenge')">CHALLENGE</button>
   </div>
-  <div class="row-label" style="max-width:580px;margin:0 auto;padding-left:4px">Row 1: Bird &nbsp;&nbsp; Row 2: Tall &nbsp;&nbsp; Row 3: Short</div>
-  <div class="creator-grid-wrap">
-    <div id="creatorGrid"></div>
-  </div>
-  <br>
-  <button class="btn" onclick="clearGrid()">CLEAR</button>
-  <button class="btn" onclick="testLevel()" style="margin-left:8px">TEST LEVEL</button>
-  <button class="btn" onclick="generateCode()" style="margin-left:8px">GET CODE</button>
-  <br><br>
-  <div id="codeOut" style="display:none">
-    <p style="color:#00ff9d;font-size:12px;margin:4px">Your level code (share this!):</p>
-    <input id="levelCode" readonly onclick="this.select()">
-    <br>
-    <button class="btn" onclick="copyCode()" style="margin-top:6px">COPY CODE</button>
-  </div>
-  <br>
-  <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
-</div>
 
-<!-- CHALLENGE TAB -->
-<div class="section" id="sec-challenge">
-  <p style="color:#aaa;font-size:12px;margin:4px 0">Paste a friend's level code to compete!</p>
-  <input id="levelCodeIn" placeholder="Paste level code here...">
-  <br><br>
-  <button class="btn" onclick="loadChallenge()">LOAD &amp; PLAY</button>
-  <div id="challengeInfo" style="display:none;margin-top:8px">
-    <div id="info2" style="font-size:13px;color:#00f0ff">Score: <span id="score2">0</span></div>
-    <div id="msg2" style="font-size:17px;min-height:24px;color:#00ff9d;font-family:Orbitron,sans-serif"></div>
-    <canvas id="c2" width="600" height="200" style="display:block;margin:8px auto;border:2px solid #00f0ff;box-shadow:0 0 20px #00f0ff66;border-radius:6px;background:#000;max-width:100%;"></canvas>
-    <div id="levelLB">
-      <p style="color:#a855ff;font-size:12px;margin:4px">LEVEL LEADERBOARD</p>
-      <table id="lbTable"><thead><tr><th>#</th><th>Player</th><th>Score</th></tr></thead><tbody id="lbBody"></tbody></table>
+  <!-- PLAY TAB -->
+  <div class="section active" id="sec-play">
+    <div class="game-header">
+      <span class="game-title">MONET RUNNER</span>
+      <span class="game-hud">Score: <span id="score">0</span> &nbsp;Best: <span id="best">0</span> &nbsp;Spd: <span id="spd">5</span></span>
+      <span class="coin-hud">&#9733; <span id="coinCount">0</span></span>
+    </div>
+    <div class="game-msg" id="msg">Press START or A to begin</div>
+    <div class="canvas-wrap">
+      <canvas id="c" width="600" height="200"></canvas>
     </div>
   </div>
-  <br>
-  <button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+
+  <!-- CREATE TAB -->
+  <div class="section" id="sec-create">
+    <p>Place obstacles across 40 slots. Share your code!</p>
+    <div class="legend">
+      <span><span class="leg-dot" style="background:#00ff9d"></span>Short</span>
+      <span><span class="leg-dot" style="background:#a855ff"></span>Tall</span>
+      <span><span class="leg-dot" style="background:#00f0ff"></span>Bird</span>
+    </div>
+    <div class="row-label" style="max-width:580px;margin:0 auto;padding-left:4px">Row 1: Bird &nbsp; Row 2: Tall &nbsp; Row 3: Short</div>
+    <div class="creator-grid-wrap"><div id="creatorGrid"></div></div>
+    <div>
+      <button class="sec-btn" onclick="clearGrid()">CLEAR</button>
+      <button class="sec-btn" onclick="testLevel()">TEST LEVEL</button>
+      <button class="sec-btn" onclick="generateCode()">GET CODE</button>
+    </div>
+    <div id="codeOut" style="display:none">
+      <p style="color:#00ff9d;font-size:11px;margin:4px">Your level code:</p>
+      <input id="levelCode" readonly onclick="this.select()"><br>
+      <button class="sec-btn" onclick="copyCode()">COPY CODE</button>
+    </div>
+    <button class="sec-btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+  </div>
+
+  <!-- CHALLENGE TAB -->
+  <div class="section" id="sec-challenge">
+    <p style="margin:4px 0">Paste a friend's level code to compete!</p>
+    <input id="levelCodeIn" placeholder="Paste level code here..."><br>
+    <button class="sec-btn" onclick="loadChallenge()">LOAD &amp; PLAY</button>
+    <div id="challengeInfo" style="display:none">
+      <div id="info2" style="font-size:12px;color:#00f0ff">Score: <span id="score2">0</span></div>
+      <div id="msg2" style="font-size:12px;min-height:18px;color:#00ff9d;font-family:Orbitron,sans-serif"></div>
+      <div class="c2-wrap"><canvas id="c2" width="600" height="200"></canvas></div>
+      <div id="levelLB">
+        <p style="color:#a855ff;font-size:11px;margin:4px">LEVEL LEADERBOARD</p>
+        <table id="lbTable"><thead><tr><th>#</th><th>Player</th><th>Score</th></tr></thead><tbody id="lbBody"></tbody></table>
+      </div>
+    </div>
+    <button class="sec-btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+  </div>
 </div>
+
+<div class="ctrl-area" id="ctrlArea">
+  <div class="ctrl-body">
+    <div class="ctrl-dpad">
+      <div class="ctrl-dpad-center"></div>
+      <button class="dpad-up"    ontouchstart="ctrlJump(event)" onmousedown="ctrlJump()">&#9650;</button>
+      <button class="dpad-down"  ontouchstart="ctrlDuck(event)" onmousedown="ctrlDuck()">&#9660;</button>
+      <button class="dpad-left"  style="opacity:0.3;pointer-events:none">&#9664;</button>
+      <button class="dpad-right" style="opacity:0.3;pointer-events:none">&#9654;</button>
+    </div>
+    <div class="ctrl-mid">
+      <button class="ctrl-start" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">START</button>
+      <a class="ctrl-home" href="arcade.html">&#8962;</a>
+    </div>
+    <div class="ctrl-ab">
+      <button class="ctrl-btn-a" ontouchstart="ctrlJump(event)" onmousedown="ctrlJump()">A</button>
+      <button class="ctrl-btn-b" ontouchstart="ctrlDuck(event)" onmousedown="ctrlDuck()">B</button>
+    </div>
+  </div>
 </div>
 
 <script>
 const bgImg = new Image(); bgImg.src = '/title.jpg';
 const charImg = new Image(); charImg.src = '/dino-sprite.png';
 
-// ─── WORLDS ───────────────────────────────────────────────────────────────────
 const WORLDS = [
   { name:'SPACE',     sky1:'rgba(2,4,10,0.65)',   sky2:'rgba(11,15,26,0.75)',  ground:'#1a0d2e', line:'#00f0ff', stars:true  },
   { name:'NEON CITY', sky1:'rgba(0,8,25,0.65)',   sky2:'rgba(0,20,50,0.75)',   ground:'#001a3d', line:'#00ff9d', stars:false },
   { name:'LAVA WORLD',sky1:'rgba(28,4,0,0.68)',   sky2:'rgba(55,8,0,0.78)',    ground:'#2d0900', line:'#ff5500', stars:false },
   { name:'ICE REALM', sky1:'rgba(3,12,28,0.65)',  sky2:'rgba(15,35,65,0.75)',  ground:'#071828', line:'#88ddff', stars:true  },
 ];
-let currentWorld = 0, worldFlash = 0, worldFlashColor = '#fff', worldMsg = '';
-let worldMsgTimer = 0;
+let currentWorld=0, worldFlash=0, worldFlashColor='#fff', worldMsg='', worldMsgTimer=0;
 
-// ─── SHARED CONSTANTS ────────────────────────────────────────────────────────
-const GROUND = 160, CHAR_W = 36, CHAR_H = 40;
-let bestScore = parseInt(localStorage.getItem('dino_best')||'0');
-document.getElementById('best').textContent = bestScore;
+const GROUND=160, CHAR_W=36, CHAR_H=40;
+let bestScore=parseInt(localStorage.getItem('dino_best')||'0');
+document.getElementById('best').textContent=bestScore;
 
-// ─── CANVAS RESIZE ────────────────────────────────────────────────────────────
-const canvas = document.getElementById('c');
-const ctx = canvas.getContext('2d');
-const W = canvas.width, H = canvas.height;
+const canvas=document.getElementById('c'), ctx=canvas.getContext('2d');
+const W=canvas.width, H=canvas.height;
 
-function fitCanvas() {
-  const maxW = Math.min(W, window.innerWidth - 20);
-  canvas.style.width = maxW + 'px';
-  canvas.style.height = (maxW * H / W) + 'px';
-  const c2 = document.getElementById('c2');
-  if (c2) { c2.style.width = maxW + 'px'; c2.style.height = (maxW * H / W) + 'px'; }
-}
-fitCanvas();
-window.addEventListener('resize', fitCanvas);
-
-// ─── TAB SWITCHING ────────────────────────────────────────────────────────────
 function switchTab(t) {
   document.querySelectorAll('.tab').forEach((b,i)=>{
-    b.classList.toggle('active', ['play','create','challenge'][i]===t);
+    b.classList.toggle('active',['play','create','challenge'][i]===t);
   });
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+t).classList.add('active');
-  if (t==='create') buildGrid();
+  // Show controller only in play tab
+  document.getElementById('ctrlArea').classList.toggle('hidden', t!=='play');
+  if(t==='create') buildGrid();
 }
 
-// ─── GAME STATE ───────────────────────────────────────────────────────────────
 let player, obstacles, coins, portals, score, speed, frameCount, gameRunning, animId, groundX=0, totalCoins=0;
 
-// ─── COIN TYPES ───────────────────────────────────────────────────────────────
-const COIN_DEFS = [
-  { r:7,  pts:10,  color:'#ffd700', glow:'#ffd700', label:'',    freq:55,  rare:false },
-  { r:12, pts:50,  color:'#ff9500', glow:'#ff7700', label:'★',   freq:200, rare:false },
-  { r:18, pts:100, color:'#00f0ff', glow:'#00f0ff', label:'★★',  freq:380, rare:true  },
+const COIN_DEFS=[
+  {r:7,pts:10,color:'#ffd700',glow:'#ffd700',label:'',freq:55,rare:false},
+  {r:12,pts:50,color:'#ff9500',glow:'#ff7700',label:'★',freq:200,rare:false},
+  {r:18,pts:100,color:'#00f0ff',glow:'#00f0ff',label:'★★',freq:380,rare:true},
 ];
-const COIN_HEIGHTS = [GROUND - 12, GROUND - 60, GROUND - 110];
+const COIN_HEIGHTS=[GROUND-12,GROUND-60,GROUND-110];
 
-function spawnCoins() {
-  COIN_DEFS.forEach(def => {
-    if (frameCount % def.freq === 0) {
-      const h = def.rare
-        ? COIN_HEIGHTS[1]
-        : COIN_HEIGHTS[Math.floor(Math.random() * COIN_HEIGHTS.length)];
-      coins.push({ x: W + 20, y: h, r: def.r, pts: def.pts, color: def.color, glow: def.glow, label: def.label, spin: 0 });
+function spawnCoins(){
+  COIN_DEFS.forEach(def=>{
+    if(frameCount%def.freq===0){
+      const h=def.rare?COIN_HEIGHTS[1]:COIN_HEIGHTS[Math.floor(Math.random()*COIN_HEIGHTS.length)];
+      coins.push({x:W+20,y:h,r:def.r,pts:def.pts,color:def.color,glow:def.glow,label:def.label,spin:0});
     }
   });
-  // Coin rows (clusters of 3-5 small coins)
-  if (frameCount % 130 === 0) {
-    const baseH = COIN_HEIGHTS[Math.floor(Math.random() * COIN_HEIGHTS.length)];
-    for (let i = 0; i < 4 + Math.floor(Math.random()*3); i++) {
-      coins.push({ x: W + 30 + i * 26, y: baseH, r: 7, pts: 10, color: '#ffd700', glow: '#ffd700', label: '', spin: 0 });
-    }
+  if(frameCount%130===0){
+    const baseH=COIN_HEIGHTS[Math.floor(Math.random()*COIN_HEIGHTS.length)];
+    for(let i=0;i<4+Math.floor(Math.random()*3);i++)
+      coins.push({x:W+30+i*26,y:baseH,r:7,pts:10,color:'#ffd700',glow:'#ffd700',label:'',spin:0});
   }
 }
 
-function spawnPortal() {
-  if (frameCount % 480 === 0 && frameCount > 200) {
-    const nextW = WORLDS[(currentWorld + 1) % WORLDS.length];
-    portals.push({ x: W + 40, w: 56, h: 76, triggered: false, color: nextW.line, name: nextW.name });
+function spawnPortal(){
+  if(frameCount%480===0&&frameCount>200){
+    const nextW=WORLDS[(currentWorld+1)%WORLDS.length];
+    portals.push({x:W+40,w:56,h:76,triggered:false,color:nextW.line,name:nextW.name});
   }
 }
 
-function triggerPortal() {
-  currentWorld = (currentWorld + 1) % WORLDS.length;
-  worldFlash = 45;
-  worldFlashColor = WORLDS[currentWorld].line;
-  worldMsg = 'ENTERING ' + WORLDS[currentWorld].name + '!';
-  worldMsgTimer = 90;
-  document.getElementById('msg').textContent = worldMsg;
-  setTimeout(() => { if (gameRunning) document.getElementById('msg').textContent = ''; }, 1800);
+function triggerPortal(){
+  currentWorld=(currentWorld+1)%WORLDS.length;
+  worldFlash=45; worldFlashColor=WORLDS[currentWorld].line;
+  worldMsg='ENTERING '+WORLDS[currentWorld].name+'!'; worldMsgTimer=90;
+  document.getElementById('msg').textContent=worldMsg;
+  setTimeout(()=>{if(gameRunning)document.getElementById('msg').textContent='';},1800);
 }
 
-// ─── ENDLESS RUNNER ───────────────────────────────────────────────────────────
-function startEndless() {
+function startEndless(){
   switchTab('play');
-  player = { x:70, y:GROUND-CHAR_H, vy:0, onGround:true };
-  obstacles = []; coins = []; portals = [];
-  score = 0; speed = 5; frameCount = 0; gameRunning = true;
-  totalCoins = 0; currentWorld = 0;
-  document.getElementById('msg').textContent = '';
-  document.getElementById('coinCount').textContent = '0';
-  if (animId) cancelAnimationFrame(animId);
+  player={x:70,y:GROUND-CHAR_H,vy:0,onGround:true};
+  obstacles=[];coins=[];portals=[];
+  score=0;speed=5;frameCount=0;gameRunning=true;totalCoins=0;currentWorld=0;
+  document.getElementById('msg').textContent='';
+  document.getElementById('coinCount').textContent='0';
+  if(animId) cancelAnimationFrame(animId);
   endlessLoop();
 }
 
-function endlessLoop() {
-  drawScene(ctx, W, H);
-  if (gameRunning) updateEndless();
-  animId = requestAnimationFrame(endlessLoop);
+function endlessLoop(){
+  drawScene(ctx,W,H);
+  if(gameRunning) updateEndless();
+  animId=requestAnimationFrame(endlessLoop);
 }
 
-function updateEndless() {
-  frameCount++;
-  score += 0.12;
-  speed = 5 + Math.floor(score / 150) * 0.4;
-  document.getElementById('score').textContent = Math.floor(score);
-  document.getElementById('spd').textContent = speed.toFixed(1);
-  if (Math.floor(score) > bestScore) {
-    bestScore = Math.floor(score);
-    document.getElementById('best').textContent = bestScore;
-    localStorage.setItem('dino_best', bestScore);
+function updateEndless(){
+  frameCount++;score+=0.12;
+  speed=5+Math.floor(score/150)*0.4;
+  document.getElementById('score').textContent=Math.floor(score);
+  document.getElementById('spd').textContent=speed.toFixed(1);
+  if(Math.floor(score)>bestScore){
+    bestScore=Math.floor(score);
+    document.getElementById('best').textContent=bestScore;
+    localStorage.setItem('dino_best',bestScore);
   }
   updatePhysics(player);
-
-  // Spawn obstacles
-  if (frameCount % Math.max(35, 90 - Math.floor(score / 80)) === 0) {
-    obstacles.push(makeRandomObs());
-  }
-  obstacles.forEach(o => o.x -= speed);
-  obstacles = obstacles.filter(o => o.x > -60);
-
-  // Spawn & move coins
+  if(frameCount%Math.max(35,90-Math.floor(score/80))===0) obstacles.push(makeRandomObs());
+  obstacles.forEach(o=>o.x-=speed);
+  obstacles=obstacles.filter(o=>o.x>-60);
   spawnCoins();
-  coins.forEach(c => { c.x -= speed; c.spin += 0.08; });
-  // Collect coins
-  coins = coins.filter(c => {
-    if (c.x < -30) return false;
-    const dx = (player.x + CHAR_W/2) - c.x;
-    const dy = (player.y + CHAR_H/2) - c.y;
-    if (Math.sqrt(dx*dx + dy*dy) < CHAR_W/2 + c.r - 4) {
-      score += c.pts;
-      totalCoins += c.pts;
-      document.getElementById('coinCount').textContent = totalCoins;
-      showCoinPop(c.x, c.y, '+' + c.pts, c.color);
-      return false;
+  coins.forEach(c=>{c.x-=speed;c.spin+=0.08;});
+  coins=coins.filter(c=>{
+    if(c.x<-30) return false;
+    const dx=(player.x+CHAR_W/2)-c.x,dy=(player.y+CHAR_H/2)-c.y;
+    if(Math.sqrt(dx*dx+dy*dy)<CHAR_W/2+c.r-4){
+      score+=c.pts;totalCoins+=c.pts;
+      document.getElementById('coinCount').textContent=totalCoins;
+      showCoinPop(c.x,c.y,'+'+c.pts,c.color);return false;
     }
     return true;
   });
-
-  // Spawn & move portals
   spawnPortal();
-  portals.forEach(p => {
-    p.x -= speed * 0.85;
-    if (!p.triggered && p.x + p.w/2 < player.x + CHAR_W/2 + 10 && p.x + p.w/2 > player.x - 10) {
-      p.triggered = true;
-      triggerPortal();
+  portals.forEach(p=>{
+    p.x-=speed*0.85;
+    if(!p.triggered&&p.x+p.w/2<player.x+CHAR_W/2+10&&p.x+p.w/2>player.x-10){
+      p.triggered=true;triggerPortal();
     }
   });
-  portals = portals.filter(p => p.x > -80);
-
-  checkCollisions(player, obstacles, endGame);
+  portals=portals.filter(p=>p.x>-80);
+  checkCollisions(player,obstacles,endGame);
 }
 
-// Floating +pts text
-const coinPops = [];
-function showCoinPop(x, y, text, color) {
-  coinPops.push({ x, y, text, color, life: 40 });
-}
+const coinPops=[];
+function showCoinPop(x,y,text,color){coinPops.push({x,y,text,color,life:40});}
 
-function endGame() {
-  gameRunning = false;
-  document.getElementById('msg').textContent = 'GAME OVER — Score: ' + Math.floor(score);
+function endGame(){
+  gameRunning=false;
+  document.getElementById('msg').textContent='GAME OVER — Score: '+Math.floor(score);
   saveScore(Math.floor(score));
 }
 
-function makeRandomObs() {
-  const w = WORLDS[currentWorld];
-  const cols = w ? [w.line, '#a855ff', '#ff4488', '#00ff9d'] : ['#00ff9d','#a855ff','#ff4488','#00f0ff'];
-  const types = [
-    { w:18, h:38, y:GROUND-38,  color:cols[0], bird:false },
-    { w:22, h:52, y:GROUND-52,  color:cols[1], bird:false },
-    { w:34, h:24, y:GROUND-24,  color:cols[2], bird:false },
-    { w:30, h:20, y:GROUND-80,  color:cols[3], bird:true  },
+function makeRandomObs(){
+  const w=WORLDS[currentWorld];
+  const cols=w?[w.line,'#a855ff','#ff4488','#00ff9d']:['#00ff9d','#a855ff','#ff4488','#00f0ff'];
+  const types=[
+    {w:18,h:38,y:GROUND-38,color:cols[0],bird:false},
+    {w:22,h:52,y:GROUND-52,color:cols[1],bird:false},
+    {w:34,h:24,y:GROUND-24,color:cols[2],bird:false},
+    {w:30,h:20,y:GROUND-80,color:cols[3],bird:true},
   ];
-  let t = types[Math.floor(Math.random() * types.length)];
-  return Object.assign({ x: W + 20 }, t);
+  return Object.assign({x:W+20},types[Math.floor(Math.random()*types.length)]);
 }
 
-function updatePhysics(p) {
-  p.vy += 0.75;
-  p.y += p.vy;
-  if (p.y >= GROUND - CHAR_H) { p.y = GROUND - CHAR_H; p.vy = 0; p.onGround = true; }
+function updatePhysics(p){
+  p.vy+=0.75;p.y+=p.vy;
+  if(p.y>=GROUND-CHAR_H){p.y=GROUND-CHAR_H;p.vy=0;p.onGround=true;}
 }
 
-function checkCollisions(p, obs, onDie) {
-  obs.forEach(o => {
-    if (p.x+8 < o.x+o.w && p.x+CHAR_W-8 > o.x && p.y+8 < o.y+o.h && p.y+CHAR_H-8 > o.y) onDie();
+function checkCollisions(p,obs,onDie){
+  obs.forEach(o=>{
+    if(p.x+8<o.x+o.w&&p.x+CHAR_W-8>o.x&&p.y+8<o.y+o.h&&p.y+CHAR_H-8>o.y) onDie();
   });
 }
 
-// ─── DRAW SCENE ───────────────────────────────────────────────────────────────
-function drawScene(c, w, h) {
-  const world = WORLDS[currentWorld];
-  c.clearRect(0, 0, w, h);
-
-  if (bgImg.complete && bgImg.naturalWidth > 0) {
-    c.globalAlpha = 0.07;
-    c.drawImage(bgImg, 0, 0, w, h);
-    c.globalAlpha = 1;
+function drawScene(c,w,h){
+  const world=WORLDS[currentWorld];
+  c.clearRect(0,0,w,h);
+  if(bgImg.complete&&bgImg.naturalWidth>0){c.globalAlpha=0.07;c.drawImage(bgImg,0,0,w,h);c.globalAlpha=1;}
+  const grad=c.createLinearGradient(0,0,0,h);
+  grad.addColorStop(0,world.sky1);grad.addColorStop(1,world.sky2);
+  c.fillStyle=grad;c.fillRect(0,0,w,h);
+  if(world.stars){
+    c.fillStyle='rgba(255,255,255,0.6)';
+    for(let i=0;i<20;i++) c.fillRect((i*97+(frameCount||0)*0.3)%w,(i*53)%100,1,1);
   }
-
-  // Sky gradient
-  let grad = c.createLinearGradient(0, 0, 0, h);
-  grad.addColorStop(0, world.sky1);
-  grad.addColorStop(1, world.sky2);
-  c.fillStyle = grad;
-  c.fillRect(0, 0, w, h);
-
-  // Stars
-  if (world.stars) {
-    c.fillStyle = 'rgba(255,255,255,0.6)';
-    for (let i = 0; i < 20; i++) {
-      c.fillRect((i*97 + (frameCount||0)*0.3) % w, (i*53) % 100, 1, 1);
-    }
+  groundX=(groundX-(speed||5)+w)%w;
+  c.fillStyle=world.ground;c.fillRect(0,GROUND+2,w,h-GROUND-2);
+  c.strokeStyle=world.line;c.lineWidth=2;
+  c.beginPath();c.moveTo(0,GROUND+2);c.lineTo(w,GROUND+2);c.stroke();
+  c.strokeStyle=world.line+'33';c.lineWidth=1;
+  for(let i=0;i<w/40+1;i++){
+    const x=(groundX+i*40)%w;
+    c.beginPath();c.moveTo(x,GROUND+2);c.lineTo(x,h);c.stroke();
   }
-
-  // Ground
-  groundX = (groundX - (speed||5) + w) % w;
-  c.fillStyle = world.ground;
-  c.fillRect(0, GROUND+2, w, h-GROUND-2);
-  c.strokeStyle = world.line;
-  c.lineWidth = 2;
-  c.beginPath(); c.moveTo(0, GROUND+2); c.lineTo(w, GROUND+2); c.stroke();
-  c.strokeStyle = world.line + '33';
-  c.lineWidth = 1;
-  for (let i = 0; i < w/40+1; i++) {
-    let x = (groundX + i*40) % w;
-    c.beginPath(); c.moveTo(x, GROUND+2); c.lineTo(x, h); c.stroke();
-  }
-
-  // Portals
-  if (portals) portals.forEach(p => drawPortal(c, p));
-
-  // Coins
-  if (coins) coins.forEach(coin => drawCoin(c, coin));
-
-  // Obstacles
-  if (obstacles) obstacles.forEach(o => {
-    c.fillStyle = o.color;
-    c.shadowColor = o.color; c.shadowBlur = 8;
-    if (o.bird) {
-      c.beginPath(); c.ellipse(o.x+o.w/2, o.y+o.h/2, o.w/2, o.h/2, 0, 0, Math.PI*2);
-      c.fill();
-      c.fillStyle = 'rgba(255,255,255,0.3)';
-      c.beginPath(); c.ellipse(o.x+o.w*0.35, o.y+o.h*0.35, o.w*0.2, o.h*0.2, 0, 0, Math.PI*2);
-      c.fill();
+  if(portals) portals.forEach(p=>drawPortal(c,p));
+  if(coins) coins.forEach(coin=>drawCoin(c,coin));
+  if(obstacles) obstacles.forEach(o=>{
+    c.fillStyle=o.color;c.shadowColor=o.color;c.shadowBlur=8;
+    if(o.bird){
+      c.beginPath();c.ellipse(o.x+o.w/2,o.y+o.h/2,o.w/2,o.h/2,0,0,Math.PI*2);c.fill();
+      c.fillStyle='rgba(255,255,255,0.3)';
+      c.beginPath();c.ellipse(o.x+o.w*0.35,o.y+o.h*0.35,o.w*0.2,o.h*0.2,0,0,Math.PI*2);c.fill();
     } else {
-      c.beginPath(); c.roundRect(o.x, o.y, o.w, o.h, 3); c.fill();
-      c.fillStyle = 'rgba(255,255,255,0.15)';
-      c.fillRect(o.x+2, o.y+2, o.w-4, 4);
+      c.beginPath();c.roundRect(o.x,o.y,o.w,o.h,3);c.fill();
+      c.fillStyle='rgba(255,255,255,0.15)';c.fillRect(o.x+2,o.y+2,o.w-4,4);
     }
-    c.shadowBlur = 0;
+    c.shadowBlur=0;
   });
-
-  // Character
-  if (player) {
-    if (charImg.complete && charImg.naturalWidth > 0) {
-      c.drawImage(charImg, player.x, player.y, CHAR_W, CHAR_H);
-    } else {
-      c.fillStyle = '#00ff9d';
-      c.fillRect(player.x, player.y, CHAR_W, CHAR_H);
-    }
+  if(player){
+    if(charImg.complete&&charImg.naturalWidth>0){c.drawImage(charImg,player.x,player.y,CHAR_W,CHAR_H);}
+    else{c.fillStyle='#00ff9d';c.fillRect(player.x,player.y,CHAR_W,CHAR_H);}
   }
-
-  // Floating coin pops
-  for (let i = coinPops.length - 1; i >= 0; i--) {
-    const p = coinPops[i];
-    c.globalAlpha = p.life / 40;
-    c.fillStyle = p.color;
-    c.font = 'bold 13px Orbitron';
-    c.textAlign = 'center';
-    c.fillText(p.text, p.x, p.y - (40 - p.life) * 0.8);
-    c.globalAlpha = 1;
-    p.life--;
-    if (p.life <= 0) coinPops.splice(i, 1);
+  for(let i=coinPops.length-1;i>=0;i--){
+    const p=coinPops[i];
+    c.globalAlpha=p.life/40;c.fillStyle=p.color;c.font='bold 13px Orbitron';c.textAlign='center';
+    c.fillText(p.text,p.x,p.y-(40-p.life)*0.8);c.globalAlpha=1;
+    p.life--;if(p.life<=0) coinPops.splice(i,1);
   }
-  c.textAlign = 'left';
-
-  // World flash overlay
-  if (worldFlash > 0) {
-    c.globalAlpha = (worldFlash / 45) * 0.55;
-    c.fillStyle = worldFlashColor;
-    c.fillRect(0, 0, w, h);
-    c.globalAlpha = 1;
+  c.textAlign='left';
+  if(worldFlash>0){
+    c.globalAlpha=(worldFlash/45)*0.55;c.fillStyle=worldFlashColor;c.fillRect(0,0,w,h);c.globalAlpha=1;
     worldFlash--;
   }
 }
 
-function drawCoin(c, coin) {
-  c.save();
-  c.shadowColor = coin.glow; c.shadowBlur = coin.r > 10 ? 16 : 8;
-  // Spin effect — squash horizontally
-  const scaleX = Math.abs(Math.cos(coin.spin));
-  c.translate(coin.x, coin.y);
-  c.scale(Math.max(scaleX, 0.15), 1);
-  c.beginPath();
-  c.arc(0, 0, coin.r, 0, Math.PI*2);
-  c.fillStyle = coin.color;
-  c.fill();
-  c.restore();
-  // Label
-  if (coin.label) {
-    c.fillStyle = '#fff';
-    c.font = `bold ${coin.r}px sans-serif`;
-    c.textAlign = 'center';
-    c.fillText(coin.label, coin.x, coin.y + coin.r * 0.4);
+function drawCoin(c,coin){
+  c.save();c.shadowColor=coin.glow;c.shadowBlur=coin.r>10?16:8;
+  const scaleX=Math.abs(Math.cos(coin.spin));
+  c.translate(coin.x,coin.y);c.scale(Math.max(scaleX,0.15),1);
+  c.beginPath();c.arc(0,0,coin.r,0,Math.PI*2);c.fillStyle=coin.color;c.fill();c.restore();
+  if(coin.label){
+    c.fillStyle='#fff';c.font=`bold ${coin.r}px sans-serif`;c.textAlign='center';
+    c.fillText(coin.label,coin.x,coin.y+coin.r*0.4);
   } else {
-    c.fillStyle = 'rgba(255,255,255,0.7)';
-    c.font = `bold ${Math.max(8, coin.r - 2)}px sans-serif`;
-    c.textAlign = 'center';
-    c.fillText('$', coin.x, coin.y + coin.r * 0.38);
+    c.fillStyle='rgba(255,255,255,0.7)';c.font=`bold ${Math.max(8,coin.r-2)}px sans-serif`;c.textAlign='center';
+    c.fillText('$',coin.x,coin.y+coin.r*0.38);
   }
-  c.textAlign = 'left';
-  c.shadowBlur = 0;
+  c.textAlign='left';c.shadowBlur=0;
 }
 
-function drawPortal(c, p) {
-  const col = p.color;
-  const pw = 13, archH = p.h;
-  const cx = p.x + p.w / 2;
-  c.shadowColor = col; c.shadowBlur = 20;
-
-  // Portal glow fill
-  c.fillStyle = col + '18';
-  c.fillRect(p.x, GROUND - archH, p.w, archH);
-
-  // Left pillar
-  c.fillStyle = col;
-  c.fillRect(p.x, GROUND - archH, pw, archH);
-  // Right pillar
-  c.fillRect(p.x + p.w - pw, GROUND - archH, pw, archH);
-  // Arch top
-  c.beginPath();
-  c.arc(cx, GROUND - archH + 2, p.w/2 - pw/2, Math.PI, 0);
-  c.strokeStyle = col;
-  c.lineWidth = pw;
-  c.stroke();
-
-  // World name label
-  c.fillStyle = col;
-  c.font = 'bold 7px Orbitron';
-  c.textAlign = 'center';
-  c.fillText(p.name, cx, GROUND - archH - 10);
-  c.fillText('PORTAL', cx, GROUND - archH - 20);
-
-  // Inner shimmer lines
-  c.globalAlpha = 0.35 + 0.2 * Math.sin((frameCount||0) * 0.12);
-  for (let i = 0; i < 3; i++) {
-    const lx = p.x + pw + (p.w - pw*2) * (i+1) / 4;
-    c.strokeStyle = col;
-    c.lineWidth = 1.5;
-    c.beginPath();
-    c.moveTo(lx, GROUND - archH + pw);
-    c.lineTo(lx, GROUND - 2);
-    c.stroke();
+function drawPortal(c,p){
+  const col=p.color,pw=13,archH=p.h,cx=p.x+p.w/2;
+  c.shadowColor=col;c.shadowBlur=20;
+  c.fillStyle=col+'18';c.fillRect(p.x,GROUND-archH,p.w,archH);
+  c.fillStyle=col;c.fillRect(p.x,GROUND-archH,pw,archH);
+  c.fillRect(p.x+p.w-pw,GROUND-archH,pw,archH);
+  c.beginPath();c.arc(cx,GROUND-archH+2,p.w/2-pw/2,Math.PI,0);
+  c.strokeStyle=col;c.lineWidth=pw;c.stroke();
+  c.fillStyle=col;c.font='bold 7px Orbitron';c.textAlign='center';
+  c.fillText(p.name,cx,GROUND-archH-10);c.fillText('PORTAL',cx,GROUND-archH-20);
+  c.globalAlpha=0.35+0.2*Math.sin((frameCount||0)*0.12);
+  for(let i=0;i<3;i++){
+    const lx=p.x+pw+(p.w-pw*2)*(i+1)/4;
+    c.strokeStyle=col;c.lineWidth=1.5;
+    c.beginPath();c.moveTo(lx,GROUND-archH+pw);c.lineTo(lx,GROUND-2);c.stroke();
   }
-  c.globalAlpha = 1;
-  c.shadowBlur = 0;
-  c.lineWidth = 1;
-  c.textAlign = 'left';
+  c.globalAlpha=1;c.shadowBlur=0;c.lineWidth=1;c.textAlign='left';
 }
 
-// ─── CONTROLS ─────────────────────────────────────────────────────────────────
-function jump() {
-  if (!gameRunning) { startEndless(); return; }
-  if (player && player.onGround) { player.vy = -15; player.onGround = false; }
+function jump(){
+  if(!gameRunning){startEndless();return;}
+  if(player&&player.onGround){player.vy=-15;player.onGround=false;}
 }
-function handleJumpTouch(e) { e.preventDefault(); jump(); }
-function handleJumpMouse() { jump(); }
+function duck(){
+  if(gameRunning&&player) player.vy=8;
+}
 
-document.addEventListener('keydown', e => {
-  if (e.code === 'Space' || e.code === 'ArrowUp') { jump(); e.preventDefault(); }
-  if (e.code === 'ArrowDown' && gameRunning && player) { player.vy = 8; e.preventDefault(); }
+function ctrlJump(e){ if(e) e.preventDefault(); jump(); }
+function ctrlDuck(e){ if(e) e.preventDefault(); duck(); }
+function ctrlStart(e){ if(e) e.preventDefault(); startEndless(); }
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='Space'||e.code==='ArrowUp'){jump();e.preventDefault();}
+  if(e.code==='ArrowDown'&&gameRunning&&player){player.vy=8;e.preventDefault();}
 });
-canvas.addEventListener('touchstart', e => { jump(); e.preventDefault(); }, { passive:false });
+canvas.addEventListener('touchstart',e=>{jump();e.preventDefault();},{passive:false});
 
-// Initial idle draw
-player = { x:70, y:GROUND-CHAR_H, vy:0, onGround:true };
-obstacles = []; coins = []; portals = [];
-(function idleDraw() {
-  if (!gameRunning) drawScene(ctx, W, H);
+// Idle draw
+player={x:70,y:GROUND-CHAR_H,vy:0,onGround:true};
+obstacles=[];coins=[];portals=[];
+(function idleDraw(){
+  if(!gameRunning) drawScene(ctx,W,H);
   requestAnimationFrame(idleDraw);
 })();
 
 // ─── LEVEL CREATOR ────────────────────────────────────────────────────────────
-const SLOTS = 40, ROWS_C = 3;
-let grid = Array.from({ length:ROWS_C }, () => new Array(SLOTS).fill(false));
-let lastGenCode = '';
+const SLOTS=40,ROWS_C=3;
+let grid=Array.from({length:ROWS_C},()=>new Array(SLOTS).fill(false));
+let lastGenCode='';
 
-function buildGrid() {
-  const g = document.getElementById('creatorGrid');
-  g.innerHTML = '';
-  for (let r = 0; r < ROWS_C; r++) for (let s = 0; s < SLOTS; s++) {
-    let cell = document.createElement('div');
-    cell.className = 'gc'; cell.dataset.r = r; cell.dataset.s = s; cell.dataset.t = r;
-    if (grid[r][s]) cell.classList.add('on');
-    cell.addEventListener('click', () => { grid[r][s] = !grid[r][s]; cell.classList.toggle('on', grid[r][s]); });
+function buildGrid(){
+  const g=document.getElementById('creatorGrid');g.innerHTML='';
+  for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++){
+    const cell=document.createElement('div');
+    cell.className='gc';cell.dataset.r=r;cell.dataset.s=s;cell.dataset.t=r;
+    if(grid[r][s]) cell.classList.add('on');
+    cell.addEventListener('click',()=>{grid[r][s]=!grid[r][s];cell.classList.toggle('on',grid[r][s]);});
     g.appendChild(cell);
   }
 }
-
-function clearGrid() {
-  grid = Array.from({ length:ROWS_C }, () => new Array(SLOTS).fill(false));
-  buildGrid();
-  document.getElementById('codeOut').style.display = 'none';
-}
-
-function encodeLevel(g) {
-  let pairs = [];
-  for (let r = 0; r < ROWS_C; r++) for (let s = 0; s < SLOTS; s++) if (g[r][s]) pairs.push([s, r]);
-  return btoa(JSON.stringify(pairs));
-}
-
-function decodeLevel(code) {
-  try { return JSON.parse(atob(code)); } catch(e) { return null; }
-}
-
-function generateCode() {
-  lastGenCode = encodeLevel(grid);
-  document.getElementById('levelCode').value = lastGenCode;
-  document.getElementById('codeOut').style.display = 'block';
-}
-
-function copyCode() {
-  navigator.clipboard.writeText(document.getElementById('levelCode').value);
-  alert('Level code copied!');
-}
-
-function testLevel() {
-  const pairs = [];
-  for (let r = 0; r < ROWS_C; r++) for (let s = 0; s < SLOTS; s++) if (grid[r][s]) pairs.push([s, r]);
-  if (pairs.length === 0) { alert('Add some obstacles first!'); return; }
-  lastGenCode = encodeLevel(grid);
-  // Switch to play tab and run
+function clearGrid(){grid=Array.from({length:ROWS_C},()=>new Array(SLOTS).fill(false));buildGrid();document.getElementById('codeOut').style.display='none';}
+function encodeLevel(g){let pairs=[];for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++) if(g[r][s]) pairs.push([s,r]);return btoa(JSON.stringify(pairs));}
+function decodeLevel(code){try{return JSON.parse(atob(code));}catch(e){return null;}}
+function generateCode(){lastGenCode=encodeLevel(grid);document.getElementById('levelCode').value=lastGenCode;document.getElementById('codeOut').style.display='block';}
+function copyCode(){navigator.clipboard.writeText(document.getElementById('levelCode').value);alert('Level code copied!');}
+function testLevel(){
+  const pairs=[];
+  for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++) if(grid[r][s]) pairs.push([s,r]);
+  if(pairs.length===0){alert('Add some obstacles first!');return;}
+  lastGenCode=encodeLevel(grid);
   switchTab('play');
-  if (animId) cancelAnimationFrame(animId);
-  gameRunning = false;
-  document.getElementById('msg').textContent = 'SPACE / Tap to jump!';
-  player = { x:70, y:GROUND-CHAR_H, vy:0, onGround:true };
-  obstacles = []; coins = []; portals = [];
-  speed = 5; frameCount = 0;
-  playCustomLevel(lastGenCode, ctx, canvas, 'msg', 'score');
+  if(animId) cancelAnimationFrame(animId);
+  gameRunning=false;
+  document.getElementById('msg').textContent='SPACE / A to jump!';
+  player={x:70,y:GROUND-CHAR_H,vy:0,onGround:true};
+  obstacles=[];coins=[];portals=[];speed=5;frameCount=0;
+  playCustomLevel(lastGenCode,ctx,canvas,'msg','score');
 }
 
-// ─── CUSTOM LEVEL PLAYER ─────────────────────────────────────────────────────
-function obsFromPair(pair, canvasW) {
-  const [slot, type] = pair;
-  const defs = [
-    { w:18, h:38, dy:-38, color:'#00ff9d', bird:false },
-    { w:22, h:52, dy:-52, color:'#a855ff', bird:false },
-    { w:30, h:20, dy:-80, color:'#00f0ff', bird:true  },
+function obsFromPair(pair,canvasW){
+  const[slot,type]=pair;
+  const defs=[
+    {w:18,h:38,dy:-38,color:'#00ff9d',bird:false},
+    {w:22,h:52,dy:-52,color:'#a855ff',bird:false},
+    {w:30,h:20,dy:-80,color:'#00f0ff',bird:true},
   ];
-  let d = defs[type] || defs[0];
-  return { x: canvasW + 80 + slot * 120, y: GROUND + d.dy, w:d.w, h:d.h, color:d.color, bird:d.bird };
+  const d=defs[type]||defs[0];
+  return{x:canvasW+80+slot*120,y:GROUND+d.dy,w:d.w,h:d.h,color:d.color,bird:d.bird};
 }
 
-function playCustomLevel(code, c, cv, msgId, scoreId) {
-  let pairs = decodeLevel(code);
-  if (!pairs || pairs.length === 0) { alert('Empty or invalid level!'); return; }
-  let p2 = { x:70, y:GROUND-CHAR_H, vy:0, onGround:true };
-  let obs2 = pairs.map(pr => obsFromPair(pr, cv.width));
-  let coins2 = [], sc2 = 0, sp2 = 5, fc2 = 0, running = true, done = false;
-  let aid2;
-  const MSG = document.getElementById(msgId);
-  MSG.textContent = 'SPACE / Tap to jump!';
-  gameRunning = false;
-
-  function frame2() {
-    // Local draw (reuse drawScene with overridden globals temporarily)
-    const savedPlayer = player, savedObs = obstacles, savedCoins = coins, savedPortals = portals, savedSpeed = speed, savedFC = frameCount;
-    player = p2; obstacles = obs2; coins = coins2; portals = []; speed = sp2; frameCount = fc2;
-    drawScene(c, cv.width, cv.height);
-    player = savedPlayer; obstacles = savedObs; coins = savedCoins; portals = savedPortals; speed = savedSpeed; frameCount = savedFC;
-
-    if (running) {
-      fc2++; sc2 += 0.12;
-      document.getElementById(scoreId).textContent = Math.floor(sc2);
-      updatePhysics(p2);
-      obs2.forEach(o => o.x -= sp2);
-      obs2 = obs2.filter(o => o.x > -60);
-      // Coin spawning in custom level
-      if (fc2 % 60 === 0) {
-        const h = COIN_HEIGHTS[Math.floor(Math.random() * COIN_HEIGHTS.length)];
-        coins2.push({ x: cv.width + 20, y: h, r:7, pts:10, color:'#ffd700', glow:'#ffd700', label:'', spin:0 });
-      }
-      coins2.forEach(cn => { cn.x -= sp2; cn.spin += 0.08; });
-      coins2 = coins2.filter(cn => {
-        if (cn.x < -30) return false;
-        const dx = (p2.x + CHAR_W/2) - cn.x, dy = (p2.y + CHAR_H/2) - cn.y;
-        if (Math.sqrt(dx*dx+dy*dy) < CHAR_W/2 + cn.r - 4) { sc2 += cn.pts; return false; }
-        return true;
+function playCustomLevel(code,c,cv,msgId,scoreId){
+  const pairs=decodeLevel(code);
+  if(!pairs||pairs.length===0){alert('Empty or invalid level!');return;}
+  let p2={x:70,y:GROUND-CHAR_H,vy:0,onGround:true};
+  let obs2=pairs.map(pr=>obsFromPair(pr,cv.width));
+  let coins2=[],sc2=0,sp2=5,fc2=0,running=true,done=false,aid2;
+  const MSG=document.getElementById(msgId);
+  MSG.textContent='SPACE / A to jump!';gameRunning=false;
+  function frame2(){
+    const sv=player,so=obstacles,sc=coins,sp2s=portals,spd2=speed,sfc=frameCount;
+    player=p2;obstacles=obs2;coins=coins2;portals=[];speed=sp2;frameCount=fc2;
+    drawScene(c,cv.width,cv.height);
+    player=sv;obstacles=so;coins=sc;portals=sp2s;speed=spd2;frameCount=sfc;
+    if(running){
+      fc2++;sc2+=0.12;document.getElementById(scoreId).textContent=Math.floor(sc2);
+      updatePhysics(p2);obs2.forEach(o=>o.x-=sp2);obs2=obs2.filter(o=>o.x>-60);
+      if(fc2%60===0){const h=COIN_HEIGHTS[Math.floor(Math.random()*COIN_HEIGHTS.length)];coins2.push({x:cv.width+20,y:h,r:7,pts:10,color:'#ffd700',glow:'#ffd700',label:'',spin:0});}
+      coins2.forEach(cn=>{cn.x-=sp2;cn.spin+=0.08;});
+      coins2=coins2.filter(cn=>{
+        if(cn.x<-30) return false;
+        const dx=(p2.x+CHAR_W/2)-cn.x,dy=(p2.y+CHAR_H/2)-cn.y;
+        if(Math.sqrt(dx*dx+dy*dy)<CHAR_W/2+cn.r-4){sc2+=cn.pts;return false;}return true;
       });
-      checkCollisions(p2, obs2, () => { running = false; done = true; });
-      if (!done && obs2.length === 0) { running = false; done = true; }
+      checkCollisions(p2,obs2,()=>{running=false;done=true;});
+      if(!done&&obs2.length===0){running=false;done=true;}
     }
-    if (done && !running) {
-      MSG.textContent = obs2.length === 0 ? 'LEVEL CLEAR! Score: ' + Math.floor(sc2) : 'CRASHED! Score: ' + Math.floor(sc2);
-      document.removeEventListener('keydown', onKey2);
-      cv.removeEventListener('touchstart', onJump2);
-      cancelAnimationFrame(aid2);
-      return;
+    if(done&&!running){
+      MSG.textContent=obs2.length===0?'LEVEL CLEAR! Score: '+Math.floor(sc2):'CRASHED! Score: '+Math.floor(sc2);
+      document.removeEventListener('keydown',onKey2);cv.removeEventListener('touchstart',onJump2);
+      cancelAnimationFrame(aid2);return;
     }
-    aid2 = requestAnimationFrame(frame2);
+    aid2=requestAnimationFrame(frame2);
   }
-
-  function onJump2(e) { if (p2.onGround) { p2.vy=-15; p2.onGround=false; } if(e) e.preventDefault(); }
-  function onKey2(e) { if (e.code==='Space'||e.code==='ArrowUp') { onJump2(); e.preventDefault(); } }
-  document.addEventListener('keydown', onKey2);
-  cv.addEventListener('touchstart', onJump2, { passive:false });
-  if (aid2) cancelAnimationFrame(aid2);
-  aid2 = requestAnimationFrame(frame2);
+  function onJump2(e){if(p2.onGround){p2.vy=-15;p2.onGround=false;}if(e) e.preventDefault();}
+  function onKey2(e){if(e.code==='Space'||e.code==='ArrowUp'){onJump2();e.preventDefault();}}
+  document.addEventListener('keydown',onKey2);
+  cv.addEventListener('touchstart',onJump2,{passive:false});
+  if(aid2) cancelAnimationFrame(aid2);
+  aid2=requestAnimationFrame(frame2);
 }
 
-// ─── CHALLENGE TAB ────────────────────────────────────────────────────────────
-function loadChallenge() {
-  let code = document.getElementById('levelCodeIn').value.trim();
-  if (!code) { alert('Paste a level code first!'); return; }
-  let pairs = decodeLevel(code);
-  if (!pairs) { alert('Invalid code!'); return; }
-  document.getElementById('challengeInfo').style.display = 'block';
-  showLevelLB(code);
-  playCustomLevelChallenge(code);
+function loadChallenge(){
+  const code=document.getElementById('levelCodeIn').value.trim();
+  if(!code){alert('Paste a level code first!');return;}
+  const pairs=decodeLevel(code);
+  if(!pairs){alert('Invalid code!');return;}
+  document.getElementById('challengeInfo').style.display='block';
+  showLevelLB(code);playCustomLevelChallenge(code);
 }
 
-function playCustomLevelChallenge(code) {
-  const cv2 = document.getElementById('c2'), c2 = cv2.getContext('2d');
-  fitCanvas();
-  let pairs = decodeLevel(code);
-  let p3 = { x:70, y:GROUND-CHAR_H, vy:0, onGround:true };
-  let obs3 = pairs.map(pr => obsFromPair(pr, cv2.width));
-  let coins3 = [], sc3 = 0, running3 = true, done3 = false, fc3 = 0, aid3;
-  const MSG2 = document.getElementById('msg2');
-  MSG2.textContent = 'SPACE / Tap to jump!';
-
-  function frame3() {
-    const savedPlayer=player,savedObs=obstacles,savedCoins=coins,savedPortals=portals,savedSpeed=speed,savedFC=frameCount;
-    player=p3; obstacles=obs3; coins=coins3; portals=[]; speed=5; frameCount=fc3;
-    drawScene(c2, cv2.width, cv2.height);
-    player=savedPlayer; obstacles=savedObs; coins=savedCoins; portals=savedPortals; speed=savedSpeed; frameCount=savedFC;
-
-    if (running3) {
-      fc3++; sc3 += 0.12;
-      document.getElementById('score2').textContent = Math.floor(sc3);
-      updatePhysics(p3);
-      obs3.forEach(o => o.x -= 5);
-      obs3 = obs3.filter(o => o.x > -60);
-      if (fc3 % 60 === 0) {
-        const h = COIN_HEIGHTS[Math.floor(Math.random() * COIN_HEIGHTS.length)];
-        coins3.push({ x: cv2.width+20, y:h, r:7, pts:10, color:'#ffd700', glow:'#ffd700', label:'', spin:0 });
-      }
-      coins3.forEach(cn => { cn.x -= 5; cn.spin += 0.08; });
-      coins3 = coins3.filter(cn => {
-        if (cn.x < -30) return false;
-        const dx=(p3.x+CHAR_W/2)-cn.x, dy=(p3.y+CHAR_H/2)-cn.y;
-        if (Math.sqrt(dx*dx+dy*dy) < CHAR_W/2+cn.r-4) { sc3+=cn.pts; return false; }
-        return true;
+function playCustomLevelChallenge(code){
+  const cv2=document.getElementById('c2'),c2=cv2.getContext('2d');
+  const pairs=decodeLevel(code);
+  let p3={x:70,y:GROUND-CHAR_H,vy:0,onGround:true};
+  let obs3=pairs.map(pr=>obsFromPair(pr,cv2.width));
+  let coins3=[],sc3=0,running3=true,done3=false,fc3=0,aid3;
+  const MSG2=document.getElementById('msg2');
+  MSG2.textContent='SPACE / Tap to jump!';
+  function frame3(){
+    const sv=player,so=obstacles,sc=coins,sp=portals,spd=speed,sfc=frameCount;
+    player=p3;obstacles=obs3;coins=coins3;portals=[];speed=5;frameCount=fc3;
+    drawScene(c2,cv2.width,cv2.height);
+    player=sv;obstacles=so;coins=sc;portals=sp;speed=spd;frameCount=sfc;
+    if(running3){
+      fc3++;sc3+=0.12;document.getElementById('score2').textContent=Math.floor(sc3);
+      updatePhysics(p3);obs3.forEach(o=>o.x-=5);obs3=obs3.filter(o=>o.x>-60);
+      if(fc3%60===0){const h=COIN_HEIGHTS[Math.floor(Math.random()*COIN_HEIGHTS.length)];coins3.push({x:cv2.width+20,y:h,r:7,pts:10,color:'#ffd700',glow:'#ffd700',label:'',spin:0});}
+      coins3.forEach(cn=>{cn.x-=5;cn.spin+=0.08;});
+      coins3=coins3.filter(cn=>{
+        if(cn.x<-30) return false;
+        const dx=(p3.x+CHAR_W/2)-cn.x,dy=(p3.y+CHAR_H/2)-cn.y;
+        if(Math.sqrt(dx*dx+dy*dy)<CHAR_W/2+cn.r-4){sc3+=cn.pts;return false;}return true;
       });
-      checkCollisions(p3, obs3, () => { running3=false; done3=true; });
-      if (!done3 && obs3.length === 0) { running3=false; done3=true; }
+      checkCollisions(p3,obs3,()=>{running3=false;done3=true;});
+      if(!done3&&obs3.length===0){running3=false;done3=true;}
     }
-    if (done3 && !running3) {
-      let msg = obs3.length === 0 ? 'LEVEL CLEAR! ' : 'CRASHED! ';
-      MSG2.textContent = msg + 'Score: ' + Math.floor(sc3);
-      saveChallengeLB(code, Math.floor(sc3));
-      showLevelLB(code);
-      cancelAnimationFrame(aid3);
-      return;
+    if(done3&&!running3){
+      MSG2.textContent=(obs3.length===0?'LEVEL CLEAR! ':'CRASHED! ')+'Score: '+Math.floor(sc3);
+      saveChallengeLB(code,Math.floor(sc3));showLevelLB(code);
+      cancelAnimationFrame(aid3);return;
     }
-    aid3 = requestAnimationFrame(frame3);
+    aid3=requestAnimationFrame(frame3);
   }
-
-  function jump3() { if (p3.onGround) { p3.vy=-15; p3.onGround=false; } }
-  document.addEventListener('keydown', e => { if (e.code==='Space'||e.code==='ArrowUp') jump3(); });
-  cv2.addEventListener('touchstart', jump3, { passive:true });
-  if (aid3) cancelAnimationFrame(aid3);
-  aid3 = requestAnimationFrame(frame3);
+  function jump3(){if(p3.onGround){p3.vy=-15;p3.onGround=false;}}
+  document.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='ArrowUp') jump3();});
+  cv2.addEventListener('touchstart',jump3,{passive:true});
+  if(aid3) cancelAnimationFrame(aid3);
+  aid3=requestAnimationFrame(frame3);
 }
 
-function saveChallengeLB(code, s) {
-  let key = 'lvl_' + code.slice(0, 16);
-  let lb = JSON.parse(localStorage.getItem(key)||'[]');
-  lb.push({ name: localStorage.getItem('player_name')||'Player', score: s });
-  lb.sort((a,b) => b.score - a.score);
-  localStorage.setItem(key, JSON.stringify(lb.slice(0, 10)));
+function saveChallengeLB(code,s){
+  const key='lvl_'+code.slice(0,16);
+  let lb=JSON.parse(localStorage.getItem(key)||'[]');
+  lb.push({name:localStorage.getItem('player_name')||'Player',score:s});
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem(key,JSON.stringify(lb.slice(0,10)));
 }
-
-function showLevelLB(code) {
-  let key = 'lvl_' + code.slice(0, 16);
-  let lb = JSON.parse(localStorage.getItem(key)||'[]');
-  let tbody = document.getElementById('lbBody');
-  tbody.innerHTML = lb.map((e,i) => `<tr><td>${i+1}</td><td>${e.name}</td><td>${e.score}</td></tr>`).join('');
+function showLevelLB(code){
+  const key='lvl_'+code.slice(0,16);
+  const lb=JSON.parse(localStorage.getItem(key)||'[]');
+  const tbody=document.getElementById('lbBody');
+  tbody.innerHTML=lb.map((e,i)=>`<tr><td>${i+1}</td><td>${e.name}</td><td>${e.score}</td></tr>`).join('');
 }
-
-function saveScore(s) {
-  let lb = JSON.parse(localStorage.getItem('leaderboard')||'[]');
-  lb.push({ name: localStorage.getItem('player_name')||'Player', game:'Dino Runner', score:s, date:new Date().toLocaleDateString() });
-  lb.sort((a,b) => b.score - a.score);
-  localStorage.setItem('leaderboard', JSON.stringify(lb.slice(0, 20)));
+function saveScore(s){
+  let lb=JSON.parse(localStorage.getItem('leaderboard')||'[]');
+  lb.push({name:localStorage.getItem('player_name')||'Player',game:'Dino Runner',score:s,date:new Date().toLocaleDateString()});
+  lb.sort((a,b)=>b.score-a.score);
+  localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
 </script>
 </body>

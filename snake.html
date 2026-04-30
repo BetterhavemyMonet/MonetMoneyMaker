@@ -1,38 +1,146 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Monet Snake</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css">
 <style>
-canvas { display:block; margin:10px auto; border:2px solid #00ff9d; box-shadow:0 0 20px #00ff9d55; border-radius:6px; max-width:100%; }
-#info { font-size:14px; color:#00f0ff; margin:6px 0; }
-#msg { font-size:18px; min-height:26px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
-.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:13px; }
-#dpad { display:none; margin:8px auto; width:120px; height:120px; position:relative; }
-#dpad button { position:absolute; width:36px; height:36px; border-radius:6px; font-size:18px; padding:0; margin:0; }
-#dpad .up { top:0; left:42px; }
-#dpad .down { bottom:0; left:42px; }
-#dpad .left { top:42px; left:0; }
-#dpad .right { top:42px; right:0; }
-@media (pointer:coarse) { #dpad { display:block; } }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
+body {
+  height: 100%; height: 100dvh; overflow: hidden;
+  display: flex; flex-direction: column;
+  background: #02040a url('/title.jpg') center/cover fixed;
+  color: #fff; font-family: 'Orbitron', sans-serif; text-align: center;
+}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: rgba(2,4,10,0.82); pointer-events: none; z-index: 0;
+}
+.game-wrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; z-index: 1; padding: 4px 8px 0; overflow: hidden;
+}
+.game-header {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; flex-wrap: wrap; flex-shrink: 0; padding: 2px 0;
+}
+.game-title {
+  font-size: 13px; font-weight: 800;
+  background: linear-gradient(90deg, #00ff9d, #00f0ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.game-hud { font-size: 11px; color: #00f0ff; }
+.game-msg { font-size: 12px; min-height: 16px; color: #00ff9d; font-family: 'Orbitron', sans-serif; flex-shrink: 0; }
+.canvas-wrap {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center; width: 100%;
+}
+canvas {
+  display: block; max-width: 100%; max-height: 100%;
+  border: 2px solid #00ff9d; box-shadow: 0 0 20px #00ff9d44; border-radius: 6px;
+}
+.ctrl-area {
+  height: 200px; flex-shrink: 0;
+  background: linear-gradient(180deg, #1e2126 0%, #14161a 100%);
+  border-top: 2px solid #2c2f35;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+}
+.ctrl-body {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 380px; padding: 0 12px;
+}
+.ctrl-dpad { width: 126px; height: 126px; position: relative; flex-shrink: 0; }
+.ctrl-dpad-center {
+  position: absolute; width: 42px; height: 42px; top: 42px; left: 42px;
+  background: #252830; border: 1px solid #3a3e46; border-radius: 4px; pointer-events: none;
+}
+.ctrl-dpad button {
+  position: absolute; width: 42px; height: 42px;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #ccd0da; font-size: 16px;
+  cursor: pointer; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 0 #10121a, inset 0 1px 0 rgba(255,255,255,0.07);
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-dpad button:active {
+  background: linear-gradient(180deg, #3a3e46, #2e323b);
+  box-shadow: 0 1px 0 #10121500; transform: translateY(2px);
+}
+.dpad-up    { top: 0;    left: 42px; border-radius: 6px 6px 2px 2px; }
+.dpad-down  { bottom: 0; left: 42px; border-radius: 2px 2px 6px 6px; }
+.dpad-left  { top: 42px; left: 0;   border-radius: 6px 2px 2px 6px; }
+.dpad-right { top: 42px; right: 0;  border-radius: 2px 6px 6px 2px; }
+.ctrl-mid { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ctrl-start {
+  padding: 6px 16px; border-radius: 20px;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #a0a8b8;
+  font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700; letter-spacing: 1.5px;
+  cursor: pointer; box-shadow: 0 2px 0 #10121a, inset 0 1px 0 rgba(255,255,255,0.06);
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-start:active { transform: translateY(1px); box-shadow: none; }
+.ctrl-home {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #a0a8b8; font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 0 #10121a; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.ctrl-ab { width: 126px; height: 126px; position: relative; flex-shrink: 0; }
+.ctrl-btn-a, .ctrl-btn-b {
+  position: absolute; width: 48px; height: 48px; border-radius: 50%;
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 800;
+  cursor: pointer; border: none; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-btn-a {
+  background: radial-gradient(circle at 35% 35%, #22d060, #0f9040); color: #fff;
+  right: 4px; top: 20px; box-shadow: 0 5px 0 #085c28, inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.ctrl-btn-b {
+  background: radial-gradient(circle at 35% 35%, #ff5555, #cc1111); color: #fff;
+  left: 4px; bottom: 14px; box-shadow: 0 5px 0 #880808, inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.ctrl-btn-a:active, .ctrl-btn-b:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
 </style>
 </head>
 <body>
-<h2>MONET SNAKE</h2>
-<div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="best">0</span></div>
-<div id="msg">Press SPACE or Tap to Start</div>
-<canvas id="c" width="420" height="420"></canvas>
-<div id="dpad">
-  <button class="up" onclick="setDir(0,-1)">▲</button>
-  <button class="down" onclick="setDir(0,1)">▼</button>
-  <button class="left" onclick="setDir(-1,0)">◀</button>
-  <button class="right" onclick="setDir(1,0)">▶</button>
+<div class="game-wrap">
+  <div class="game-header">
+    <span class="game-title">MONET SNAKE</span>
+    <span class="game-hud">Score: <span id="score">0</span> &nbsp;|&nbsp; Best: <span id="best">0</span></span>
+  </div>
+  <div class="game-msg" id="msg">Press START or SPACE</div>
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+  </div>
 </div>
-<br>
-<button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
-<button class="btn" onclick="startGame()" style="margin-left:12px">START</button>
+
+<div class="ctrl-area">
+  <div class="ctrl-body">
+    <div class="ctrl-dpad">
+      <div class="ctrl-dpad-center"></div>
+      <button class="dpad-up"    ontouchstart="ctrlDir(0,-1,event)" onmousedown="ctrlDir(0,-1)">&#9650;</button>
+      <button class="dpad-down"  ontouchstart="ctrlDir(0,1,event)"  onmousedown="ctrlDir(0,1)">&#9660;</button>
+      <button class="dpad-left"  ontouchstart="ctrlDir(-1,0,event)" onmousedown="ctrlDir(-1,0)">&#9664;</button>
+      <button class="dpad-right" ontouchstart="ctrlDir(1,0,event)"  onmousedown="ctrlDir(1,0)">&#9654;</button>
+    </div>
+    <div class="ctrl-mid">
+      <button class="ctrl-start" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">START</button>
+      <a class="ctrl-home" href="arcade.html">&#8962;</a>
+    </div>
+    <div class="ctrl-ab">
+      <button class="ctrl-btn-a" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">A</button>
+      <button class="ctrl-btn-b" style="opacity:0.4;pointer-events:none">B</button>
+    </div>
+  </div>
+</div>
 
 <script>
 const canvas = document.getElementById('c');
@@ -40,13 +148,11 @@ const ctx = canvas.getContext('2d');
 const CELL = 20, COLS = 21, ROWS = 21;
 const W = COLS * CELL, H = ROWS * CELL;
 canvas.width = W; canvas.height = H;
-function fitCanvas(){const mw=Math.min(W,window.innerWidth-16);canvas.style.width=mw+'px';canvas.style.height=mw+'px';}
-fitCanvas(); window.addEventListener('resize',fitCanvas);
 
 const img = new Image(); img.src = '/dino-sprite.png';
 
-let snake, dir, nextDir, food, score, gameRunning, intervalId, bestScore;
-bestScore = parseInt(localStorage.getItem('snake_best')||'0');
+let snake, dir, nextDir, food, score, gameRunning, intervalId;
+let bestScore = parseInt(localStorage.getItem('snake_best')||'0');
 document.getElementById('best').textContent = bestScore;
 
 function startGame() {
@@ -54,6 +160,7 @@ function startGame() {
   dir = {x:1,y:0}; nextDir = {x:1,y:0};
   score = 0; gameRunning = true;
   document.getElementById('msg').textContent = '';
+  document.getElementById('score').textContent = 0;
   placeFood();
   if (intervalId) clearInterval(intervalId);
   intervalId = setInterval(tick, 120);
@@ -70,70 +177,54 @@ function placeFood() {
 function tick() {
   if (!gameRunning) return;
   dir = nextDir;
-  let head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
-
+  const head = {x: snake[0].x + dir.x, y: snake[0].y + dir.y};
   if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)) {
-    gameRunning = false;
-    clearInterval(intervalId);
+    gameRunning = false; clearInterval(intervalId);
     document.getElementById('msg').textContent = 'GAME OVER — Score: ' + score;
-    saveScore(score);
-    draw();
-    return;
+    saveScore(score); draw(); return;
   }
-
   snake.unshift(head);
   if (head.x===food.x && head.y===food.y) {
     score += 10;
-    if (score > bestScore) { bestScore = score; localStorage.setItem('snake_best', bestScore); document.getElementById('best').textContent = bestScore; }
+    if (score > bestScore) {
+      bestScore = score; localStorage.setItem('snake_best', bestScore);
+      document.getElementById('best').textContent = bestScore;
+    }
     document.getElementById('score').textContent = score;
     placeFood();
-  } else {
-    snake.pop();
-  }
+  } else { snake.pop(); }
   draw();
 }
 
 function draw() {
-  ctx.fillStyle = '#02040a';
-  ctx.fillRect(0,0,W,H);
-
-  ctx.strokeStyle = '#0a1428';
-  ctx.lineWidth = 0.5;
+  ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, W, H);
+  ctx.strokeStyle = '#0a1428'; ctx.lineWidth = 0.5;
   for (let x=0;x<COLS;x++) { ctx.beginPath(); ctx.moveTo(x*CELL,0); ctx.lineTo(x*CELL,H); ctx.stroke(); }
   for (let y=0;y<ROWS;y++) { ctx.beginPath(); ctx.moveTo(0,y*CELL); ctx.lineTo(W,y*CELL); ctx.stroke(); }
 
+  if (!snake) return;
   snake.forEach((s, i) => {
     if (i === 0) {
-      if (img.complete) {
+      if (img.complete && img.naturalWidth > 0) {
         ctx.drawImage(img, s.x*CELL, s.y*CELL, CELL, CELL);
       } else {
-        ctx.fillStyle = '#00ff9d';
-        ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2);
+        ctx.fillStyle = '#00ff9d'; ctx.fillRect(s.x*CELL+1, s.y*CELL+1, CELL-2, CELL-2);
       }
     } else {
-      let t = 1 - i / snake.length;
-      ctx.fillStyle = `rgba(0, ${Math.floor(180 + 75*t)}, ${Math.floor(100 + 57*t)}, 0.9)`;
-      ctx.shadowColor = '#00ff9d';
-      ctx.shadowBlur = 4;
-      ctx.beginPath();
-      ctx.roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, 3);
-      ctx.fill();
+      const t = 1 - i / snake.length;
+      ctx.fillStyle = `rgba(0, ${Math.floor(180+75*t)}, ${Math.floor(100+57*t)}, 0.9)`;
+      ctx.shadowColor = '#00ff9d'; ctx.shadowBlur = 4;
+      ctx.beginPath(); ctx.roundRect(s.x*CELL+2, s.y*CELL+2, CELL-4, CELL-4, 3); ctx.fill();
       ctx.shadowBlur = 0;
     }
   });
 
-  ctx.fillStyle = '#ff4488';
-  ctx.shadowColor = '#ff4488';
-  ctx.shadowBlur = 12;
-  ctx.beginPath();
-  ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL/2-2, 0, Math.PI*2);
-  ctx.fill();
+  if (!food) return;
+  ctx.fillStyle = '#ff4488'; ctx.shadowColor = '#ff4488'; ctx.shadowBlur = 12;
+  ctx.beginPath(); ctx.arc(food.x*CELL+CELL/2, food.y*CELL+CELL/2, CELL/2-2, 0, Math.PI*2); ctx.fill();
   ctx.shadowBlur = 0;
-
-  ctx.fillStyle = '#ffff00';
-  ctx.font = '10px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.fillText('$', food.x*CELL+CELL/2, food.y*CELL+CELL/2+4);
+  ctx.fillStyle = '#ffff00'; ctx.font = '10px sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText('$', food.x*CELL+CELL/2, food.y*CELL+CELL/2+4); ctx.textAlign = 'left';
 }
 
 function setDir(x, y) {
@@ -143,11 +234,14 @@ function setDir(x, y) {
   nextDir = {x, y};
 }
 
+function ctrlDir(x, y, e) { if (e) e.preventDefault(); setDir(x, y); }
+function ctrlStart(e) { if (e) e.preventDefault(); startGame(); }
+
 document.addEventListener('keydown', e => {
   if (!gameRunning && (e.code==='Space'||e.code==='Enter')) { startGame(); return; }
-  if (e.code==='ArrowUp'||e.key==='w') setDir(0,-1);
-  if (e.code==='ArrowDown'||e.key==='s') setDir(0,1);
-  if (e.code==='ArrowLeft'||e.key==='a') setDir(-1,0);
+  if (e.code==='ArrowUp'   ||e.key==='w') setDir(0,-1);
+  if (e.code==='ArrowDown' ||e.key==='s') setDir(0,1);
+  if (e.code==='ArrowLeft' ||e.key==='a') setDir(-1,0);
   if (e.code==='ArrowRight'||e.key==='d') setDir(1,0);
   e.preventDefault();
 });
@@ -158,20 +252,22 @@ canvas.addEventListener('touchstart', e => {
   touchSX=e.touches[0].clientX; touchSY=e.touches[0].clientY; e.preventDefault();
 }, {passive:false});
 canvas.addEventListener('touchend', e => {
-  let dx=e.changedTouches[0].clientX-touchSX, dy=e.changedTouches[0].clientY-touchSY;
-  if (Math.abs(dx)>Math.abs(dy)) setDir(dx>0?1:-1,0);
-  else setDir(0,dy>0?1:-1);
+  const dx=e.changedTouches[0].clientX-touchSX, dy=e.changedTouches[0].clientY-touchSY;
+  if (Math.abs(dx)>Math.abs(dy)) setDir(dx>0?1:-1,0); else setDir(0,dy>0?1:-1);
   e.preventDefault();
 }, {passive:false});
 
 function saveScore(s) {
   let lb = JSON.parse(localStorage.getItem('leaderboard')||'[]');
-  lb.push({ name: localStorage.getItem('player_name')||'Player', game:'Snake', score:s, date:new Date().toLocaleDateString() });
+  lb.push({ name:localStorage.getItem('player_name')||'Player', game:'Snake', score:s, date:new Date().toLocaleDateString() });
   lb.sort((a,b)=>b.score-a.score);
   localStorage.setItem('leaderboard', JSON.stringify(lb.slice(0,20)));
 }
 
-draw();
+// Static start screen
+ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, W, H);
+ctx.fillStyle = '#00ff9d'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center';
+ctx.fillText('Press START to play', W/2, H/2); ctx.textAlign = 'left';
 </script>
 </body>
 </html>

@@ -1,45 +1,153 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <title>Monet Frogger</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/styles.css">
 <style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { height: 100%; }
 body {
-  background-image: url('/title.jpg');
-  background-size: cover;
-  background-position: center;
-  background-attachment: fixed;
+  height: 100%; height: 100dvh;
+  overflow: hidden;
+  display: flex; flex-direction: column;
+  background: #02040a url('/title.jpg') center/cover fixed;
+  color: #fff; font-family: 'Orbitron', sans-serif; text-align: center;
 }
-body::before { content:''; position:fixed; inset:0; background:rgba(2,4,10,0.82); pointer-events:none; z-index:0; }
-.page { position:relative; z-index:1; padding-bottom:20px; }
-canvas { display:block; margin:10px auto; border:2px solid #00f0ff; box-shadow:0 0 20px #00f0ff55; border-radius:6px; max-width:100%; }
-#info { font-size:14px; color:#00f0ff; margin:6px 0; }
-#msg { font-size:20px; min-height:28px; color:#00ff9d; font-family:'Orbitron',sans-serif; }
-.btn { cursor:pointer; font-family:'Orbitron',sans-serif; font-size:13px; }
-#dpad { display:none; margin:8px auto; width:130px; height:130px; position:relative; }
-#dpad button { position:absolute; width:40px; height:40px; border-radius:8px; font-size:20px; padding:0; margin:0; }
-#dpad .up{top:0;left:45px;} #dpad .down{bottom:0;left:45px;}
-#dpad .left{top:45px;left:0;} #dpad .right{top:45px;right:0;}
-@media(pointer:coarse){#dpad{display:block;}}
+body::before {
+  content: ''; position: fixed; inset: 0;
+  background: rgba(2,4,10,0.82); pointer-events: none; z-index: 0;
+}
+.game-wrap {
+  flex: 1; min-height: 0;
+  display: flex; flex-direction: column; align-items: center;
+  position: relative; z-index: 1; padding: 4px 8px 0; overflow: hidden;
+}
+.game-header {
+  display: flex; align-items: center; justify-content: center;
+  gap: 10px; flex-wrap: wrap; flex-shrink: 0; padding: 2px 0;
+}
+.game-title {
+  font-size: 13px; font-weight: 800;
+  background: linear-gradient(90deg, #00f0ff, #a855ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.game-hud { font-size: 11px; color: #00f0ff; }
+.game-msg {
+  font-size: 12px; min-height: 16px; color: #00ff9d;
+  font-family: 'Orbitron', sans-serif; flex-shrink: 0;
+}
+.canvas-wrap {
+  flex: 1; min-height: 0;
+  display: flex; align-items: center; justify-content: center; width: 100%;
+}
+canvas {
+  display: block; max-width: 100%; max-height: 100%;
+  border: 2px solid #00f0ff; box-shadow: 0 0 20px #00f0ff44; border-radius: 6px;
+}
+
+/* ─── NINTENDO CONTROLLER ─────────────────────────────── */
+.ctrl-area {
+  height: 200px; flex-shrink: 0;
+  background: linear-gradient(180deg, #1e2126 0%, #14161a 100%);
+  border-top: 2px solid #2c2f35;
+  display: flex; align-items: center; justify-content: center;
+  position: relative; z-index: 1;
+}
+.ctrl-body {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; max-width: 380px; padding: 0 12px;
+}
+.ctrl-dpad { width: 126px; height: 126px; position: relative; flex-shrink: 0; }
+.ctrl-dpad-center {
+  position: absolute; width: 42px; height: 42px; top: 42px; left: 42px;
+  background: #252830; border: 1px solid #3a3e46; border-radius: 4px; pointer-events: none;
+}
+.ctrl-dpad button {
+  position: absolute; width: 42px; height: 42px;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #ccd0da; font-size: 16px;
+  cursor: pointer; padding: 0; margin: 0;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 0 #10121a, inset 0 1px 0 rgba(255,255,255,0.07);
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-dpad button:active {
+  background: linear-gradient(180deg, #3a3e46, #2e323b);
+  box-shadow: 0 1px 0 #10121500; transform: translateY(2px);
+}
+.dpad-up    { top: 0;    left: 42px; border-radius: 6px 6px 2px 2px; }
+.dpad-down  { bottom: 0; left: 42px; border-radius: 2px 2px 6px 6px; }
+.dpad-left  { top: 42px; left: 0;   border-radius: 6px 2px 2px 6px; }
+.dpad-right { top: 42px; right: 0;  border-radius: 2px 6px 6px 2px; }
+.ctrl-mid { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ctrl-start {
+  padding: 6px 16px; border-radius: 20px;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #a0a8b8;
+  font-family: 'Orbitron', sans-serif; font-size: 8px; font-weight: 700; letter-spacing: 1.5px;
+  cursor: pointer; box-shadow: 0 2px 0 #10121a, inset 0 1px 0 rgba(255,255,255,0.06);
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-start:active { transform: translateY(1px); box-shadow: none; }
+.ctrl-home {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: linear-gradient(180deg, #2e323b, #22252c);
+  border: 1px solid #3a3e46; color: #a0a8b8; font-size: 14px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 0 #10121a; text-decoration: none;
+  -webkit-tap-highlight-color: transparent; user-select: none;
+}
+.ctrl-ab { width: 126px; height: 126px; position: relative; flex-shrink: 0; }
+.ctrl-btn-a, .ctrl-btn-b {
+  position: absolute; width: 48px; height: 48px; border-radius: 50%;
+  font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 800;
+  cursor: pointer; border: none; display: flex; align-items: center; justify-content: center;
+  -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
+}
+.ctrl-btn-a {
+  background: radial-gradient(circle at 35% 35%, #22d060, #0f9040);
+  color: #fff; right: 4px; top: 20px;
+  box-shadow: 0 5px 0 #085c28, inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.ctrl-btn-b {
+  background: radial-gradient(circle at 35% 35%, #ff5555, #cc1111);
+  color: #fff; left: 4px; bottom: 14px;
+  box-shadow: 0 5px 0 #880808, inset 0 1px 0 rgba(255,255,255,0.2);
+}
+.ctrl-btn-a:active, .ctrl-btn-b:active { transform: translateY(4px); box-shadow: 0 1px 0 rgba(0,0,0,0.4); }
 </style>
 </head>
 <body>
-<div class="page">
-<h2>MONET FROGGER</h2>
-<div id="info">Score: <span id="score">0</span> &nbsp;|&nbsp; Lives: <span id="lives">3</span> &nbsp;|&nbsp; Level: <span id="level">1</span></div>
-<div id="msg">Press SPACE or Tap to Start</div>
-<canvas id="c" width="420" height="500"></canvas>
-<div id="dpad">
-  <button class="up" onclick="move(0,-1)">&#9650;</button>
-  <button class="down" onclick="move(0,1)">&#9660;</button>
-  <button class="left" onclick="move(-1,0)">&#9664;</button>
-  <button class="right" onclick="move(1,0)">&#9654;</button>
+<div class="game-wrap">
+  <div class="game-header">
+    <span class="game-title">MONET FROGGER</span>
+    <span class="game-hud">Score: <span id="score">0</span> &nbsp;|&nbsp; Lives: <span id="lives">3</span> &nbsp;|&nbsp; Lv: <span id="level">1</span></span>
+  </div>
+  <div class="game-msg" id="msg">Press START or SPACE</div>
+  <div class="canvas-wrap">
+    <canvas id="c"></canvas>
+  </div>
 </div>
-<br>
-<button class="btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
-<button class="btn" id="startBtn" onclick="startGame()" style="margin-left:12px">START</button>
+
+<div class="ctrl-area">
+  <div class="ctrl-body">
+    <div class="ctrl-dpad">
+      <div class="ctrl-dpad-center"></div>
+      <button class="dpad-up"    ontouchstart="ctrlMove(0,-1,event)" onmousedown="ctrlMove(0,-1)">&#9650;</button>
+      <button class="dpad-down"  ontouchstart="ctrlMove(0,1,event)"  onmousedown="ctrlMove(0,1)">&#9660;</button>
+      <button class="dpad-left"  ontouchstart="ctrlMove(-1,0,event)" onmousedown="ctrlMove(-1,0)">&#9664;</button>
+      <button class="dpad-right" ontouchstart="ctrlMove(1,0,event)"  onmousedown="ctrlMove(1,0)">&#9654;</button>
+    </div>
+    <div class="ctrl-mid">
+      <button class="ctrl-start" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">START</button>
+      <a class="ctrl-home" href="arcade.html">&#8962;</a>
+    </div>
+    <div class="ctrl-ab">
+      <button class="ctrl-btn-a" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">A</button>
+      <button class="ctrl-btn-b" style="opacity:0.4;pointer-events:none">B</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -48,22 +156,21 @@ const ctx = canvas.getContext('2d');
 const COLS = 14, ROWS = 14, CELL = 30;
 const W = COLS * CELL, H = ROWS * CELL;
 canvas.width = W; canvas.height = H;
-function fitCanvas(){const mw=Math.min(W,window.innerWidth-16);canvas.style.width=mw+'px';canvas.style.height=(mw*H/W)+'px';}
-fitCanvas(); window.addEventListener('resize',fitCanvas);
 
-let frog, cars, logs, score, lives, level, gameRunning, gameOver, animId;
 const img = new Image(); img.src = '/dino-sprite.png';
 
 const SAFE_ROWS = [0, 7, 13];
-const CAR_ROWS = [8,9,10,11,12];
-const LOG_ROWS = [1,2,3,4,5];
+const CAR_ROWS  = [8,9,10,11,12];
+const LOG_ROWS  = [1,2,3,4,5];
+
+let frog = null, cars = [], logs = [], score, lives, level, gameRunning, gameOver, animId;
 
 function makeCars(lvl) {
   let c = [];
   CAR_ROWS.forEach((row, i) => {
-    let dir = i % 2 === 0 ? 1 : -1;
-    let spd = (0.45 + i * 0.16 + lvl * 0.1) * dir;
-    let count = 2 + i;
+    const dir = i % 2 === 0 ? 1 : -1;
+    const spd = (0.28 + i * 0.10 + lvl * 0.06) * dir;
+    const count = Math.min(2, 1 + Math.floor(i / 2));
     for (let j = 0; j < count; j++) {
       c.push({ x: (j * (W / count)) % W, y: row * CELL, w: CELL * 1.6, h: CELL * 0.7, spd, row });
     }
@@ -74,10 +181,10 @@ function makeCars(lvl) {
 function makeLogs(lvl) {
   let l = [];
   LOG_ROWS.forEach((row, i) => {
-    let dir = i % 2 === 0 ? 1 : -1;
-    let spd = (0.32 + i * 0.12 + lvl * 0.08) * dir;
+    const dir = i % 2 === 0 ? 1 : -1;
+    const spd = (0.28 + i * 0.10 + lvl * 0.06) * dir;
     for (let j = 0; j < 3; j++) {
-      l.push({ x: j * (W / 3), y: row * CELL, w: CELL * 2.5, h: CELL * 0.8, spd, row });
+      l.push({ x: j * (W / 3), y: row * CELL, w: CELL * 2.8, h: CELL * 0.8, spd, row });
     }
   });
   return l;
@@ -92,6 +199,9 @@ function startGame() {
   cars = makeCars(1); logs = makeLogs(1);
   resetFrog();
   document.getElementById('msg').textContent = '';
+  document.getElementById('score').textContent = 0;
+  document.getElementById('lives').textContent = 3;
+  document.getElementById('level').textContent = 1;
   if (animId) cancelAnimationFrame(animId);
   loop();
 }
@@ -99,25 +209,25 @@ function startGame() {
 function drawGround() {
   for (let r = 0; r < ROWS; r++) {
     let color;
-    if (r === 0) color = '#004400';
+    if (r === 0)          color = '#004400';
     else if (r === 7 || r === 13) color = '#2a2a2a';
     else if (LOG_ROWS.includes(r)) color = '#001a33';
-    else color = '#1a1a1a';
+    else                  color = '#1a1a1a';
     ctx.fillStyle = color;
     ctx.fillRect(0, r * CELL, W, CELL);
   }
   ctx.strokeStyle = '#333'; ctx.lineWidth = 0.5;
-  for (let r = 1; r < ROWS; r++) { ctx.beginPath(); ctx.moveTo(0, r*CELL); ctx.lineTo(W, r*CELL); ctx.stroke(); }
+  for (let r = 1; r < ROWS; r++) {
+    ctx.beginPath(); ctx.moveTo(0, r*CELL); ctx.lineTo(W, r*CELL); ctx.stroke();
+  }
 }
 
 function drawCars() {
   cars.forEach(c => {
     ctx.fillStyle = '#ff4444';
-    ctx.beginPath();
-    ctx.roundRect(c.x, c.y + CELL*0.15, c.w, c.h, 4);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(c.x, c.y + CELL*0.15, c.w, c.h, 4); ctx.fill();
     ctx.fillStyle = '#ffff00';
-    let hx = c.spd > 0 ? c.x + c.w - 6 : c.x + 2;
+    const hx = c.spd > 0 ? c.x + c.w - 6 : c.x + 2;
     ctx.fillRect(hx, c.y + CELL*0.2, 4, c.h * 0.4);
   });
 }
@@ -125,17 +235,15 @@ function drawCars() {
 function drawLogs() {
   logs.forEach(l => {
     ctx.fillStyle = '#6b3c11';
-    ctx.beginPath();
-    ctx.roundRect(l.x, l.y + CELL*0.1, l.w, l.h, 6);
-    ctx.fill();
+    ctx.beginPath(); ctx.roundRect(l.x, l.y + CELL*0.1, l.w, l.h, 6); ctx.fill();
     ctx.fillStyle = '#8b5e2a';
     ctx.fillRect(l.x+4, l.y+CELL*0.25, l.w-8, l.h*0.35);
   });
 }
 
 function drawFrog() {
-  if (frog.dead) return;
-  if (img.complete) {
+  if (!frog || frog.dead) return;
+  if (img.complete && img.naturalWidth > 0) {
     ctx.drawImage(img, frog.x, frog.y, CELL, CELL);
   } else {
     ctx.fillStyle = '#00ff9d';
@@ -144,14 +252,13 @@ function drawFrog() {
 }
 
 function drawGoal() {
-  ctx.fillStyle = '#00ff9d';
-  ctx.font = '10px Orbitron';
-  ctx.textAlign = 'center';
+  ctx.fillStyle = '#00ff9d'; ctx.font = '10px Orbitron'; ctx.textAlign = 'center';
   ctx.fillText('GOAL', W/2, CELL*0.7);
   for (let i = 0; i < 3; i++) {
     ctx.strokeStyle = '#00ff9d';
     ctx.strokeRect(i * CELL*4 + CELL, CELL*0.05, CELL*2, CELL*0.85);
   }
+  ctx.textAlign = 'left';
 }
 
 function update() {
@@ -166,16 +273,15 @@ function update() {
     if (l.x < -l.w) l.x = W;
   });
 
-  if (frog.dead) return;
+  if (!frog || frog.dead) return;
 
-  let fr = Math.round(frog.y / CELL);
+  const fr = Math.round(frog.y / CELL);
 
   if (LOG_ROWS.includes(fr)) {
     let onLog = false;
     logs.forEach(l => {
       if (l.row === fr && frog.x + CELL*0.5 > l.x && frog.x + CELL*0.5 < l.x + l.w) {
-        frog.x += l.spd;
-        onLog = true;
+        frog.x += l.spd; onLog = true;
       }
     });
     if (!onLog) { die(); return; }
@@ -185,20 +291,16 @@ function update() {
   if (CAR_ROWS.includes(fr)) {
     cars.forEach(c => {
       if (c.row === fr &&
-          frog.x + 4 < c.x + c.w &&
-          frog.x + CELL - 4 > c.x &&
-          frog.y + 4 < c.y + c.h + CELL*0.15 &&
-          frog.y + CELL - 4 > c.y + CELL*0.15) {
+          frog.x + 4 < c.x + c.w && frog.x + CELL - 4 > c.x &&
+          frog.y + 4 < c.y + c.h + CELL*0.15 && frog.y + CELL - 4 > c.y + CELL*0.15) {
         die();
       }
     });
   }
 
   if (fr === 0) {
-    score += 50 * level;
-    level++;
-    cars = makeCars(level);
-    logs = makeLogs(level);
+    score += 50 * level; level++;
+    cars = makeCars(level); logs = makeLogs(level);
     resetFrog();
     document.getElementById('score').textContent = score;
     document.getElementById('level').textContent = level;
@@ -206,52 +308,51 @@ function update() {
 }
 
 function die() {
-  frog.dead = true;
-  lives--;
+  if (!frog) return;
+  frog.dead = true; lives--;
   document.getElementById('lives').textContent = lives;
   if (lives <= 0) {
-    gameOver = true;
-    gameRunning = false;
+    gameOver = true; gameRunning = false;
     document.getElementById('msg').textContent = 'GAME OVER — Score: ' + score;
-    saveScore(score);
-    return;
+    saveScore(score); return;
   }
   setTimeout(() => { resetFrog(); }, 800);
 }
 
 function loop() {
-  ctx.clearRect(0,0,W,H);
-  drawGround();
-  drawGoal();
-  drawLogs();
-  drawCars();
-  drawFrog();
+  ctx.clearRect(0, 0, W, H);
+  drawGround(); drawGoal(); drawLogs(); drawCars(); drawFrog();
   if (gameRunning) update();
-  document.getElementById('score').textContent = score;
+  document.getElementById('score').textContent = score || 0;
   animId = requestAnimationFrame(loop);
 }
 
 function move(dx, dy) {
-  if (!gameRunning || frog.dead) return;
+  if (!gameRunning || !frog || frog.dead) return;
   frog.x = Math.max(0, Math.min(W - CELL, frog.x + dx * CELL));
   frog.y = Math.max(0, Math.min((ROWS-1) * CELL, frog.y + dy * CELL));
 }
 
+function ctrlMove(dx, dy, e) { if (e) e.preventDefault(); move(dx, dy); }
+function ctrlStart(e) { if (e) e.preventDefault(); startGame(); }
+
 document.addEventListener('keydown', e => {
   if (!gameRunning && (e.code==='Space'||e.code==='Enter')) { startGame(); return; }
-  if (e.code==='ArrowUp'||e.key==='w') move(0,-1);
-  if (e.code==='ArrowDown'||e.key==='s') move(0,1);
-  if (e.code==='ArrowLeft'||e.key==='a') move(-1,0);
+  if (e.code==='ArrowUp'   ||e.key==='w') move(0,-1);
+  if (e.code==='ArrowDown' ||e.key==='s') move(0,1);
+  if (e.code==='ArrowLeft' ||e.key==='a') move(-1,0);
   if (e.code==='ArrowRight'||e.key==='d') move(1,0);
   e.preventDefault();
 });
 
 let touchStartX, touchStartY;
-canvas.addEventListener('touchstart', e => { touchStartX=e.touches[0].clientX; touchStartY=e.touches[0].clientY; e.preventDefault(); }, {passive:false});
-canvas.addEventListener('touchend', e => {
+canvas.addEventListener('touchstart', e => {
   if (!gameRunning) { startGame(); return; }
-  let dx = e.changedTouches[0].clientX - touchStartX;
-  let dy = e.changedTouches[0].clientY - touchStartY;
+  touchStartX = e.touches[0].clientX; touchStartY = e.touches[0].clientY; e.preventDefault();
+}, {passive:false});
+canvas.addEventListener('touchend', e => {
+  const dx = e.changedTouches[0].clientX - touchStartX;
+  const dy = e.changedTouches[0].clientY - touchStartY;
   if (Math.abs(dx) > Math.abs(dy)) move(dx>0?1:-1, 0);
   else move(0, dy>0?1:-1);
   e.preventDefault();
@@ -259,12 +360,15 @@ canvas.addEventListener('touchend', e => {
 
 function saveScore(s) {
   let lb = JSON.parse(localStorage.getItem('leaderboard')||'[]');
-  lb.push({ name: localStorage.getItem('player_name')||'Player', game:'Frogger', score:s, date:new Date().toLocaleDateString() });
+  lb.push({ name:localStorage.getItem('player_name')||'Player', game:'Frogger', score:s, date:new Date().toLocaleDateString() });
   lb.sort((a,b)=>b.score-a.score);
   localStorage.setItem('leaderboard', JSON.stringify(lb.slice(0,20)));
 }
 
-loop();
+// Initial static screen
+ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, W, H);
+ctx.fillStyle = '#00f0ff'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center';
+ctx.fillText('Press START to play', W/2, H/2);
 </script>
 </body>
 </html>
