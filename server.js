@@ -20,6 +20,7 @@ app.use(express.json());
 const MINT_ADDRESS    = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const TREASURY_ADDR   = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
 const ENTRY_FEE       = 5;
+const ALLOWED_ENTRY_FEES = new Set([5, 10, 25, 50]);
 const DECIMALS        = 6;
 const HOUSE_RAKE      = 0.10;
 const PRIZE_CUTS      = [0.50, 0.30, 0.10];
@@ -186,21 +187,30 @@ app.get('/api/status', async (req, res) => {
 
 // ─── Routes: challenges ───────────────────────────────────────────────────────
 app.post('/api/challenge/create', (req, res) => {
-  const { wallet, txId, game } = req.body;
+  const { wallet, txId, game, entryFee: reqFee } = req.body;
   if (!wallet || !txId || !game) return res.status(400).json({ error: 'wallet, txId, game required' });
 
   const challenges = dbRead('challenges');
   challenges.forEach(c => { if (c.status === 'open' && Date.now() > c.expiresAt) c.status = 'expired'; });
 
+  const fee = (reqFee && Number(reqFee) > 0) ? Number(reqFee) : ENTRY_FEE;
+  if (!ALLOWED_ENTRY_FEES.has(fee)) {
+    return res.status(400).json({ error: `Invalid entry fee. Allowed amounts: ${[...ALLOWED_ENTRY_FEES].join(', ')} MONET` });
+  }
+  // Reject duplicate txIds to prevent replay
+  const allForDedup = dbRead('challenges');
+  if (allForDedup.some(c => c.player1?.txId === txId || c.player2?.txId === txId)) {
+    return res.status(400).json({ error: 'Transaction ID already used' });
+  }
   const code      = genCode();
-  const pot       = calcPot(2);
+  const pot       = calcPot(2, fee);
   const challenge = {
     id:        genId(),
     code,
     game,
     player1:   { wallet, txId, score: null, submittedAt: null },
     player2:   null,
-    entryFee:  ENTRY_FEE,
+    entryFee:  fee,
     pot:       pot.net,
     rake:      pot.rake,
     status:    'open',
@@ -211,7 +221,7 @@ app.post('/api/challenge/create', (req, res) => {
   };
   challenges.push(challenge);
   dbWrite('challenges', challenges);
-  res.json({ ok: true, code, challengeId: challenge.id, pot: pot.net });
+  res.json({ ok: true, code, challengeId: challenge.id, pot: pot.net, entryFee: fee });
 });
 
 app.get('/api/challenge/:code', (req, res) => {
@@ -240,6 +250,10 @@ app.post('/api/challenge/join', (req, res) => {
   if (c.status !== 'open')          return res.status(409).json({ error: `Challenge is ${c.status}` });
   if (Date.now() > c.expiresAt)     { c.status = 'expired'; dbWrite('challenges', challenges); return res.status(410).json({ error: 'Challenge has expired' }); }
   if (c.player1.wallet === wallet)  return res.status(409).json({ error: 'Cannot challenge yourself' });
+  // Reject duplicate txIds to prevent replay
+  if (challenges.some(ch => ch.player1?.txId === txId || ch.player2?.txId === txId)) {
+    return res.status(400).json({ error: 'Transaction ID already used' });
+  }
 
   c.player2 = { wallet, txId, score: null, submittedAt: null };
   c.status  = 'active';

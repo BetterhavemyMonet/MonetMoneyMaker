@@ -75,6 +75,11 @@ body::before {
   color:#a855ff;
   border:1px solid #a855ff44;
 }
+.badge-h2h {
+  background:rgba(0,240,255,0.12);
+  color:#00f0ff;
+  border:1px solid #00f0ff44;
+}
 
 .nav-row { display:flex; justify-content:center; gap:10px; margin:20px 0 10px; flex-wrap:wrap; }
 .nav-btn {
@@ -186,7 +191,7 @@ body::before {
 <div class="page">
 <img src="/logo.png" style="width:80px;display:block;margin:12px auto 6px;filter:drop-shadow(0 0 16px #a855ff)">
 <h1>MONET ARCADE</h1>
-<div class="subtitle">Choose your game · 5 MONET entry · Solo 80% · H2H/Tournament 90%</div>
+<div class="subtitle">Solo practice · Head-to-Head wager · Tournament prize pool</div>
 
 <div class="nav-row">
   <button class="nav-btn" onclick="location.href='index.html'">&#8592; Home</button>
@@ -214,53 +219,67 @@ body::before {
   <a class="compete-card h2h" href="challenge.html" style="--accent:#00f0ff">
     <div class="cc-icon">&#9876;</div>
     <div class="cc-title cc-h2h">HEAD-TO-HEAD</div>
-    <div class="cc-desc">Challenge a friend. Pay 5 MONET each. Higher score wins the 9 MONET pot.</div>
+    <div class="cc-desc">Challenge a friend. Wager MONET. Higher score wins the pot.</div>
     <span class="cc-badge cc-badge-h2h">90% TO WINNER</span>
   </a>
   <a class="compete-card tourney" href="tournament.html" style="--accent:#ffd700">
     <div class="cc-icon">&#127942;</div>
     <div class="cc-title cc-gold">TOURNAMENTS</div>
-    <div class="cc-desc">Join a field of players. Top 3 split 50/30/10% of the entire prize pool.</div>
+    <div class="cc-desc">Join a field of players. Top 3 split 50/30/10% of the prize pool.</div>
     <span class="cc-badge cc-badge-gold">PRIZE POOL</span>
   </a>
 </div>
 
-<div class="section-label">&#127918; New Games</div>
+<div class="section-label">&#127918; Games</div>
 <div class="grid">
 
   <a class="card" href="pacman.html" style="--accent:#ffdd00;--accent2:#ff8800;--glow:#ffdd0044">
     <div class="card-icon">&#128049;</div>
     <div class="card-title">Monet Pac-Man</div>
     <div class="card-desc">Eat dots, dodge ghosts. Power up and turn the tables!</div>
-    <span class="badge">NEW</span>
+    <span class="badge badge-h2h">H2H</span>
   </a>
 
   <a class="card" href="dino.html" style="--accent:#a855ff;--accent2:#00f0ff;--glow:#a855ff44">
     <div class="card-icon">&#9889;</div>
     <div class="card-title">Monet Runner</div>
     <div class="card-desc">Jump over obstacles. Build &amp; share your own levels!</div>
-    <span class="badge">LEVEL CREATOR</span>
+    <span class="badge badge-h2h">H2H</span>
   </a>
 
   <a class="card" href="frogger.html" style="--accent:#00ff9d;--accent2:#00f0ff;--glow:#00ff9d44">
     <div class="card-icon">&#128056;</div>
     <div class="card-title">Monet Frogger</div>
     <div class="card-desc">Cross traffic and river. Don't get squashed!</div>
-    <span class="badge">NEW</span>
+    <span class="badge badge-h2h">H2H</span>
   </a>
 
   <a class="card" href="snake.html" style="--accent:#00ff9d;--glow:#00ff9d44">
     <div class="card-icon">&#128013;</div>
     <div class="card-title">Monet Snake</div>
     <div class="card-desc">Eat coins and grow. Don't bite yourself!</div>
-    <span class="badge">NEW</span>
+    <span class="badge badge-h2h">H2H</span>
+  </a>
+
+  <a class="card" href="invaders.html" style="--accent:#00f0ff;--accent2:#a855ff;--glow:#00f0ff44">
+    <div class="card-icon">&#128125;</div>
+    <div class="card-title">Space Invaders</div>
+    <div class="card-desc">Blast the alien waves! Defend Earth for MONET!</div>
+    <span class="badge badge-h2h">H2H</span>
   </a>
 
   <a class="card" href="pong.html" style="--accent:#00f0ff;--glow:#00f0ff44">
     <div class="card-icon">&#127934;</div>
     <div class="card-title">Monet Pong</div>
     <div class="card-desc">Classic pong vs CPU. First to 7 wins!</div>
-    <span class="badge">NEW</span>
+    <span class="badge badge-h2h">H2H</span>
+  </a>
+
+  <a class="card" href="dino.html#create" style="--accent:#a855ff;--glow:#a855ff44" onclick="sessionStorage.setItem('dino_tab','create')">
+    <div class="card-icon">&#127959;</div>
+    <div class="card-title">Level Builder</div>
+    <div class="card-desc">Design custom Runner levels and challenge friends!</div>
+    <span class="badge">CREATOR</span>
   </a>
 
 </div>

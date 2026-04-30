@@ -15,6 +15,8 @@
 </style>
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<script src="/gamepad.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -327,6 +329,7 @@ function ctrlDir(dx,dy,e){ if(e) e.preventDefault(); setDir(dx,dy); }
 function ctrlStart(e){ if(e) e.preventDefault(); startGame(); }
 
 document.addEventListener('keydown',e=>{
+  if(window.isLobbyOpen&&window.isLobbyOpen())return;
   if(!gameRunning&&(e.code==='Space'||e.code==='Enter')){startGame();return;}
   if(e.code==='ArrowLeft' ||e.key==='a') setDir(-1,0);
   if(e.code==='ArrowRight'||e.key==='d') setDir(1,0);
@@ -362,9 +365,17 @@ ctx.shadowColor='#a855ff'; ctx.shadowBlur=12;
 ctx.fillText('Press START to play', W/2, H/2);
 ctx.shadowBlur=0; ctx.textAlign='left';
 
-// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+// ─── Gamepad support ──────────────────────────────────────────────────────────
+GamepadMgr.on('up',    () => setDir(0, -1));
+GamepadMgr.on('down',  () => setDir(0, 1));
+GamepadMgr.on('left',  () => setDir(-1, 0));
+GamepadMgr.on('right', () => setDir(1, 0));
+GamepadMgr.on('a',     () => { if (!gameRunning) startGame(); });
+GamepadMgr.on('start', () => startGame());
+
+// ─── Game Lobby ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  showPayGate('pacman', () => {});
+  showGameLobby('pacman', () => {});
 });
 </script>
 </body>

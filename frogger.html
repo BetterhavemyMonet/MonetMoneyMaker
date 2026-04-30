@@ -14,6 +14,8 @@
 </style>
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<script src="/gamepad.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -242,6 +244,7 @@ function ctrlMove(dx, dy, e) { if (e) e.preventDefault(); move(dx, dy); }
 function ctrlStart(e) { if (e) e.preventDefault(); startGame(); }
 
 document.addEventListener('keydown', e => {
+  if (window.isLobbyOpen && window.isLobbyOpen()) return;
   if (!gameRunning && (e.code==='Space'||e.code==='Enter')) { startGame(); return; }
   if (e.code==='ArrowUp'   ||e.key==='w') move(0,-1);
   if (e.code==='ArrowDown' ||e.key==='s') move(0,1);
@@ -275,9 +278,17 @@ ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, W, H);
 ctx.fillStyle = '#00f0ff'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center';
 ctx.fillText('Press START to play', W/2, H/2);
 
-// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+// ─── Gamepad support ──────────────────────────────────────────────────────────
+GamepadMgr.on('up',    () => move(0, -1));
+GamepadMgr.on('down',  () => move(0, 1));
+GamepadMgr.on('left',  () => move(-1, 0));
+GamepadMgr.on('right', () => move(1, 0));
+GamepadMgr.on('a',     () => { if (!gameRunning) startGame(); });
+GamepadMgr.on('start', () => startGame());
+
+// ─── Game Lobby ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  showPayGate('frogger', () => {});
+  showGameLobby('frogger', () => {});
 });
 </script>
 </body>

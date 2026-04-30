@@ -72,6 +72,8 @@
 </style>
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<script src="/gamepad.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -408,6 +410,7 @@ function ctrlDuck(e){ if(e) e.preventDefault(); duck(); }
 function ctrlStart(e){ if(e) e.preventDefault(); startEndless(); }
 
 document.addEventListener('keydown',e=>{
+  if(window.isLobbyOpen&&window.isLobbyOpen())return;
   if(e.code==='Space'||e.code==='ArrowUp'){jump();e.preventDefault();}
   if(e.code==='ArrowDown'&&gameRunning&&player){player.vy=8;e.preventDefault();}
 });
@@ -576,9 +579,22 @@ function saveScore(s){
   localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
 
-// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+// ─── Gamepad support ──────────────────────────────────────────────────────────
+GamepadMgr.on('up',    () => jump());
+GamepadMgr.on('down',  () => duck());
+GamepadMgr.on('a',     () => jump());
+GamepadMgr.on('b',     () => duck());
+GamepadMgr.on('start', () => startEndless());
+
+// ─── Game Lobby ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  showPayGate('dino', () => {});
+  // If launched with #create anchor, open create tab immediately
+  if (sessionStorage.getItem('dino_tab') === 'create') {
+    sessionStorage.removeItem('dino_tab');
+    showGameLobby('dino', () => { switchTab('create'); });
+  } else {
+    showGameLobby('dino', () => {});
+  }
 });
 </script>
 </body>

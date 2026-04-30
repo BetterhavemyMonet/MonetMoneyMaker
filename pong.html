@@ -18,6 +18,8 @@
 </style>
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<script src="/gamepad.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -193,6 +195,7 @@ function draw() {
 function ctrlStart(e) { if (e) e.preventDefault(); startGame(); }
 
 document.addEventListener('keydown', e => {
+  if (window.isLobbyOpen && window.isLobbyOpen()) return;
   if (!gameRunning && (e.code==='Space'||e.code==='Enter')) { startGame(); return; }
   if (!gameRunning || !playerPad) return;
   const spd = 14;
@@ -224,9 +227,17 @@ function saveScore(s) {
   localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
 
-// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+// ─── Gamepad support ──────────────────────────────────────────────────────────
+GamepadMgr.on('hold_up',   () => { if (gameRunning && playerPad) playerPad.y = Math.max(0, playerPad.y - 4); });
+GamepadMgr.on('hold_down', () => { if (gameRunning && playerPad) playerPad.y = Math.min(H - PAD_H, playerPad.y + 4); });
+GamepadMgr.on('up',        () => { if (gameRunning && playerPad) playerPad.y = Math.max(0, playerPad.y - 14); });
+GamepadMgr.on('down',      () => { if (gameRunning && playerPad) playerPad.y = Math.min(H - PAD_H, playerPad.y + 14); });
+GamepadMgr.on('a',         () => { if (!gameRunning) startGame(); });
+GamepadMgr.on('start',     () => startGame());
+
+// ─── Game Lobby ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  showPayGate('pong', () => {});
+  showGameLobby('pong', () => {});
 });
 </script>
 </body>

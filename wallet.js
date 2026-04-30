@@ -466,13 +466,15 @@ async function getAllTokens() {
 }
 
 // ─── Pay Entry Fee ────────────────────────────────────────────────────────────
-async function payEntryFee(gameName, onProgress) {
+// amount: optional override (defaults to MONET_CONFIG.ENTRY_FEE)
+async function payEntryFee(gameName, onProgress, amount) {
+  const fee = (amount && Number(amount) > 0) ? Number(amount) : MONET_CONFIG.ENTRY_FEE;
   const report = (step) => { try { onProgress && onProgress(step); } catch(_) {} };
 
   report('checking');
   if (!WalletState.connected || !WalletState.address) throw new Error('Connect wallet first');
-  if (WalletState.monetBalance < MONET_CONFIG.ENTRY_FEE) {
-    throw new Error(`Insufficient MONET. Need ${MONET_CONFIG.ENTRY_FEE}, have ${WalletState.monetBalance.toFixed(2)}`);
+  if (WalletState.monetBalance < fee) {
+    throw new Error(`Insufficient MONET. Need ${fee}, have ${WalletState.monetBalance.toFixed(2)}`);
   }
 
   const provider  = getProvider();
@@ -505,7 +507,7 @@ async function payEntryFee(gameName, onProgress) {
     throw new Error(`Transaction preparation failed: ${e.message}`);
   }
 
-  tx.add(createTransferInstruction(sourceATA, destATA, payer, toRawAmount(MONET_CONFIG.ENTRY_FEE)));
+  tx.add(createTransferInstruction(sourceATA, destATA, payer, toRawAmount(fee)));
 
   // Support both signAndSendTransaction and signTransaction APIs
   report('signing');
@@ -529,10 +531,10 @@ async function payEntryFee(gameName, onProgress) {
     throw new Error(`On-chain confirmation failed: ${e.message}`);
   }
 
-  WalletState.monetBalance -= MONET_CONFIG.ENTRY_FEE;
+  WalletState.monetBalance -= fee;
   document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
 
-  const session = { game: gameName, txId, paidAt: Date.now(), wallet: WalletState.address, entryFee: MONET_CONFIG.ENTRY_FEE };
+  const session = { game: gameName, txId, paidAt: Date.now(), wallet: WalletState.address, entryFee: fee };
   sessionStorage.setItem('game_session', JSON.stringify(session));
   return txId;
 }
@@ -912,17 +914,21 @@ async function arcadeSubmitScore(gameName, score) {
   const tournamentId  = urlParams.get('tournament');
   const cpuGameId     = urlParams.get('cpuGameId');
 
+  // Check sessionStorage for an active challenge session scoped to this game
+  const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
+  const csActive = cs && (!cs.game || cs.game === gameName);
+
   if (cpuGameId) {
     try {
       const result = await api('/api/cpu/submit', 'POST', { cpuGameId, wallet: WalletState.address, playerScore: score });
       _showCpuResult(result, score);
     } catch(e) { console.warn('[ARCADE] CPU submit error:', e.message); }
-  } else if (challengeCode) {
+  } else if (challengeCode || csActive) {
     try {
-      const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
-      if (cs) {
+      if (csActive) {
         await api('/api/challenge/submit', 'POST', { challengeId: cs.challengeId, wallet: WalletState.address, score });
         console.log('[ARCADE] Challenge score submitted:', score);
+        sessionStorage.removeItem('challenge_session');
       }
     } catch(e) { console.warn('[ARCADE] Challenge submit error:', e.message); }
   } else if (tournamentId) {
@@ -938,11 +944,12 @@ async function arcadeSubmitScore(gameName, score) {
 window.arcadeSubmitScore = arcadeSubmitScore;
 
 // ─── Create challenge from game page ─────────────────────────────────────────
-async function createChallenge(game) {
+async function createChallenge(game, wager) {
   if (!WalletState.connected) throw new Error('Connect wallet first');
-  const txId = await payEntryFee(game);
-  const res  = await api('/api/challenge/create', 'POST', { wallet: WalletState.address, txId, game });
-  sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: res.challengeId, code: res.code, txId }));
+  const fee  = wager || MONET_CONFIG.ENTRY_FEE;
+  const txId = await payEntryFee(game, null, fee);
+  const res  = await api('/api/challenge/create', 'POST', { wallet: WalletState.address, txId, game, entryFee: fee });
+  sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: res.challengeId, code: res.code, txId, entryFee: fee, game }));
   return res;
 }
 

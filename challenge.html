@@ -141,16 +141,26 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
     <div class="card">
       <div class="card-title">&#9876; CREATE 1v1 CHALLENGE</div>
       <div class="prize-box h2h-box">
-        <div class="big">9 MONET</div>
-        <div class="sub">Prize pot · 90% of 2× entry fee · winner takes all</div>
+        <div class="big" id="h2h-pot-display">9 MONET</div>
+        <div class="sub">Prize pot · 90% of 2&#215; entry fee · winner takes all</div>
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
       <div class="game-opts" id="h2h-game-opts">
-        <div class="game-opt active" data-game="frogger" onclick="selectGame(this,'h2h')">&#128056; Frogger</div>
-        <div class="game-opt" data-game="snake" onclick="selectGame(this,'h2h')">&#128013; Snake</div>
-        <div class="game-opt" data-game="pacman" onclick="selectGame(this,'h2h')">&#128049; Pac-Man</div>
-        <div class="game-opt" data-game="pong" onclick="selectGame(this,'h2h')">&#127934; Pong</div>
+        <div class="game-opt active" data-game="pacman" onclick="selectGame(this,'h2h')">&#128049; Pac-Man</div>
         <div class="game-opt" data-game="dino" onclick="selectGame(this,'h2h')">&#9889; Runner</div>
+        <div class="game-opt" data-game="frogger" onclick="selectGame(this,'h2h')">&#128056; Frogger</div>
+        <div class="game-opt" data-game="snake" onclick="selectGame(this,'h2h')">&#128013; Snake</div>
+        <div class="game-opt" data-game="invaders" onclick="selectGame(this,'h2h')">&#128640; Invaders</div>
+        <div class="game-opt" data-game="pong" onclick="selectGame(this,'h2h')">&#127934; Pong</div>
+      </div>
+      <div style="margin:10px 0 6px">
+        <div style="font-size:11px;color:#888;margin-bottom:6px">Wager amount:</div>
+        <div class="game-opts" id="h2h-wager-opts">
+          <div class="game-opt active" data-wager="5"  onclick="selectH2HWager(this)">5 MONET</div>
+          <div class="game-opt"        data-wager="10" onclick="selectH2HWager(this)">10 MONET</div>
+          <div class="game-opt"        data-wager="25" onclick="selectH2HWager(this)">25 MONET</div>
+          <div class="game-opt"        data-wager="50" onclick="selectH2HWager(this)">50 MONET</div>
+        </div>
       </div>
       <button class="btn-h2h btn-full" id="h2h-create-btn" onclick="createH2HChallenge()">PAY 5 MONET &amp; CREATE CHALLENGE</button>
       <div class="err" id="h2h-err"></div>
@@ -184,7 +194,7 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
         <div class="diff-opt" data-diff="medium" onclick="selectDiff(this)">&#128992; MEDIUM</div>
         <div class="diff-opt" data-diff="hard" onclick="selectDiff(this)">&#128308; HARD</div>
       </div>
-      <div style="font-size:10px;color:#555;margin:6px 0 10px" id="cpu-range-hint">CPU score target: 80 – 250 pts</div>
+      <div style="font-size:10px;color:#555;margin:6px 0 10px" id="cpu-range-hint">CPU score target: 80 &#8211; 250 pts</div>
       <button class="btn-cpu btn-full" id="cpu-start-btn" onclick="startCpuChallenge()">PAY 5 MONET &amp; PLAY vs CPU</button>
       <div class="err" id="cpu-err"></div>
     </div>
@@ -207,9 +217,12 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 </div>
 
 <script>
-let selectedH2HGame = 'frogger';
-let selectedCPUGame = 'frogger';
-let selectedDiff    = 'easy';
+const GAME_LABELS = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner', invaders:'Space Invaders' };
+
+let selectedH2HGame  = 'pacman';
+let selectedH2HWager = 5;
+let selectedCPUGame  = 'frogger';
+let selectedDiff     = 'easy';
 
 const CPU_RANGES = {
   easy:   { frogger:[100,350],    snake:[6,16],   pacman:[1000,3500],   pong:[2,4], dino:[300,900]   },
@@ -233,6 +246,15 @@ function selectGame(el, mode) {
   else { selectedCPUGame = el.dataset.game; updateCpuHint(); }
 }
 
+function selectH2HWager(el) {
+  document.querySelectorAll('#h2h-wager-opts .game-opt').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  selectedH2HWager = Number(el.dataset.wager);
+  const pot = (selectedH2HWager * 2 * 0.9).toFixed(1);
+  document.getElementById('h2h-pot-display').textContent = pot + ' MONET';
+  document.getElementById('h2h-create-btn').textContent = `PAY ${selectedH2HWager} MONET & CREATE CHALLENGE`;
+}
+
 function selectDiff(el) {
   document.querySelectorAll('.diff-opt').forEach(e => e.classList.remove('active'));
   el.classList.add('active');
@@ -249,7 +271,7 @@ function updateCpuHint() {
   const hint = document.getElementById('cpu-range-hint');
   const amt  = document.getElementById('cpu-prize-amt');
   const sub  = document.getElementById('cpu-prize-sub');
-  if (hint && r) hint.textContent = `CPU score target: ${r[0].toLocaleString()} – ${r[1].toLocaleString()} pts`;
+  if (hint && r) hint.textContent = `CPU score target: ${r[0].toLocaleString()} \u2013 ${r[1].toLocaleString()} pts`;
   if (amt) amt.textContent = `${pot} MONET`;
   if (sub) sub.textContent = `Prize pot if you win · ${DIFF_LABELS[selectedDiff]} difficulty`;
 }
@@ -259,20 +281,18 @@ async function createH2HChallenge() {
   const err = document.getElementById('h2h-err');
   err.textContent = '';
   if (!WalletState.connected) { err.textContent = 'Connect your wallet first'; return; }
-  if (WalletState.monetBalance < 5) { err.textContent = 'Need 5 MONET to create a challenge'; return; }
+  if (WalletState.monetBalance < selectedH2HWager) { err.textContent = `Need ${selectedH2HWager} MONET to create a challenge`; return; }
 
+  const label = btn.textContent;
   btn.disabled = true;
   btn.textContent = 'SIGN IN WALLET...';
   try {
-    const txId = await window.payEntryFee(selectedH2HGame);
-    btn.textContent = 'CREATING CHALLENGE...';
-    const res = await api('/api/challenge/create', 'POST', { wallet: WalletState.address, txId, game: selectedH2HGame });
-    sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: res.challengeId, code: res.code, txId }));
-    btn.textContent = 'PAY 5 MONET & CREATE CHALLENGE';
+    const res = await createChallenge(selectedH2HGame, selectedH2HWager);
+    btn.textContent = label;
     btn.disabled = false;
     showCreatedChallenge(res);
   } catch(e) {
-    btn.textContent = 'PAY 5 MONET & CREATE CHALLENGE';
+    btn.textContent = label;
     btn.disabled = false;
     err.textContent = e.message;
   }
@@ -307,7 +327,7 @@ function showCreatedChallenge(res) {
     <div style="background:rgba(0,255,157,0.07);border:1px solid #00ff9d33;border-radius:14px;padding:18px;margin-bottom:16px;text-align:center">
       <div style="font-size:11px;color:#888;margin-bottom:4px">CHALLENGE CREATED</div>
       <div class="ch-code" style="font-size:30px;margin:8px 0;color:#00ff9d">${res.code}</div>
-      <div style="font-size:11px;color:#00ff9d">Pot: ${res.pot} MONET · Share this code with your opponent</div>
+      <div style="font-size:11px;color:#00ff9d">Pot: ${res.pot} MONET \u00b7 Share this code with your opponent</div>
       <div class="ch-share" style="margin-top:10px">
         <div class="ch-link">${shareUrl}</div>
         <button class="btn-copy" onclick="copyLink('${shareUrl}')">Copy Link</button>
@@ -335,7 +355,7 @@ async function lookupChallenge() {
     const res = await api(`/api/challenge/${code}`);
     const c   = res.challenge;
     const pot = c.pot || 9;
-    const gameLabel = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner' }[c.game] || c.game;
+    const gameLabel = GAME_LABELS[c.game] || c.game;
     const timeLeft  = Math.max(0, Math.floor((c.expiresAt - Date.now()) / 3600000));
     pre.innerHTML = `
       <div class="challenge-card">
@@ -345,12 +365,12 @@ async function lookupChallenge() {
         <div><span class="ch-status st-${c.status}">${c.status.toUpperCase()}</span></div>
         ${c.player1?.score !== null ? `<div style="font-size:10px;color:#888;margin-top:6px">P1 score: ${c.player1.score}</div>` : ''}
         ${c.status === 'open' ? `
-          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY 5 MONET &amp; ACCEPT CHALLENGE</button>
+          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY ${c.entryFee||5} MONET &amp; ACCEPT CHALLENGE</button>
         ` : c.status === 'active' ? `
           <button class="btn-green btn-full" style="margin-top:10px" onclick="location.href='/${c.game}.html?challenge=${c.code}'">PLAY YOUR TURN &#9658;</button>
         ` : c.status === 'complete' ? `
           <div style="margin-top:8px;font-size:12px;color:#ffd700">&#127942; Winner: ${c.winner ? c.winner.slice(0,6)+'...'+c.winner.slice(-4) : 'TBD'}</div>
-          ${c.payoutTxId ? `<div style="font-size:9px;color:#00ff9d;margin-top:4px">Payout sent ✓</div>` : `<div style="font-size:9px;color:#ff4488;margin-top:4px">Payout pending</div>`}
+          ${c.payoutTxId ? `<div style="font-size:9px;color:#00ff9d;margin-top:4px">Payout sent \u2713</div>` : `<div style="font-size:9px;color:#ff4488;margin-top:4px">Payout pending</div>`}
         ` : ''}
         <div class="err" id="jp-err"></div>
       </div>`;
@@ -376,7 +396,7 @@ async function loadMyChallenges() {
       const me      = isP1 ? c.player1 : c.player2;
       const opp     = isP1 ? c.player2 : c.player1;
       const wonIt   = c.winner === WalletState.address;
-      const gameLabel = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner' }[c.game] || c.game;
+      const gameLabel = GAME_LABELS[c.game] || c.game;
       return `
         <div class="challenge-card">
           <div style="display:flex;justify-content:space-between;align-items:center">
