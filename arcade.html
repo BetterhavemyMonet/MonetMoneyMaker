@@ -143,6 +143,42 @@ body::before {
 .cc-badge-gold  { background:rgba(255,215,0,0.1); color:#ffd700; border:1px solid #ffd70033; }
 
 .wallet-bar { text-align:right; padding:6px 16px; background:rgba(0,0,0,0.3); font-size:12px; }
+
+.card.loading,
+.compete-card.loading {
+  pointer-events: none;
+  opacity: 0.7;
+  position: relative;
+}
+.card.loading::after,
+.compete-card.loading::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 14px;
+  background: rgba(2,4,10,0.45);
+  z-index: 1;
+}
+.card.loading .card-icon,
+.compete-card.loading .cc-icon {
+  position: relative;
+  z-index: 2;
+}
+.card.loading .card-icon::after,
+.compete-card.loading .cc-icon::after {
+  content: '';
+  display: block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-top-color: var(--accent, #a855ff);
+  border-radius: 50%;
+  animation: card-spin 0.7s linear infinite;
+  margin: 4px auto 0;
+}
+@keyframes card-spin {
+  to { transform: rotate(360deg); }
+}
 </style>
 </head>
 <body>
@@ -175,13 +211,13 @@ body::before {
 
 <div class="section-label">&#9876; Compete &amp; Win</div>
 <div class="compete-grid">
-  <a class="compete-card h2h" href="challenge.html">
+  <a class="compete-card h2h" href="challenge.html" style="--accent:#00f0ff">
     <div class="cc-icon">&#9876;</div>
     <div class="cc-title cc-h2h">HEAD-TO-HEAD</div>
     <div class="cc-desc">Challenge a friend. Pay 5 MONET each. Higher score wins the 9 MONET pot.</div>
     <span class="cc-badge cc-badge-h2h">90% TO WINNER</span>
   </a>
-  <a class="compete-card tourney" href="tournament.html">
+  <a class="compete-card tourney" href="tournament.html" style="--accent:#ffd700">
     <div class="cc-icon">&#127942;</div>
     <div class="cc-title cc-gold">TOURNAMENTS</div>
     <div class="cc-desc">Join a field of players. Top 3 split 50/30/10% of the entire prize pool.</div>
@@ -244,6 +280,20 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWalletBar('wbar');
   loadPotBalance();
   setInterval(loadPotBalance, 30000);
+
+  document.querySelectorAll('a.card, a.compete-card').forEach(card => {
+    card.addEventListener('click', () => {
+      card.classList.add('loading');
+    });
+  });
+
+  window.addEventListener('pageshow', e => {
+    if (e.persisted) {
+      document.querySelectorAll('a.card.loading, a.compete-card.loading').forEach(card => {
+        card.classList.remove('loading');
+      });
+    }
+  });
 });
 </script>
 </body>
