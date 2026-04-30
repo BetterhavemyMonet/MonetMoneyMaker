@@ -474,8 +474,17 @@ app.get('/api/leaderboard/:game', (req, res) => {
   res.json({ ok: true, game, leaderboard: board });
 });
 
-const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
+// ─── Static files (production) ────────────────────────────────────────────────
+if (process.env.NODE_ENV === 'production') {
+  const distDir = path.join(__dirname, 'dist');
+  app.use(express.static(distDir));
+  app.get(/^(?!\/api).*/, (_req, res) => {
+    res.sendFile(path.join(distDir, 'index.html'));
+  });
+}
+
+const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 5000 : 3001);
+app.listen(PORT, '0.0.0.0', () => {
   const hasKey = !!getTreasuryKP();
   console.log(`[MONET] API server :${PORT} | treasury payouts: ${hasKey ? 'ENABLED' : 'QUEUED (set TREASURY_PRIVATE_KEY)'}`);
 });
