@@ -537,6 +537,8 @@ async function payEntryFee(gameName, onProgress) {
   return txId;
 }
 
+window.payEntryFee = payEntryFee;
+
 // ─── Record Win / Claim ───────────────────────────────────────────────────────
 function recordWin(gameName, score) {
   const session = JSON.parse(sessionStorage.getItem('game_session') || 'null');
@@ -695,6 +697,25 @@ window._pgRenderGate = null;
 
 async function showPayGate(gameName, onSuccess) {
   if (hasValidSession(gameName)) { if (onSuccess) onSuccess(); return; }
+
+  // Bypass for players who already paid via challenge.html
+  const _up = new URLSearchParams(location.search);
+  const _cc = _up.get('challenge');
+  if (_cc) {
+    const _cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
+    if (_cs && _cs.code === _cc) { if (onSuccess) onSuccess(); return; }
+  }
+  // Bypass for CPU game (paid on challenge.html)
+  const _cpuParam = _up.get('cpu');
+  if (_cpuParam) {
+    const _cpus = JSON.parse(sessionStorage.getItem('cpu_session') || 'null');
+    if (_cpus && _cpus.cpuGameId === _up.get('cpuGameId')) {
+      if (onSuccess) onSuccess();
+      setTimeout(() => showCpuTarget(_cpus.cpuScore, _cpuParam), 300);
+      return;
+    }
+  }
+
   _injectPayGateStyles();
 
   const urlParams     = new URLSearchParams(location.search);
@@ -852,13 +873,51 @@ window.pgConnect = pgConnect;
 window.pgPay     = pgPay;
 window.pgBack    = pgBack;
 
+// ─── CPU target badge ─────────────────────────────────────────────────────────
+function showCpuTarget(cpuScore, difficulty) {
+  if (document.getElementById('cpu-target-badge')) return;
+  const badge = document.createElement('div');
+  badge.id = 'cpu-target-badge';
+  badge.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:rgba(2,4,10,0.92);border:1px solid #ff4488;border-radius:10px;padding:8px 14px;font-family:Orbitron,sans-serif;text-align:center;pointer-events:none';
+  badge.innerHTML = `<div style="font-size:8px;color:#ff4488;letter-spacing:1px;margin-bottom:2px">CPU TARGET</div><div style="font-size:20px;font-weight:800;color:#fff">${cpuScore}</div><div style="font-size:8px;color:#888;margin-top:2px">${(difficulty||'').toUpperCase()}</div>`;
+  document.body.appendChild(badge);
+}
+window.showCpuTarget = showCpuTarget;
+
+// ─── CPU result overlay ───────────────────────────────────────────────────────
+function _showCpuResult(result, playerScore) {
+  if (document.getElementById('cpu-result-overlay')) return;
+  const won = result.won;
+  const box = document.createElement('div');
+  box.id = 'cpu-result-overlay';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(2,4,10,0.96);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  box.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0d1017,#111827);border:2px solid ${won?'#ffd700':'#ff4488'};border-radius:20px;padding:28px 24px;width:min(340px,92vw);text-align:center">
+      <div style="font-size:38px;margin-bottom:8px">${won?'&#127942;':'&#128128;'}</div>
+      <div style="font-size:18px;font-weight:800;color:${won?'#ffd700':'#ff4488'};margin-bottom:14px">${won?'YOU BEAT THE CPU!':'CPU WINS'}</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Your Score</span><span style="color:#00ff9d;font-weight:700">${playerScore}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">CPU Score</span><span style="color:#ff4488;font-weight:700">${result.cpuScore}</span></div>
+      ${won ? `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#888">Payout</span><span style="color:#ffd700;font-weight:700">+${result.payout} MONET</span></div>` : `<div style="padding:8px 0;font-size:11px;color:#888">Better luck next time!</div>`}
+      <button onclick="location.href='arcade.html'" style="margin-top:14px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;font-family:Orbitron,sans-serif;font-size:12px;font-weight:800">&#8592; BACK TO ARCADE</button>
+      <button onclick="location.href='challenge.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#888;font-family:Orbitron,sans-serif;font-size:10px">PLAY AGAIN</button>
+    </div>`;
+  document.body.appendChild(box);
+  sessionStorage.removeItem('cpu_session');
+}
+
 // ─── Arcade Score Submission ──────────────────────────────────────────────────
 async function arcadeSubmitScore(gameName, score) {
   const urlParams     = new URLSearchParams(location.search);
   const challengeCode = urlParams.get('challenge');
   const tournamentId  = urlParams.get('tournament');
+  const cpuGameId     = urlParams.get('cpuGameId');
 
-  if (challengeCode) {
+  if (cpuGameId) {
+    try {
+      const result = await api('/api/cpu/submit', 'POST', { cpuGameId, wallet: WalletState.address, playerScore: score });
+      _showCpuResult(result, score);
+    } catch(e) { console.warn('[ARCADE] CPU submit error:', e.message); }
+  } else if (challengeCode) {
     try {
       const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
       if (cs) {

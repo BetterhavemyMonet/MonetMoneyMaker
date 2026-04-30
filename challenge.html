@@ -20,6 +20,17 @@ body::before { content:''; position:fixed; inset:0; background:rgba(2,4,10,0.86)
 
 .section { max-width:480px; margin:0 auto; padding:0 14px; }
 
+.tabs { display:flex; gap:6px; margin-bottom:14px; }
+.tab-btn {
+  flex:1; padding:9px; border-radius:10px; border:1px solid #333;
+  background:#111; color:#888; cursor:pointer;
+  font-family:'Orbitron',sans-serif; font-size:10px; font-weight:800;
+  transition: all .15s;
+}
+.tab-btn.active-h2h   { border-color:#00f0ff; background:#00f0ff18; color:#00f0ff; }
+.tab-btn.active-cpu   { border-color:#ff4488; background:#ff448818; color:#ff4488; }
+.tab-btn.active-join  { border-color:#a855ff; background:#a855ff18; color:#a855ff; }
+
 .card {
   background:rgba(255,255,255,0.04); border:1px solid rgba(255,255,255,0.1);
   border-radius:16px; padding:20px; margin-bottom:16px;
@@ -38,6 +49,18 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
   font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800;
   white-space:nowrap;
 }
+.btn-h2h {
+  padding:10px 18px; border-radius:10px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#00f0ff,#0080aa); color:#000;
+  font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800;
+  white-space:nowrap;
+}
+.btn-cpu {
+  padding:10px 18px; border-radius:10px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#ff4488,#c0136c); color:#fff;
+  font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800;
+  white-space:nowrap;
+}
 .btn-green {
   padding:10px 18px; border-radius:10px; border:none; cursor:pointer;
   background:linear-gradient(135deg,#00ff9d,#00c97b); color:#000;
@@ -45,7 +68,7 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
   white-space:nowrap;
 }
 .btn-full { width:100%; padding:12px; margin-top:4px; font-size:13px; }
-.err { color:#ff4488; font-size:11px; margin-top:4px; min-height:16px; }
+.err { color:#ff4488; font-size:11px; margin-top:8px; min-height:16px; }
 .ok  { color:#00ff9d; font-size:11px; margin-top:4px; }
 
 .challenge-card {
@@ -73,17 +96,32 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 }
 .game-opt.active { border-color:#a855ff; background:#a855ff22; color:#a855ff; }
 
-.prize-box { background:rgba(255,215,0,0.07); border:1px solid #ffd70033; border-radius:10px; padding:12px; margin-bottom:12px; text-align:center; }
-.prize-box .big { font-size:22px; font-weight:800; color:#ffd700; }
-.prize-box .sub { font-size:10px; color:#888; }
+.prize-box { border-radius:10px; padding:12px; margin-bottom:12px; text-align:center; }
+.prize-box.h2h-box { background:rgba(0,240,255,0.07); border:1px solid #00f0ff33; }
+.prize-box.cpu-box { background:rgba(255,68,136,0.07); border:1px solid #ff448833; }
+.prize-box .big { font-size:22px; font-weight:800; }
+.prize-box .sub { font-size:10px; color:#888; margin-top:2px; }
+.prize-box.h2h-box .big { color:#00f0ff; }
+.prize-box.cpu-box .big { color:#ff4488; }
+
+.diff-opts { display:flex; gap:6px; margin:8px 0; }
+.diff-opt  {
+  flex:1; padding:6px; border-radius:8px; border:1px solid #333;
+  background:#111; color:#888; cursor:pointer; text-align:center;
+  font-family:'Orbitron',sans-serif; font-size:9px; font-weight:bold;
+}
+.diff-opt.active { border-color:#ff4488; background:#ff448822; color:#ff4488; }
+
+.tab-panel { display:none; }
+.tab-panel.active { display:block; }
 </style>
 </head>
 <body>
 <div class="wallet-bar" id="wbar"></div>
 <div class="page">
-<img src="/logo.png" style="width:60px;display:block;margin:8px auto 4px;filter:drop-shadow(0 0 12px #00f0ff)">
-<h1 style="background:linear-gradient(90deg,#00f0ff,#a855ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0;font-size:20px">HEAD-TO-HEAD</h1>
-<p style="color:#888;font-size:11px;margin:4px 0 12px;font-family:Orbitron,sans-serif">Challenge a friend · Pay entry fee · Higher score wins the pot</p>
+<img src="/logo.png" style="width:60px;display:block;margin:8px auto 4px;filter:drop-shadow(0 0 12px #a855ff)">
+<h1 style="background:linear-gradient(90deg,#00f0ff,#a855ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0;font-size:20px">CHALLENGES</h1>
+<p style="color:#888;font-size:11px;margin:4px 0 12px;font-family:Orbitron,sans-serif">Play vs Friend · Play vs CPU · Winner takes all</p>
 
 <div class="nav-row">
   <button class="nav-btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
@@ -92,84 +130,181 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 
 <div class="section">
 
-  <!-- Create Challenge -->
-  <div class="card">
-    <div class="card-title">&#9876; CREATE A CHALLENGE</div>
-    <div class="prize-box">
-      <div class="big" id="c-pot-display">9 MONET</div>
-      <div class="sub">Prize pot (90% of 2× entry fee)</div>
-    </div>
-    <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
-    <div class="game-opts" id="game-opts">
-      <div class="game-opt active" data-game="frogger" onclick="selectGame(this)">&#128056; Frogger</div>
-      <div class="game-opt" data-game="snake" onclick="selectGame(this)">&#128013; Snake</div>
-      <div class="game-opt" data-game="pacman" onclick="selectGame(this)">&#128049; Pac-Man</div>
-      <div class="game-opt" data-game="pong" onclick="selectGame(this)">&#127934; Pong</div>
-      <div class="game-opt" data-game="dino" onclick="selectGame(this)">&#9889; Runner</div>
-    </div>
-    <button class="btn-primary btn-full" onclick="createNewChallenge()">PAY 5 MONET &amp; CREATE CHALLENGE</button>
-    <div class="err" id="c-err"></div>
+  <div class="tabs">
+    <button class="tab-btn active-h2h" id="tab-h2h" onclick="switchTab('h2h')">&#9876; 1v1 FRIEND</button>
+    <button class="tab-btn" id="tab-cpu" onclick="switchTab('cpu')">&#129302; vs CPU</button>
+    <button class="tab-btn" id="tab-join" onclick="switchTab('join')">&#128273; JOIN</button>
   </div>
 
-  <!-- Join Challenge -->
-  <div class="card">
-    <div class="card-title">&#128273; JOIN A CHALLENGE</div>
-    <div class="input-row">
-      <input type="text" id="join-code" placeholder="ENTER CODE (e.g. A3X7P2)" maxlength="6" style="text-transform:uppercase;letter-spacing:2px;font-size:14px">
-      <button class="btn-green" onclick="lookupChallenge()">LOOK UP</button>
+  <!-- ── H2H Tab ── -->
+  <div class="tab-panel active" id="panel-h2h">
+    <div class="card">
+      <div class="card-title">&#9876; CREATE 1v1 CHALLENGE</div>
+      <div class="prize-box h2h-box">
+        <div class="big">9 MONET</div>
+        <div class="sub">Prize pot · 90% of 2× entry fee · winner takes all</div>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
+      <div class="game-opts" id="h2h-game-opts">
+        <div class="game-opt active" data-game="frogger" onclick="selectGame(this,'h2h')">&#128056; Frogger</div>
+        <div class="game-opt" data-game="snake" onclick="selectGame(this,'h2h')">&#128013; Snake</div>
+        <div class="game-opt" data-game="pacman" onclick="selectGame(this,'h2h')">&#128049; Pac-Man</div>
+        <div class="game-opt" data-game="pong" onclick="selectGame(this,'h2h')">&#127934; Pong</div>
+        <div class="game-opt" data-game="dino" onclick="selectGame(this,'h2h')">&#9889; Runner</div>
+      </div>
+      <button class="btn-h2h btn-full" id="h2h-create-btn" onclick="createH2HChallenge()">PAY 5 MONET &amp; CREATE CHALLENGE</button>
+      <div class="err" id="h2h-err"></div>
     </div>
-    <div id="join-preview"></div>
-    <div class="err" id="j-err"></div>
+
+    <div class="card">
+      <div class="card-title">&#128203; MY CHALLENGES</div>
+      <div id="my-challenges"><div style="color:#555;font-size:11px">Connect wallet to see your challenges</div></div>
+    </div>
   </div>
 
-  <!-- My Challenges -->
-  <div class="card">
-    <div class="card-title">&#128203; MY CHALLENGES</div>
-    <div id="my-challenges"><div style="color:#555;font-size:11px">Connect wallet to see your challenges</div></div>
+  <!-- ── CPU Tab ── -->
+  <div class="tab-panel" id="panel-cpu">
+    <div class="card">
+      <div class="card-title">&#129302; PLAY vs CPU</div>
+      <div class="prize-box cpu-box">
+        <div class="big">4.5 MONET</div>
+        <div class="sub">Win payout · 90% of entry · beat CPU to win</div>
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
+      <div class="game-opts" id="cpu-game-opts">
+        <div class="game-opt active" data-game="frogger" onclick="selectGame(this,'cpu')">&#128056; Frogger</div>
+        <div class="game-opt" data-game="snake" onclick="selectGame(this,'cpu')">&#128013; Snake</div>
+        <div class="game-opt" data-game="pacman" onclick="selectGame(this,'cpu')">&#128049; Pac-Man</div>
+        <div class="game-opt" data-game="pong" onclick="selectGame(this,'cpu')">&#127934; Pong</div>
+        <div class="game-opt" data-game="dino" onclick="selectGame(this,'cpu')">&#9889; Runner</div>
+      </div>
+      <div style="font-size:11px;color:#888;margin:10px 0 6px">CPU difficulty:</div>
+      <div class="diff-opts">
+        <div class="diff-opt active" data-diff="easy" onclick="selectDiff(this)">&#128994; EASY</div>
+        <div class="diff-opt" data-diff="medium" onclick="selectDiff(this)">&#128992; MEDIUM</div>
+        <div class="diff-opt" data-diff="hard" onclick="selectDiff(this)">&#128308; HARD</div>
+      </div>
+      <div style="font-size:10px;color:#555;margin:6px 0 10px" id="cpu-range-hint">CPU score target: 80 – 250 pts</div>
+      <button class="btn-cpu btn-full" id="cpu-start-btn" onclick="startCpuChallenge()">PAY 5 MONET &amp; PLAY vs CPU</button>
+      <div class="err" id="cpu-err"></div>
+    </div>
+  </div>
+
+  <!-- ── Join Tab ── -->
+  <div class="tab-panel" id="panel-join">
+    <div class="card">
+      <div class="card-title">&#128273; JOIN A CHALLENGE</div>
+      <div class="input-row">
+        <input type="text" id="join-code" placeholder="ENTER CODE (e.g. A3X7P2)" maxlength="6" style="text-transform:uppercase;letter-spacing:2px;font-size:14px">
+        <button class="btn-green" onclick="lookupChallenge()">LOOK UP</button>
+      </div>
+      <div id="join-preview"></div>
+      <div class="err" id="j-err"></div>
+    </div>
   </div>
 
 </div>
 </div>
 
 <script>
-let selectedGame = 'frogger';
+let selectedH2HGame = 'frogger';
+let selectedCPUGame = 'frogger';
+let selectedDiff    = 'easy';
 
-function selectGame(el) {
-  document.querySelectorAll('.game-opt').forEach(e => e.classList.remove('active'));
-  el.classList.add('active');
-  selectedGame = el.dataset.game;
+const CPU_RANGES = {
+  easy:   { frogger:[80,250],   snake:[4,12],  pacman:[800,2500],   pong:[2,4], dino:[200,600]  },
+  medium: { frogger:[250,700],  snake:[12,30], pacman:[2500,7000],  pong:[4,6], dino:[600,1800] },
+  hard:   { frogger:[600,1800], snake:[28,70], pacman:[6000,18000], pong:[5,9], dino:[1500,5000]},
+};
+
+function switchTab(tab) {
+  ['h2h','cpu','join'].forEach(t => {
+    document.getElementById('panel-'+t).classList.toggle('active', t===tab);
+    const btn = document.getElementById('tab-'+t);
+    btn.className = 'tab-btn' + (t===tab ? ' active-'+t : '');
+  });
 }
 
-async function createNewChallenge() {
-  const btn = document.querySelector('.btn-primary.btn-full');
-  const err = document.getElementById('c-err');
+function selectGame(el, mode) {
+  const container = mode === 'h2h' ? 'h2h-game-opts' : 'cpu-game-opts';
+  document.querySelectorAll('#'+container+' .game-opt').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  if (mode === 'h2h') selectedH2HGame = el.dataset.game;
+  else { selectedCPUGame = el.dataset.game; updateCpuHint(); }
+}
+
+function selectDiff(el) {
+  document.querySelectorAll('.diff-opt').forEach(e => e.classList.remove('active'));
+  el.classList.add('active');
+  selectedDiff = el.dataset.diff;
+  updateCpuHint();
+}
+
+function updateCpuHint() {
+  const r = CPU_RANGES[selectedDiff]?.[selectedCPUGame];
+  const hint = document.getElementById('cpu-range-hint');
+  if (hint && r) hint.textContent = `CPU score target: ${r[0]} – ${r[1]} pts`;
+}
+
+async function createH2HChallenge() {
+  const btn = document.getElementById('h2h-create-btn');
+  const err = document.getElementById('h2h-err');
   err.textContent = '';
-  if (!WalletState.connected) { err.textContent = 'Connect wallet first'; return; }
-  btn.textContent = 'Processing...'; btn.disabled = true;
+  if (!WalletState.connected) { err.textContent = 'Connect your wallet first'; return; }
+  if (WalletState.monetBalance < 5) { err.textContent = 'Need 5 MONET to create a challenge'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'SIGN IN WALLET...';
   try {
-    const res = await createChallenge(selectedGame);
-    btn.textContent = 'PAY 5 MONET & CREATE CHALLENGE'; btn.disabled = false;
+    const txId = await window.payEntryFee(selectedH2HGame);
+    btn.textContent = 'CREATING CHALLENGE...';
+    const res = await api('/api/challenge/create', 'POST', { wallet: WalletState.address, txId, game: selectedH2HGame });
+    sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: res.challengeId, code: res.code, txId }));
+    btn.textContent = 'PAY 5 MONET & CREATE CHALLENGE';
+    btn.disabled = false;
     showCreatedChallenge(res);
   } catch(e) {
-    btn.textContent = 'PAY 5 MONET & CREATE CHALLENGE'; btn.disabled = false;
+    btn.textContent = 'PAY 5 MONET & CREATE CHALLENGE';
+    btn.disabled = false;
+    err.textContent = e.message;
+  }
+}
+
+async function startCpuChallenge() {
+  const btn = document.getElementById('cpu-start-btn');
+  const err = document.getElementById('cpu-err');
+  err.textContent = '';
+  if (!WalletState.connected) { err.textContent = 'Connect your wallet first'; return; }
+  if (WalletState.monetBalance < 5) { err.textContent = 'Need 5 MONET to play'; return; }
+
+  btn.disabled = true;
+  btn.textContent = 'SIGN IN WALLET...';
+  try {
+    const txId = await window.payEntryFee(selectedCPUGame);
+    btn.textContent = 'STARTING GAME...';
+    const res = await api('/api/cpu/start', 'POST', { wallet: WalletState.address, txId, game: selectedCPUGame, difficulty: selectedDiff });
+    sessionStorage.setItem('cpu_session', JSON.stringify({ cpuGameId: res.cpuGameId, cpuScore: res.cpuScore, txId }));
+    location.href = `/${selectedCPUGame}.html?cpu=${selectedDiff}&cpuGameId=${encodeURIComponent(res.cpuGameId)}&cpuScore=${res.cpuScore}`;
+  } catch(e) {
+    btn.textContent = 'PAY 5 MONET & PLAY vs CPU';
+    btn.disabled = false;
     err.textContent = e.message;
   }
 }
 
 function showCreatedChallenge(res) {
-  const gameUrl = `${res.code.toLowerCase() === 'frogger' ? 'frogger' : selectedGame}.html?challenge=${res.code}`;
-  const shareUrl = `${location.origin}/${gameUrl}`;
-  const opts = document.getElementById('game-opts');
-  opts.parentElement.insertAdjacentHTML('afterbegin', `
-    <div style="background:rgba(0,255,157,0.07);border:1px solid #00ff9d33;border-radius:12px;padding:16px;margin-bottom:16px;text-align:center">
+  const shareUrl = `${location.origin}/${selectedH2HGame}.html?challenge=${res.code}`;
+  const section  = document.getElementById('panel-h2h');
+  section.insertAdjacentHTML('afterbegin', `
+    <div style="background:rgba(0,255,157,0.07);border:1px solid #00ff9d33;border-radius:14px;padding:18px;margin-bottom:16px;text-align:center">
       <div style="font-size:11px;color:#888;margin-bottom:4px">CHALLENGE CREATED</div>
-      <div class="ch-code" style="font-size:28px;margin:8px 0">${res.code}</div>
-      <div style="font-size:11px;color:#00ff9d">Prize pot: ${res.pot} MONET · Share this code!</div>
+      <div class="ch-code" style="font-size:30px;margin:8px 0;color:#00ff9d">${res.code}</div>
+      <div style="font-size:11px;color:#00ff9d">Pot: ${res.pot} MONET · Share this code with your opponent</div>
       <div class="ch-share" style="margin-top:10px">
-        <div class="ch-link" id="share-link">${shareUrl}</div>
+        <div class="ch-link">${shareUrl}</div>
         <button class="btn-copy" onclick="copyLink('${shareUrl}')">Copy Link</button>
       </div>
-      <button class="btn-green btn-full" style="margin-top:10px" onclick="location.href='/${selectedGame}.html?challenge=${res.code}'">PLAY MY TURN &#9658;</button>
+      <button class="btn-green btn-full" style="margin-top:12px" onclick="location.href='/${selectedH2HGame}.html?challenge=${res.code}'">PLAY MY TURN &#9658;</button>
     </div>
   `);
   loadMyChallenges();
@@ -193,7 +328,7 @@ async function lookupChallenge() {
     const c   = res.challenge;
     const pot = c.pot || 9;
     const gameLabel = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner' }[c.game] || c.game;
-    const timeLeft = Math.max(0, Math.floor((c.expiresAt - Date.now()) / 3600000));
+    const timeLeft  = Math.max(0, Math.floor((c.expiresAt - Date.now()) / 3600000));
     pre.innerHTML = `
       <div class="challenge-card">
         <div class="ch-code">${c.code}</div>
@@ -202,7 +337,7 @@ async function lookupChallenge() {
         <div><span class="ch-status st-${c.status}">${c.status.toUpperCase()}</span></div>
         ${c.player1?.score !== null ? `<div style="font-size:10px;color:#888;margin-top:6px">P1 score: ${c.player1.score}</div>` : ''}
         ${c.status === 'open' ? `
-          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}', '${c.game}')">PAY 5 MONET &amp; ACCEPT CHALLENGE</button>
+          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY 5 MONET &amp; ACCEPT CHALLENGE</button>
         ` : c.status === 'active' ? `
           <button class="btn-green btn-full" style="margin-top:10px" onclick="location.href='/${c.game}.html?challenge=${c.code}'">PLAY YOUR TURN &#9658;</button>
         ` : c.status === 'complete' ? `
@@ -210,16 +345,14 @@ async function lookupChallenge() {
           ${c.payoutTxId ? `<div style="font-size:9px;color:#00ff9d;margin-top:4px">Payout sent ✓</div>` : `<div style="font-size:9px;color:#ff4488;margin-top:4px">Payout pending</div>`}
         ` : ''}
         <div class="err" id="jp-err"></div>
-      </div>
-    `;
+      </div>`;
   } catch(e) {
     err.textContent = e.message;
   }
 }
 
-async function joinAndPlay(code, game) {
-  const err = document.getElementById('jp-err');
-  if (!WalletState.connected) { err.textContent = 'Connect wallet first'; return; }
+function joinAndPlay(code, game) {
+  if (!WalletState.connected) { document.getElementById('j-err').textContent = 'Connect wallet first'; return; }
   location.href = `/${game}.html?challenge=${code}`;
 }
 
@@ -227,14 +360,14 @@ async function loadMyChallenges() {
   const el = document.getElementById('my-challenges');
   if (!WalletState.connected) { el.innerHTML = '<div style="color:#555;font-size:11px">Connect wallet to see your challenges</div>'; return; }
   try {
-    const res = await api(`/api/challenges?wallet=${WalletState.address}`);
+    const res  = await api(`/api/challenges?wallet=${WalletState.address}`);
     const list = res.challenges;
     if (!list.length) { el.innerHTML = '<div style="color:#555;font-size:11px">No challenges yet. Create one above!</div>'; return; }
     el.innerHTML = list.slice().reverse().map(c => {
-      const isP1 = c.player1?.wallet === WalletState.address;
-      const me   = isP1 ? c.player1 : c.player2;
-      const opp  = isP1 ? c.player2 : c.player1;
-      const wonIt = c.winner === WalletState.address;
+      const isP1    = c.player1?.wallet === WalletState.address;
+      const me      = isP1 ? c.player1 : c.player2;
+      const opp     = isP1 ? c.player2 : c.player1;
+      const wonIt   = c.winner === WalletState.address;
       const gameLabel = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner' }[c.game] || c.game;
       return `
         <div class="challenge-card">
@@ -246,11 +379,11 @@ async function loadMyChallenges() {
             <span class="ch-status st-${c.status}">${c.status.toUpperCase()}</span>
           </div>
           <div style="margin-top:8px;font-size:10px;color:#888">
-            You: <span style="color:${me?.score !== null ? '#00ff9d' : '#555'}">${me?.score !== null ? me.score + ' pts' : 'Not played'}</span>
+            You: <span style="color:${me?.score !== null ? '#00ff9d' : '#555'}">${me?.score !== null ? me.score+' pts' : 'Not played'}</span>
             &nbsp;|&nbsp;
-            Opponent: <span style="color:${opp?.score !== null ? '#ff4488' : '#555'}">${opp?.score !== null ? opp.score + ' pts' : 'Waiting...'}</span>
+            Opponent: <span style="color:${opp?.score !== null ? '#ff4488' : '#555'}">${opp?.score !== null ? opp.score+' pts' : 'Waiting...'}</span>
           </div>
-          ${c.status === 'complete' ? `<div style="font-size:11px;margin-top:6px;color:${wonIt ? '#ffd700' : '#ff4488'}">${wonIt ? '&#127942; YOU WON +'+c.pot+' MONET!' : '&#9747; You lost'}</div>` : ''}
+          ${c.status === 'complete' ? `<div style="font-size:11px;margin-top:6px;color:${wonIt?'#ffd700':'#ff4488'}">${wonIt?'&#127942; YOU WON +'+c.pot+' MONET!':'&#9747; You lost'}</div>` : ''}
           ${(c.status === 'open' || c.status === 'active') && me?.score === null ? `
             <button class="btn-green btn-full" style="margin-top:8px" onclick="location.href='/${c.game}.html?challenge=${c.code}'">PLAY &#9658;</button>
           ` : ''}
@@ -260,8 +393,7 @@ async function loadMyChallenges() {
               <button class="btn-copy" onclick="copyLink('${location.origin}/${c.game}.html?challenge=${c.code}')">Copy</button>
             </div>
           ` : ''}
-        </div>
-      `;
+        </div>`;
     }).join('');
   } catch(e) {
     el.innerHTML = `<div style="color:#ff4488;font-size:11px">${e.message}</div>`;
@@ -273,7 +405,7 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWalletBar('wbar');
   loadMyChallenges();
   const urlCode = new URLSearchParams(location.search).get('code');
-  if (urlCode) { document.getElementById('join-code').value = urlCode; lookupChallenge(); }
+  if (urlCode) { switchTab('join'); document.getElementById('join-code').value = urlCode; lookupChallenge(); }
 });
 </script>
 </body>

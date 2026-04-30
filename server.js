@@ -159,6 +159,13 @@ function calcPot(n, fee = ENTRY_FEE) {
   return { gross, rake, net: gross - rake };
 }
 
+// ─── CPU score ranges per game/difficulty ─────────────────────────────────────
+const CPU_RANGES = {
+  easy:   { frogger:[80,250],   snake:[4,12],  pacman:[800,2500],   pong:[2,4], dino:[200,600]  },
+  medium: { frogger:[250,700],  snake:[12,30], pacman:[2500,7000],  pong:[4,6], dino:[600,1800] },
+  hard:   { frogger:[600,1800], snake:[28,70], pacman:[6000,18000], pong:[5,9], dino:[1500,5000]},
+};
+
 // ─── Routes: status ───────────────────────────────────────────────────────────
 app.get('/api/status', async (req, res) => {
   const balance    = await getTreasuryBalance().catch(() => 0);
@@ -472,6 +479,54 @@ app.get('/api/leaderboard/:game', (req, res) => {
     .slice(0, 20);
 
   res.json({ ok: true, game, leaderboard: board });
+});
+
+// ─── Routes: CPU challenges ───────────────────────────────────────────────────
+app.post('/api/cpu/start', (req, res) => {
+  const { wallet, txId, game, difficulty } = req.body;
+  if (!wallet || !txId || !game) return res.status(400).json({ error: 'wallet, txId, game required' });
+
+  const diff   = ['easy','medium','hard'].includes(difficulty) ? difficulty : 'medium';
+  const range  = CPU_RANGES[diff]?.[game] || [100, 500];
+  const cpuScore = Math.floor(range[0] + Math.random() * (range[1] - range[0]));
+
+  const cpuGames = dbRead('cpu_games');
+  const id = genId();
+  cpuGames.push({ id, wallet, txId, game, difficulty: diff, cpuScore, playerScore: null, won: null, payoutTxId: null, status: 'active', createdAt: Date.now() });
+  dbWrite('cpu_games', cpuGames);
+  res.json({ ok: true, cpuGameId: id, cpuScore, difficulty: diff });
+});
+
+app.post('/api/cpu/submit', async (req, res) => {
+  const { cpuGameId, wallet, playerScore } = req.body;
+  if (!cpuGameId || !wallet || playerScore == null) return res.status(400).json({ error: 'cpuGameId, wallet, playerScore required' });
+
+  const cpuGames = dbRead('cpu_games');
+  const idx = cpuGames.findIndex(g => g.id === cpuGameId && g.wallet === wallet);
+  if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
+
+  const g = cpuGames[idx];
+  if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? ENTRY_FEE * (1 - HOUSE_RAKE) : 0 });
+
+  g.playerScore = playerScore;
+  g.won         = playerScore > g.cpuScore;
+  g.status      = 'complete';
+  const payout  = parseFloat((ENTRY_FEE * (1 - HOUSE_RAKE)).toFixed(2));
+
+  if (g.won) {
+    try {
+      g.payoutTxId = await sendPayout(wallet, payout);
+      console.log(`[CPU] ${wallet.slice(0,8)}… beat CPU (${playerScore} vs ${g.cpuScore}) — paid ${payout} MONET`);
+    } catch(e) {
+      console.error(`[CPU] payout failed:`, e.message);
+      const claims = dbRead('claims');
+      claims.push({ id: genId(), type: 'cpu', refId: g.id, wallet, amount: payout, status: 'pending', error: e.message, createdAt: Date.now() });
+      dbWrite('claims', claims);
+    }
+  }
+
+  dbWrite('cpu_games', cpuGames);
+  res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore, payout: g.won ? payout : 0 });
 });
 
 // ─── Static files (production) ────────────────────────────────────────────────
