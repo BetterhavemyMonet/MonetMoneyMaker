@@ -665,6 +665,14 @@ function _injectPayGateStyles() {
     }
     #pg-back:hover { color:#ff4488; }
     #pg-err   { color:#ff4488; font-size:11px; margin-top:8px; min-height:16px; }
+    #pg-retry-btn {
+      display:none; margin-top:10px; width:100%; padding:11px;
+      border-radius:12px; border:2px solid #ff4488; cursor:pointer;
+      background:transparent;
+      color:#ff4488; font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800;
+      letter-spacing:0.5px; transition:background .15s, color .15s;
+    }
+    #pg-retry-btn:hover { background:#ff4488; color:#fff; }
     @keyframes pg-spin { to { transform:rotate(360deg); } }
     #pg-spinner {
       display:none; flex-direction:column; align-items:center; justify-content:center;
@@ -798,6 +806,7 @@ async function showPayGate(gameName, onSuccess) {
           </div>
         </div>
         <div id="pg-err"></div>
+        <button id="pg-retry-btn" onclick="pgRetry()">&#8635; TRY AGAIN</button>
         <button id="pg-back" onclick="pgBack()">&#8592; Back to Arcade</button>
       </div>
     `;
@@ -822,12 +831,14 @@ async function pgConnect() {
 }
 
 async function pgPay() {
-  const btn     = document.getElementById('pg-pay-btn');
-  const err     = document.getElementById('pg-err');
-  const spinner = document.getElementById('pg-spinner');
-  const spinLbl = document.getElementById('pg-spinner-label');
-  if (btn)     { btn.style.display = 'none'; }
-  if (err)     err.textContent = '';
+  const btn      = document.getElementById('pg-pay-btn');
+  const err      = document.getElementById('pg-err');
+  const spinner  = document.getElementById('pg-spinner');
+  const spinLbl  = document.getElementById('pg-spinner-label');
+  const retryBtn = document.getElementById('pg-retry-btn');
+  if (btn)      { btn.style.display = 'none'; }
+  if (retryBtn) { retryBtn.style.display = 'none'; }
+  if (err)      err.textContent = '';
   if (spinner) spinner.classList.add('active');
   if (spinLbl) spinLbl.textContent = 'CHECKING WALLET...';
   const _rg = window._pgRenderGate;
@@ -889,16 +900,25 @@ async function pgPay() {
       document.addEventListener('walletConnected', _rg);
       document.addEventListener('balanceUpdated',  _rg);
     }
-    if (spinner) spinner.classList.remove('active');
-    if (btn)     { btn.style.display = ''; btn.disabled = false; }
-    if (err)     err.textContent = e.message;
+    if (spinner)  spinner.classList.remove('active');
+    if (err)      err.textContent = e.message;
+    if (retryBtn) retryBtn.style.display = '';
   }
+}
+
+function pgRetry() {
+  const err      = document.getElementById('pg-err');
+  const retryBtn = document.getElementById('pg-retry-btn');
+  if (err)      err.textContent = '';
+  if (retryBtn) retryBtn.style.display = 'none';
+  pgPay();
 }
 
 function pgBack() { location.href = 'arcade.html'; }
 
 window.pgConnect = pgConnect;
 window.pgPay     = pgPay;
+window.pgRetry   = pgRetry;
 window.pgBack    = pgBack;
 
 // ─── CPU target badge ─────────────────────────────────────────────────────────
