@@ -466,7 +466,10 @@ async function getAllTokens() {
 }
 
 // ─── Pay Entry Fee ────────────────────────────────────────────────────────────
-async function payEntryFee(gameName) {
+async function payEntryFee(gameName, onProgress) {
+  const report = (step) => { try { onProgress && onProgress(step); } catch(_) {} };
+
+  report('checking');
   if (!WalletState.connected || !WalletState.address) throw new Error('Connect wallet first');
   if (WalletState.monetBalance < MONET_CONFIG.ENTRY_FEE) {
     throw new Error(`Insufficient MONET. Need ${MONET_CONFIG.ENTRY_FEE}, have ${WalletState.monetBalance.toFixed(2)}`);
@@ -475,8 +478,14 @@ async function payEntryFee(gameName) {
   const provider  = getProvider();
   if (!provider)  throw new Error('No wallet provider found');
 
-  const w        = getSolanaWeb3();
-  const conn     = await getWorkingConnection();
+  const w    = getSolanaWeb3();
+  let conn;
+  try {
+    conn = await getWorkingConnection();
+  } catch(e) {
+    throw new Error(`RPC connection failed: ${e.message}`);
+  }
+
   const payer    = new w.PublicKey(WalletState.address);
   const mint     = new w.PublicKey(MONET_CONFIG.MINT);
   const treasury = new w.PublicKey(MONET_CONFIG.TREASURY);
@@ -484,27 +493,41 @@ async function payEntryFee(gameName) {
   const sourceATA = getATA(mint, payer);
   const destATA   = getATA(mint, treasury);
 
-  const tx = new w.Transaction();
-  tx.feePayer = payer;
-  const { blockhash } = await conn.getLatestBlockhash();
-  tx.recentBlockhash = blockhash;
-
-  const destATAInfo = await conn.getAccountInfo(destATA);
-  if (!destATAInfo) tx.add(createATAInstruction(payer, destATA, treasury, mint));
+  let tx;
+  try {
+    tx = new w.Transaction();
+    tx.feePayer = payer;
+    const { blockhash } = await conn.getLatestBlockhash();
+    tx.recentBlockhash = blockhash;
+    const destATAInfo = await conn.getAccountInfo(destATA);
+    if (!destATAInfo) tx.add(createATAInstruction(payer, destATA, treasury, mint));
+  } catch(e) {
+    throw new Error(`Transaction preparation failed: ${e.message}`);
+  }
 
   tx.add(createTransferInstruction(sourceATA, destATA, payer, toRawAmount(MONET_CONFIG.ENTRY_FEE)));
 
   // Support both signAndSendTransaction and signTransaction APIs
+  report('signing');
   let txId;
-  if (provider.signAndSendTransaction) {
-    const result = await provider.signAndSendTransaction(tx);
-    txId = result.signature || result;
-  } else {
-    const signed = await provider.signTransaction(tx);
-    txId = await conn.sendRawTransaction(signed.serialize());
+  try {
+    if (provider.signAndSendTransaction) {
+      const result = await provider.signAndSendTransaction(tx);
+      txId = result.signature || result;
+    } else {
+      const signed = await provider.signTransaction(tx);
+      txId = await conn.sendRawTransaction(signed.serialize());
+    }
+  } catch(e) {
+    throw new Error(`Signing failed: ${e.message}`);
   }
 
-  await conn.confirmTransaction(txId, 'confirmed');
+  report('confirming');
+  try {
+    await conn.confirmTransaction(txId, 'confirmed');
+  } catch(e) {
+    throw new Error(`On-chain confirmation failed: ${e.message}`);
+  }
 
   WalletState.monetBalance -= MONET_CONFIG.ENTRY_FEE;
   document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
@@ -772,8 +795,18 @@ async function pgPay() {
     document.removeEventListener('walletConnected', _rg);
     document.removeEventListener('balanceUpdated',  _rg);
   }
+
+  const STEP_LABELS = {
+    checking:   'CHECKING WALLET...',
+    signing:    'SIGN IN YOUR WALLET...',
+    confirming: 'CONFIRMING ON-CHAIN...',
+  };
+  function onProgress(step) {
+    if (spinLbl && STEP_LABELS[step]) spinLbl.textContent = STEP_LABELS[step];
+  }
+
   try {
-    const txId = await payEntryFee(window._pgGameName);
+    const txId = await payEntryFee(window._pgGameName, onProgress);
     if (spinLbl) spinLbl.textContent = 'LAUNCHING GAME...';
 
     const urlParams     = new URLSearchParams(location.search);
