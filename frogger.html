@@ -167,12 +167,23 @@ let frog = null, cars = [], logs = [], score, lives, level, gameRunning, gameOve
 
 function makeCars(lvl) {
   let c = [];
+  // Frog starts at x=210 (col 7). Offset all car rows so no car
+  // begins within 2 cells of that x, preventing an instant death
+  // when the player takes their first step upward.
+  const FROG_START_X = Math.floor(COLS / 2) * CELL; // 210
   CAR_ROWS.forEach((row, i) => {
     const dir = i % 2 === 0 ? 1 : -1;
     const spd = (0.28 + i * 0.10 + lvl * 0.06) * dir;
     const count = Math.min(2, 1 + Math.floor(i / 2));
+    // Stagger each row by a different offset so cars don't all start at 0/W/2
+    const rowOffset = CELL * (3 + i * 2); // 90, 150, 210→shifted, 270, 330
     for (let j = 0; j < count; j++) {
-      c.push({ x: (j * (W / count)) % W, y: row * CELL, w: CELL * 1.6, h: CELL * 0.7, spd, row });
+      let x = (j * Math.floor(W / count) + rowOffset) % W;
+      // Nudge if too close to frog start column (within 2 cells)
+      while (x > FROG_START_X - CELL * 2 && x < FROG_START_X + CELL * 2.5) {
+        x = (x + CELL * 3) % W;
+      }
+      c.push({ x, y: row * CELL, w: CELL * 1.6, h: CELL * 0.7, spd, row });
     }
   });
   return c;

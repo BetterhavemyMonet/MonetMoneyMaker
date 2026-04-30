@@ -126,8 +126,8 @@ canvas {
   <div class="ctrl-body">
     <div class="ctrl-dpad">
       <div class="ctrl-dpad-center"></div>
-      <button class="dpad-up"    ontouchstart="padMove(-1,event)" onmousedown="padMove(-1)">&#9650;</button>
-      <button class="dpad-down"  ontouchstart="padMove(1,event)"  onmousedown="padMove(1)">&#9660;</button>
+      <button class="dpad-up"    ontouchstart="startPadHold(-1,event)" ontouchend="stopPadHold(event)" onmousedown="startPadHold(-1)" onmouseup="stopPadHold()" onmouseleave="stopPadHold()">&#9650;</button>
+      <button class="dpad-down"  ontouchstart="startPadHold(1,event)"  ontouchend="stopPadHold(event)" onmousedown="startPadHold(1)"  onmouseup="stopPadHold()" onmouseleave="stopPadHold()">&#9660;</button>
       <button class="dpad-left"  style="opacity:0.3;pointer-events:none">&#9664;</button>
       <button class="dpad-right" style="opacity:0.3;pointer-events:none">&#9654;</button>
     </div>
@@ -136,8 +136,8 @@ canvas {
       <a class="ctrl-home" href="arcade.html">&#8962;</a>
     </div>
     <div class="ctrl-ab">
-      <button class="ctrl-btn-a" ontouchstart="padMove(-1,event)" onmousedown="padMove(-1)">UP</button>
-      <button class="ctrl-btn-b" ontouchstart="padMove(1,event)"  onmousedown="padMove(1)">DN</button>
+      <button class="ctrl-btn-a" ontouchstart="startPadHold(-1,event)" ontouchend="stopPadHold(event)" onmousedown="startPadHold(-1)" onmouseup="stopPadHold()" onmouseleave="stopPadHold()">UP</button>
+      <button class="ctrl-btn-b" ontouchstart="startPadHold(1,event)"  ontouchend="stopPadHold(event)" onmousedown="startPadHold(1)"  onmouseup="stopPadHold()" onmouseleave="stopPadHold()">DN</button>
     </div>
   </div>
 </div>
@@ -158,27 +158,23 @@ let ball, playerPad, cpuPad, playerScore, cpuScore, gameRunning, animId;
 let touchY = null;
 
 // Continuous paddle movement via held buttons
-let padDir = 0;
 let padInterval = null;
 
-function padMove(dir, e) {
-  if (e) e.preventDefault();
-  if (!gameRunning) { startGame(); return; }
-  if (!playerPad) return;
-  playerPad.y = Math.max(0, Math.min(H - PAD_H, playerPad.y + dir * 18));
-}
-
 function startPadHold(dir, e) {
-  if (e) e.preventDefault();
+  if (e) { e.preventDefault(); e.stopPropagation(); }
   if (!gameRunning) { startGame(); return; }
-  padDir = dir;
-  if (padInterval) clearInterval(padInterval);
+  stopPadHold();
+  // Move immediately on first press, then repeat
+  if (playerPad) playerPad.y = Math.max(0, Math.min(H - PAD_H, playerPad.y + dir * 14));
   padInterval = setInterval(() => {
     if (!gameRunning || !playerPad) return;
-    playerPad.y = Math.max(0, Math.min(H - PAD_H, playerPad.y + padDir * 10));
+    playerPad.y = Math.max(0, Math.min(H - PAD_H, playerPad.y + dir * 10));
   }, 30);
 }
-function stopPadHold(e) { if (e) e.preventDefault(); padDir = 0; if (padInterval) clearInterval(padInterval); }
+function stopPadHold(e) {
+  if (e) e.preventDefault();
+  if (padInterval) { clearInterval(padInterval); padInterval = null; }
+}
 
 function startGame() {
   playerPad = {x:18, y:H/2-PAD_H/2};
