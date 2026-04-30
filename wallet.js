@@ -10,14 +10,17 @@ const MONET_CONFIG = {
   SYMBOL:       'MONET',
 };
 
-// Ordered list of free public RPC endpoints — tried in sequence on failure
+// Client-side RPC endpoints — last-resort fallback only.
+// All balance/account queries now go through /api/balance (server-side) to
+// avoid browser CORS rate-limit 403s on these public endpoints.
 const RPC_ENDPOINTS = [
-  'https://rpc.ankr.com/solana',
-  'https://solana-api.projectserum.com',
   'https://api.mainnet-beta.solana.com',
+  'https://solana-mainnet.rpc.extrnode.com',
+  'https://mainnet.helius-rpc.com/',
+  'https://solana.public-rpc.com',
 ];
 
-const RPC_TIMEOUT_MS = 6000;
+const RPC_TIMEOUT_MS = 10000;
 
 const TOKEN_PROGRAM_ID_STR       = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const ASSOCIATED_TOKEN_PROGRAM_STR = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3';
@@ -353,6 +356,7 @@ async function connectWallet() {
   localStorage.setItem('wallet_name', chosen.name);
 
   await refreshBalances();
+  ensureMonetAccount(); // fire-and-forget: treasury creates player ATA if missing
   document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletName: chosen.name } }));
   return address;
 }
@@ -391,23 +395,59 @@ async function tryAutoConnect() {
     WalletState.address      = address;
     localStorage.setItem('wallet_address', address);
     await refreshBalances();
+    ensureMonetAccount(); // fire-and-forget: treasury creates player ATA if missing
     document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address } }));
   } catch(e) { /* not previously trusted */ }
 }
 
 // ─── Balances ─────────────────────────────────────────────────────────────────
+// Primary path: call server /api/balance — server-side Node.js bypasses the
+// browser CORS / rate-limit 403s that plague public Solana RPC endpoints.
 async function refreshBalances() {
   if (!WalletState.address) return;
-  await Promise.all([
-    getMonetBalance().then(b => { WalletState.monetBalance = b; }),
-    getSolBalance().then(b   => { WalletState.solBalance   = b; }),
-    getAllTokens().then(t    => { WalletState.tokens        = t; }),
-  ]);
+  let usedServer = false;
+  try {
+    const res  = await fetch(`/api/balance/${WalletState.address}`);
+    if (res.ok) {
+      const data = await res.json();
+      WalletState.monetBalance = data.monet ?? 0;
+      WalletState.solBalance   = data.sol   ?? 0;
+      WalletState.hasMonetAta  = data.hasAta ?? false;
+      usedServer = true;
+    }
+  } catch(_) {}
+
+  if (!usedServer) {
+    // Fallback: direct browser RPC (may fail on rate-limited public endpoints)
+    await Promise.allSettled([
+      getMonetBalanceDirect().then(b => { WalletState.monetBalance = b; }).catch(() => {}),
+      getSolBalanceDirect().then(b   => { WalletState.solBalance   = b; }).catch(() => {}),
+    ]);
+  }
   document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
 }
 
+// Server-proxied helpers (preferred)
 async function getMonetBalance() {
   if (!WalletState.address) return 0;
+  try {
+    const res = await fetch(`/api/balance/${WalletState.address}`);
+    if (res.ok) { const d = await res.json(); return d.monet ?? 0; }
+  } catch(_) {}
+  return getMonetBalanceDirect();
+}
+
+async function getSolBalance() {
+  if (!WalletState.address) return 0;
+  try {
+    const res = await fetch(`/api/balance/${WalletState.address}`);
+    if (res.ok) { const d = await res.json(); return d.sol ?? 0; }
+  } catch(_) {}
+  return getSolBalanceDirect();
+}
+
+// Direct browser RPC (fallback only — often 403s on public endpoints)
+async function getMonetBalanceDirect() {
   try {
     const w     = getSolanaWeb3();
     const mint  = new w.PublicKey(MONET_CONFIG.MINT);
@@ -418,21 +458,44 @@ async function getMonetBalance() {
     if (!accounts || accounts.value.length === 0) return 0;
     return accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0;
   } catch(e) {
-    console.warn('[MONET] getMonetBalance failed after all RPCs:', e);
+    console.warn('[MONET] getMonetBalanceDirect failed:', e.message);
     return 0;
   }
 }
 
-async function getSolBalance() {
-  if (!WalletState.address) return 0;
+async function getSolBalanceDirect() {
   try {
     const w = getSolanaWeb3();
     const owner = new w.PublicKey(WalletState.address);
     const lamports = await withRpcFallback(conn => conn.getBalance(owner));
     return (lamports ?? 0) / 1e9;
   } catch(e) {
-    console.warn('[MONET] getSolBalance failed after all RPCs:', e);
+    console.warn('[MONET] getSolBalanceDirect failed:', e.message);
     return 0;
+  }
+}
+
+// Auto-create the player's MONET Associated Token Account if missing.
+// Treasury pays the ~0.002 SOL rent so the player needs no SOL to get started.
+async function ensureMonetAccount() {
+  if (!WalletState.address) return;
+  try {
+    const res  = await fetch('/api/create-token-account', {
+      method:  'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body:    JSON.stringify({ wallet: WalletState.address }),
+    });
+    const data = await res.json();
+    if (data.created) {
+      console.log('[MONET] Token account created for player:', data.ata);
+      WalletState.hasMonetAta = true;
+      // Refresh so the wallet bar reflects the new account
+      setTimeout(refreshBalances, 2000);
+    } else if (data.ok) {
+      WalletState.hasMonetAta = true;
+    }
+  } catch(e) {
+    console.warn('[MONET] ensureMonetAccount failed:', e.message);
   }
 }
 
@@ -467,49 +530,75 @@ async function getAllTokens() {
 
 // ─── Pay Entry Fee ────────────────────────────────────────────────────────────
 // amount: optional override (defaults to MONET_CONFIG.ENTRY_FEE)
+// Resilient to browser-level RPC 403s: falls back to server endpoints for
+// blockhash and account checks; wallet's own RPC handles broadcast/signing.
 async function payEntryFee(gameName, onProgress, amount) {
   const fee = (amount && Number(amount) > 0) ? Number(amount) : MONET_CONFIG.ENTRY_FEE;
   const report = (step) => { try { onProgress && onProgress(step); } catch(_) {} };
 
   report('checking');
   if (!WalletState.connected || !WalletState.address) throw new Error('Connect wallet first');
+
+  // Always refresh balance from server before checking sufficiency
+  await refreshBalances().catch(() => {});
   if (WalletState.monetBalance < fee) {
     throw new Error(`Insufficient MONET. Need ${fee}, have ${WalletState.monetBalance.toFixed(2)}`);
   }
 
-  const provider  = getProvider();
+  const provider = getProvider();
   if (!provider)  throw new Error('No wallet provider found');
 
-  const w    = getSolanaWeb3();
-  let conn;
-  try {
-    conn = await getWorkingConnection();
-  } catch(e) {
-    throw new Error(`RPC connection failed: ${e.message}`);
-  }
-
+  const w        = getSolanaWeb3();
   const payer    = new w.PublicKey(WalletState.address);
   const mint     = new w.PublicKey(MONET_CONFIG.MINT);
   const treasury = new w.PublicKey(MONET_CONFIG.TREASURY);
-
   const sourceATA = getATA(mint, payer);
   const destATA   = getATA(mint, treasury);
 
+  // ── Step 1: get blockhash ──────────────────────────────────────────────────
+  // Try direct RPC first; fall back to server /api/blockhash to bypass browser 403s.
+  let blockhash;
+  try {
+    const conn = await getWorkingConnection();
+    ({ blockhash } = await conn.getLatestBlockhash());
+  } catch(_) {
+    try {
+      const r = await fetch('/api/blockhash');
+      if (!r.ok) throw new Error(`/api/blockhash ${r.status}`);
+      ({ blockhash } = await r.json());
+    } catch(e) {
+      throw new Error(`Could not fetch blockhash: ${e.message}`);
+    }
+  }
+
+  // ── Step 2: check treasury ATA, build transaction ─────────────────────────
   let tx;
   try {
     tx = new w.Transaction();
     tx.feePayer = payer;
-    const { blockhash } = await conn.getLatestBlockhash();
     tx.recentBlockhash = blockhash;
-    const destATAInfo = await conn.getAccountInfo(destATA);
-    if (!destATAInfo) tx.add(createATAInstruction(payer, destATA, treasury, mint));
+
+    // Check treasury ATA existence via server to avoid browser 403s
+    let destATAExists = false;
+    try {
+      const r = await fetch(`/api/account-exists/${destATA.toString()}`);
+      if (r.ok) { const d = await r.json(); destATAExists = d.exists; }
+    } catch(_) {
+      // fallback: try direct RPC
+      const conn = await getWorkingConnection().catch(() => null);
+      if (conn) {
+        const info = await conn.getAccountInfo(destATA).catch(() => null);
+        destATAExists = !!info;
+      }
+    }
+    if (!destATAExists) tx.add(createATAInstruction(payer, destATA, treasury, mint));
   } catch(e) {
     throw new Error(`Transaction preparation failed: ${e.message}`);
   }
 
   tx.add(createTransferInstruction(sourceATA, destATA, payer, toRawAmount(fee)));
 
-  // Support both signAndSendTransaction and signTransaction APIs
+  // ── Step 3: sign & send via wallet (wallet uses its own RPC for broadcast) ─
   report('signing');
   let txId;
   try {
@@ -517,6 +606,8 @@ async function payEntryFee(gameName, onProgress, amount) {
       const result = await provider.signAndSendTransaction(tx);
       txId = result.signature || result;
     } else {
+      // signTransaction path — need a connection for sendRawTransaction
+      const conn = await getWorkingConnection();
       const signed = await provider.signTransaction(tx);
       txId = await conn.sendRawTransaction(signed.serialize());
     }
@@ -524,11 +615,15 @@ async function payEntryFee(gameName, onProgress, amount) {
     throw new Error(`Signing failed: ${e.message}`);
   }
 
+  // ── Step 4: confirm (best-effort; tx is signed and sent regardless) ────────
   report('confirming');
   try {
+    const conn = await getWorkingConnection();
     await conn.confirmTransaction(txId, 'confirmed');
-  } catch(e) {
-    throw new Error(`On-chain confirmation failed: ${e.message}`);
+  } catch(_) {
+    // Wallet already broadcast — confirmTransaction is informational only.
+    // The session is still created with the txId for audit.
+    console.warn('[MONET] confirmTransaction failed (tx may still confirm):', txId);
   }
 
   WalletState.monetBalance -= fee;
@@ -539,7 +634,9 @@ async function payEntryFee(gameName, onProgress, amount) {
   return txId;
 }
 
-window.payEntryFee = payEntryFee;
+window.payEntryFee        = payEntryFee;
+window.ensureMonetAccount = ensureMonetAccount;
+window.refreshBalances    = refreshBalances;
 
 // ─── Record Win / Claim ───────────────────────────────────────────────────────
 function recordWin(gameName, score) {

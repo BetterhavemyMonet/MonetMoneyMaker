@@ -31,11 +31,18 @@ const MAX_PLAYERS     = 16;
 
 const TOKEN_PROG   = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOC_PROG   = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3');
+// Primary: user-configured via env var (recommended for production).
+// Fallback: best-effort free public endpoints — server-side Node.js bypasses
+// the browser CORS/rate-limit 403s that hit these from the frontend.
+// Set SOLANA_RPC_URL env var (e.g. a Helius free-tier key) for best reliability.
+// Fallbacks are free public endpoints that work from Node.js (no CORS/key required).
 const RPCS = [
-  'https://rpc.ankr.com/solana',
-  'https://solana-api.projectserum.com',
+  process.env.SOLANA_RPC_URL,
   'https://api.mainnet-beta.solana.com',
-];
+  'https://solana-mainnet.rpc.extrnode.com',
+  'https://mainnet.helius-rpc.com/',
+  'https://solana.public-rpc.com',
+].filter(Boolean);
 
 // ─── Data helpers ──────────────────────────────────────────────────────────────
 function dbRead(name) {
@@ -61,16 +68,16 @@ function getTreasuryKP() {
 }
 
 // ─── Solana utilities ─────────────────────────────────────────────────────────
-async function withRpc(fn) {
+async function withRpc(fn, timeoutMs = 15000) {
   let last;
   for (const rpc of RPCS) {
-    const conn = new Connection(rpc, 'confirmed');
+    const conn = new Connection(rpc, { commitment: 'confirmed', disableRetryOnRateLimit: false });
     try {
       return await Promise.race([
         fn(conn),
-        new Promise((_, r) => setTimeout(() => r(new Error('timeout')), 10000)),
+        new Promise((_, r) => setTimeout(() => r(new Error(`timeout:${rpc}`)), timeoutMs)),
       ]);
-    } catch(e) { last = e; }
+    } catch(e) { last = e; console.warn(`[RPC] ${rpc} failed:`, e.message); }
   }
   throw last ?? new Error('All RPCs failed');
 }
@@ -166,6 +173,104 @@ const CPU_RANGES = {
   medium: { frogger:[500,1100],   snake:[22,50],  pacman:[5000,11000],  pong:[5,7], dino:[1200,3000] },
   hard:   { frogger:[1800,4000],  snake:[80,140], pacman:[20000,40000], pong:[7,9], dino:[5000,12000]},
 };
+
+// ─── Routes: wallet utilities ────────────────────────────────────────────────
+// Single server-side call: returns MONET + SOL balance for any wallet.
+// Clients call this instead of hitting Solana RPCs directly from the browser,
+// which are blocked by CORS/rate-limit 403s on public endpoints.
+app.get('/api/balance/:wallet', async (req, res) => {
+  try {
+    const owner = new PublicKey(req.params.wallet);
+    const mint  = new PublicKey(MINT_ADDRESS);
+    const ata   = getATA(mint, owner);
+
+    const [ataInfo, solLamports] = await Promise.allSettled([
+      withRpc(conn => conn.getParsedAccountInfo(ata)),
+      withRpc(conn => conn.getBalance(owner)),
+    ]);
+
+    const monetBalance = ataInfo.status === 'fulfilled'
+      ? (ataInfo.value?.value?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0)
+      : 0;
+    const solBalance = solLamports.status === 'fulfilled'
+      ? (solLamports.value ?? 0) / 1e9
+      : 0;
+
+    res.json({
+      ok: true,
+      monet:  monetBalance,
+      sol:    solBalance,
+      ata:    ata.toString(),
+      hasAta: !!(ataInfo.status === 'fulfilled' && ataInfo.value?.value),
+    });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Treasury auto-creates the player's MONET Associated Token Account.
+// New players don't have an ATA until they acquire MONET, which means
+// they also can't receive payouts. Treasury pays the ~0.002 SOL rent.
+app.post('/api/create-token-account', async (req, res) => {
+  const { wallet } = req.body;
+  if (!wallet) return res.status(400).json({ error: 'wallet required' });
+
+  try {
+    const mint  = new PublicKey(MINT_ADDRESS);
+    const owner = new PublicKey(wallet);
+    const ata   = getATA(mint, owner);
+
+    // Check if ATA already exists — skip if so
+    const existing = await withRpc(conn => conn.getAccountInfo(ata));
+    if (existing) return res.json({ ok: true, ata: ata.toString(), created: false });
+
+    const kp = getTreasuryKP();
+    if (!kp) {
+      // No key — tell client the ATA address so it can display it, but skip creation
+      return res.json({ ok: false, ata: ata.toString(), created: false, error: 'Treasury key not set' });
+    }
+
+    // Build + sign + send the create-ATA transaction (treasury is payer)
+    const txId = await withRpc(async conn => {
+      const tx = new Transaction();
+      tx.feePayer = kp.publicKey;
+      const { blockhash } = await conn.getLatestBlockhash();
+      tx.recentBlockhash = blockhash;
+      tx.add(makeCreateATAIx(kp.publicKey, ata, owner, mint));
+      tx.sign(kp);
+      const sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: false });
+      await conn.confirmTransaction(sig, 'confirmed');
+      return sig;
+    }, 30000);
+
+    console.log(`[MONET] ATA created for ${wallet.slice(0,8)}… txId: ${txId}`);
+    res.json({ ok: true, ata: ata.toString(), created: true, txId });
+  } catch(e) {
+    console.error('[MONET] create-token-account failed:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Returns the latest blockhash for clients to build transactions.
+// Bypasses browser 403s — the client uses this when direct RPC calls fail.
+app.get('/api/blockhash', async (req, res) => {
+  try {
+    const { blockhash, lastValidBlockHeight } = await withRpc(conn => conn.getLatestBlockhash());
+    res.json({ ok: true, blockhash, lastValidBlockHeight });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Returns whether an account (e.g. treasury ATA) exists on-chain.
+app.get('/api/account-exists/:address', async (req, res) => {
+  try {
+    const info = await withRpc(conn => conn.getAccountInfo(new PublicKey(req.params.address)));
+    res.json({ ok: true, exists: !!info });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
 
 // ─── Routes: status ───────────────────────────────────────────────────────────
 app.get('/api/status', async (req, res) => {

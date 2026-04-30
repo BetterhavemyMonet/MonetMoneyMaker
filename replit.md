@@ -80,6 +80,16 @@ node server.js    # API server on port 3001 (separate workflow)
 | POST | `/api/tournament/submit` | Submit score |
 | GET | `/api/tournament/list` | All active tournaments |
 | GET | `/api/leaderboard/:game` | Top 10 scores for a game |
+| GET | `/api/balance/:wallet` | MONET + SOL balance for a wallet (server-side RPC proxy — bypasses browser 403s) |
+| GET | `/api/blockhash` | Latest Solana blockhash (used by payEntryFee when browser RPCs fail) |
+| GET | `/api/account-exists/:address` | Check if a Solana account exists on-chain |
+| POST | `/api/create-token-account` | Treasury creates player MONET ATA if missing (treasury pays ~0.002 SOL rent) |
+
+## Solana RPC Strategy
+
+All balance/account queries are routed through the server (`/api/balance/:wallet`) to avoid browser CORS rate-limit 403s on public Solana RPC endpoints. `payEntryFee` falls back to `/api/blockhash` and `/api/account-exists` when direct browser RPC calls fail. The wallet extension's own RPC handles transaction broadcast/signing.
+
+Set `SOLANA_RPC_URL` environment variable to use a private RPC (e.g. Helius) as the primary endpoint — highly recommended for production.
 
 ## Treasury Payouts
 
