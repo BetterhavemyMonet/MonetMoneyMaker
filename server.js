@@ -506,12 +506,13 @@ app.post('/api/cpu/submit', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
 
   const g = cpuGames[idx];
-  if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? ENTRY_FEE * (1 - HOUSE_RAKE) : 0 });
+  const CPU_PAYOUT = parseFloat((ENTRY_FEE * 2 * (1 - HOUSE_RAKE)).toFixed(2));
+  if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
 
   g.playerScore = playerScore;
   g.won         = playerScore > g.cpuScore;
   g.status      = 'complete';
-  const payout  = parseFloat((ENTRY_FEE * (1 - HOUSE_RAKE)).toFixed(2));
+  const payout  = CPU_PAYOUT;
 
   if (g.won) {
     try {

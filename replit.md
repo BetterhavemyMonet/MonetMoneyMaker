@@ -74,7 +74,7 @@ Payouts are **QUEUED** by default. Set `TREASURY_PRIVATE_KEY` environment variab
 | Mode | Entry | Player Payout | House Rake |
 |------|-------|--------------|------------|
 | Solo | 5 MONET | 4 MONET (80%) | 20% |
-| CPU Challenge | 5 MONET | 4.5 MONET if you beat CPU | 10% |
+| CPU Challenge | 5 MONET | 9 MONET if you beat CPU (house matches entry) | 10% |
 | H2H Challenge | 5 MONET each | 9 MONET to winner | 10% |
 | Tournament | 5 MONET each | 50%/30%/10% top 3 | 10% |
 
