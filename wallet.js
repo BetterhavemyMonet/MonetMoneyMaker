@@ -638,6 +638,22 @@ function _injectPayGateStyles() {
     }
     #pg-back:hover { color:#ff4488; }
     #pg-err   { color:#ff4488; font-size:11px; margin-top:8px; min-height:16px; }
+    @keyframes pg-spin { to { transform:rotate(360deg); } }
+    #pg-spinner {
+      display:none; flex-direction:column; align-items:center; justify-content:center;
+      margin-top:16px; gap:12px;
+    }
+    #pg-spinner.active { display:flex; }
+    #pg-spinner-ring {
+      width:40px; height:40px; border-radius:50%;
+      border:3px solid rgba(168,85,255,0.25);
+      border-top-color:#a855ff;
+      animation: pg-spin 0.75s linear infinite;
+    }
+    #pg-spinner-label {
+      font-family:'Orbitron',sans-serif; font-size:11px; color:#a855ff;
+      letter-spacing:1px; text-align:center;
+    }
     #pg-challenge-badge {
       background:rgba(0,240,255,0.1); border:1px solid #00f0ff44;
       border-radius:8px; padding:8px; margin-bottom:12px; font-size:11px; color:#00f0ff;
@@ -650,8 +666,9 @@ function _injectPayGateStyles() {
   document.head.appendChild(s);
 }
 
-window._pgOnSuccess = null;
-window._pgGameName  = null;
+window._pgOnSuccess  = null;
+window._pgGameName   = null;
+window._pgRenderGate = null;
 
 async function showPayGate(gameName, onSuccess) {
   if (hasValidSession(gameName)) { if (onSuccess) onSuccess(); return; }
@@ -713,12 +730,17 @@ async function showPayGate(gameName, onSuccess) {
         ` : `
           <button id="pg-connect-btn" onclick="pgConnect()">CONNECT WALLET</button>
         `}
+        <div id="pg-spinner">
+          <div id="pg-spinner-ring"></div>
+          <div id="pg-spinner-label">CHECKING WALLET...</div>
+        </div>
         <div id="pg-err"></div>
         <button id="pg-back" onclick="pgBack()">&#8592; Back to Arcade</button>
       </div>
     `;
   }
 
+  window._pgRenderGate = renderGate;
   renderGate();
   document.addEventListener('walletConnected', renderGate);
   document.addEventListener('balanceUpdated',  renderGate);
@@ -737,12 +759,22 @@ async function pgConnect() {
 }
 
 async function pgPay() {
-  const btn = document.getElementById('pg-pay-btn');
-  const err = document.getElementById('pg-err');
-  if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
-  if (err) err.textContent = '';
+  const btn     = document.getElementById('pg-pay-btn');
+  const err     = document.getElementById('pg-err');
+  const spinner = document.getElementById('pg-spinner');
+  const spinLbl = document.getElementById('pg-spinner-label');
+  if (btn)     { btn.style.display = 'none'; }
+  if (err)     err.textContent = '';
+  if (spinner) spinner.classList.add('active');
+  if (spinLbl) spinLbl.textContent = 'CHECKING WALLET...';
+  const _rg = window._pgRenderGate;
+  if (_rg) {
+    document.removeEventListener('walletConnected', _rg);
+    document.removeEventListener('balanceUpdated',  _rg);
+  }
   try {
     const txId = await payEntryFee(window._pgGameName);
+    if (spinLbl) spinLbl.textContent = 'LAUNCHING GAME...';
 
     const urlParams     = new URLSearchParams(location.search);
     const challengeCode = urlParams.get('challenge');
@@ -771,8 +803,13 @@ async function pgPay() {
     document.getElementById('pg-overlay')?.remove();
     if (window._pgOnSuccess) window._pgOnSuccess();
   } catch(e) {
-    if (btn) { btn.textContent = `PAY ${MONET_CONFIG.ENTRY_FEE} MONET & PLAY`; btn.disabled = false; }
-    if (err) err.textContent = e.message;
+    if (_rg) {
+      document.addEventListener('walletConnected', _rg);
+      document.addEventListener('balanceUpdated',  _rg);
+    }
+    if (spinner) spinner.classList.remove('active');
+    if (btn)     { btn.style.display = ''; btn.disabled = false; }
+    if (err)     err.textContent = e.message;
   }
 }
 
