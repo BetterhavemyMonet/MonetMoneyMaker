@@ -7,9 +7,18 @@ const MONET_CONFIG = {
   ENTRY_FEE:    5,
   PAYOUT_RATE:  0.80,
   DECIMALS:     6,
-  RPC:          'https://api.mainnet-beta.solana.com',
   SYMBOL:       'MONET',
 };
+
+// Ordered list of free public RPC endpoints — tried in sequence on failure
+const RPC_ENDPOINTS = [
+  'https://rpc.ankr.com/solana',
+  'https://solana-mainnet.g.alchemy.com/v2/demo',
+  'https://api.mainnet-beta.solana.com',
+  'https://solana-api.projectserum.com',
+];
+
+const RPC_TIMEOUT_MS = 7000;
 
 const TOKEN_PROGRAM_ID_STR       = 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA';
 const ASSOCIATED_TOKEN_PROGRAM_STR = 'ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3';
@@ -107,9 +116,53 @@ function getSolanaWeb3() {
   return window.solanaWeb3;
 }
 
-function getConnection() {
+function _makeConnection(rpc) {
   const w = getSolanaWeb3();
-  return new w.Connection(MONET_CONFIG.RPC, 'confirmed');
+  return new w.Connection(rpc, 'confirmed');
+}
+
+// Wraps an async RPC call, trying each endpoint in sequence with a timeout.
+// fn receives a Connection and must return a Promise.
+async function withRpcFallback(fn) {
+  let lastErr;
+  for (const rpc of RPC_ENDPOINTS) {
+    const conn = _makeConnection(rpc);
+    try {
+      const result = await Promise.race([
+        fn(conn),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`RPC timeout: ${rpc}`)), RPC_TIMEOUT_MS)
+        ),
+      ]);
+      return result;
+    } catch (e) {
+      console.warn(`[MONET] RPC failed (${rpc}):`, e.message ?? e);
+      lastErr = e;
+    }
+  }
+  throw lastErr ?? new Error('All RPC endpoints failed');
+}
+
+// Convenience: returns the first working Connection (used by payEntryFee which
+// needs to reuse the same connection for blockhash + send).
+async function getWorkingConnection() {
+  let lastErr;
+  for (const rpc of RPC_ENDPOINTS) {
+    const conn = _makeConnection(rpc);
+    try {
+      await Promise.race([
+        conn.getSlot(),
+        new Promise((_, reject) =>
+          setTimeout(() => reject(new Error(`timeout`)), RPC_TIMEOUT_MS)
+        ),
+      ]);
+      return conn;
+    } catch (e) {
+      console.warn(`[MONET] Connection probe failed (${rpc}):`, e.message ?? e);
+      lastErr = e;
+    }
+  }
+  throw lastErr ?? new Error('No working RPC found');
 }
 
 function toRawAmount(uiAmount) {
@@ -357,34 +410,43 @@ async function refreshBalances() {
 async function getMonetBalance() {
   if (!WalletState.address) return 0;
   try {
-    const conn  = getConnection();
     const w     = getSolanaWeb3();
     const mint  = new w.PublicKey(MONET_CONFIG.MINT);
     const owner = new w.PublicKey(WalletState.address);
-    const accounts = await conn.getParsedTokenAccountsByOwner(owner, { mint });
-    if (accounts.value.length === 0) return 0;
+    const accounts = await withRpcFallback(conn =>
+      conn.getParsedTokenAccountsByOwner(owner, { mint })
+    );
+    if (!accounts || accounts.value.length === 0) return 0;
     return accounts.value[0].account.data.parsed.info.tokenAmount.uiAmount || 0;
-  } catch(e) { console.warn('Balance fetch error:', e); return 0; }
+  } catch(e) {
+    console.warn('[MONET] getMonetBalance failed after all RPCs:', e);
+    return 0;
+  }
 }
 
 async function getSolBalance() {
   if (!WalletState.address) return 0;
   try {
-    const conn = getConnection();
-    const w    = getSolanaWeb3();
-    const lamports = await conn.getBalance(new w.PublicKey(WalletState.address));
-    return lamports / 1e9;
-  } catch(e) { return 0; }
+    const w = getSolanaWeb3();
+    const owner = new w.PublicKey(WalletState.address);
+    const lamports = await withRpcFallback(conn => conn.getBalance(owner));
+    return (lamports ?? 0) / 1e9;
+  } catch(e) {
+    console.warn('[MONET] getSolBalance failed after all RPCs:', e);
+    return 0;
+  }
 }
 
 async function getAllTokens() {
   if (!WalletState.address) return [];
   try {
-    const conn  = getConnection();
-    const w     = getSolanaWeb3();
+    const w = getSolanaWeb3();
     const TOKEN_PROGRAM_ID = new w.PublicKey(TOKEN_PROGRAM_ID_STR);
     const owner = new w.PublicKey(WalletState.address);
-    const accounts = await conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID });
+    const accounts = await withRpcFallback(conn =>
+      conn.getParsedTokenAccountsByOwner(owner, { programId: TOKEN_PROGRAM_ID })
+    );
+    if (!accounts) return [];
     return accounts.value
       .map(a => {
         const info = a.account.data.parsed.info;
@@ -398,7 +460,10 @@ async function getAllTokens() {
       })
       .filter(t => t.balance > 0)
       .sort((a, b) => b.isMonet - a.isMonet);
-  } catch(e) { console.warn('Token fetch error:', e); return []; }
+  } catch(e) {
+    console.warn('[MONET] getAllTokens failed after all RPCs:', e);
+    return [];
+  }
 }
 
 // ─── Pay Entry Fee ────────────────────────────────────────────────────────────
@@ -412,7 +477,7 @@ async function payEntryFee(gameName) {
   if (!provider)  throw new Error('No wallet provider found');
 
   const w        = getSolanaWeb3();
-  const conn     = getConnection();
+  const conn     = await getWorkingConnection();
   const payer    = new w.PublicKey(WalletState.address);
   const mint     = new w.PublicKey(MONET_CONFIG.MINT);
   const treasury = new w.PublicKey(MONET_CONFIG.TREASURY);
