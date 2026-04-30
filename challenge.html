@@ -166,9 +166,9 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
   <div class="tab-panel" id="panel-cpu">
     <div class="card">
       <div class="card-title">&#129302; PLAY vs CPU</div>
-      <div class="prize-box cpu-box">
-        <div class="big">9 MONET</div>
-        <div class="sub">Prize pot · house matches your entry · beat CPU to win all</div>
+      <div class="prize-box cpu-box" id="cpu-prize-box">
+        <div class="big" id="cpu-prize-amt">6 MONET</div>
+        <div class="sub" id="cpu-prize-sub">Prize pot if you win · Easy difficulty</div>
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
       <div class="game-opts" id="cpu-game-opts">
@@ -240,10 +240,18 @@ function selectDiff(el) {
   updateCpuHint();
 }
 
+const CPU_PAYOUTS = { easy: 6, medium: 7, hard: 9 };
+const DIFF_LABELS  = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+
 function updateCpuHint() {
-  const r = CPU_RANGES[selectedDiff]?.[selectedCPUGame];
+  const r    = CPU_RANGES[selectedDiff]?.[selectedCPUGame];
+  const pot  = CPU_PAYOUTS[selectedDiff] ?? 9;
   const hint = document.getElementById('cpu-range-hint');
-  if (hint && r) hint.textContent = `CPU score target: ${r[0]} – ${r[1]} pts`;
+  const amt  = document.getElementById('cpu-prize-amt');
+  const sub  = document.getElementById('cpu-prize-sub');
+  if (hint && r) hint.textContent = `CPU score target: ${r[0].toLocaleString()} – ${r[1].toLocaleString()} pts`;
+  if (amt) amt.textContent = `${pot} MONET`;
+  if (sub) sub.textContent = `Prize pot if you win · ${DIFF_LABELS[selectedDiff]} difficulty`;
 }
 
 async function createH2HChallenge() {
@@ -403,6 +411,7 @@ async function loadMyChallenges() {
 document.addEventListener('walletConnected', loadMyChallenges);
 document.addEventListener('DOMContentLoaded', () => {
   renderWalletBar('wbar');
+  updateCpuHint();
   loadMyChallenges();
   const urlCode = new URLSearchParams(location.search).get('code');
   if (urlCode) { switchTab('join'); document.getElementById('join-code').value = urlCode; lookupChallenge(); }

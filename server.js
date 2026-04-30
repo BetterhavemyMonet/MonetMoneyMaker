@@ -506,7 +506,8 @@ app.post('/api/cpu/submit', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
 
   const g = cpuGames[idx];
-  const CPU_PAYOUT = parseFloat((ENTRY_FEE * 2 * (1 - HOUSE_RAKE)).toFixed(2));
+  const CPU_PAYOUTS = { easy: 6, medium: 7, hard: 9 };
+  const CPU_PAYOUT = CPU_PAYOUTS[g.difficulty] ?? 9;
   if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
 
   g.playerScore = playerScore;
