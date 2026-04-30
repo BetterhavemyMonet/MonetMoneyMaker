@@ -223,9 +223,39 @@ function draw(){
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
     const t=map[r][c], x=c*CELL, y=r*CELL;
     if(t===1){
-      ctx.fillStyle='#1a0050';ctx.fillRect(x,y,CELL,CELL);
-      ctx.strokeStyle='#a855ff';ctx.lineWidth=1;ctx.strokeRect(x+0.5,y+0.5,CELL-1,CELL-1);
-    } else if(t===2){
+      ctx.fillStyle='#060012';ctx.fillRect(x,y,CELL,CELL);
+    }
+  }
+  ctx.save();
+  ctx.strokeStyle='#a855ff';
+  ctx.lineWidth=3;
+  ctx.lineCap='square';
+  ctx.lineJoin='miter';
+  ctx.shadowColor='#cc77ff';
+  ctx.shadowBlur=12;
+  const wallAt=(r,c)=>{
+    if(r<0||r>=ROWS||c<0||c>=COLS) return false;
+    return BASE_MAP[r][c]===1;
+  };
+  const OFF=1.5;
+  ctx.beginPath();
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    if(BASE_MAP[r][c]!==1) continue;
+    const x=c*CELL, y=r*CELL;
+    if(!wallAt(r-1,c)){ ctx.moveTo(x,y+OFF); ctx.lineTo(x+CELL,y+OFF); }
+    if(!wallAt(r+1,c)){ ctx.moveTo(x,y+CELL-OFF); ctx.lineTo(x+CELL,y+CELL-OFF); }
+    if(!wallAt(r,c-1)){ ctx.moveTo(x+OFF,y); ctx.lineTo(x+OFF,y+CELL); }
+    if(!wallAt(r,c+1)){ ctx.moveTo(x+CELL-OFF,y); ctx.lineTo(x+CELL-OFF,y+CELL); }
+  }
+  ctx.stroke();
+  ctx.shadowBlur=24;
+  ctx.globalAlpha=0.35;
+  ctx.stroke();
+  ctx.globalAlpha=1;
+  ctx.restore();
+  for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
+    const t=map[r][c], x=c*CELL, y=r*CELL;
+    if(t===2){
       ctx.fillStyle='#fff';ctx.shadowColor='#fff';ctx.shadowBlur=4;
       ctx.beginPath();ctx.arc(x+CELL/2,y+CELL/2,2.5,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
     } else if(t===3){
@@ -305,10 +335,14 @@ function saveScore(s){
   localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
 
-// Static start screen — loop() is NOT called until startGame()
-ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
-ctx.fillStyle='#a855ff'; ctx.font='14px Orbitron'; ctx.textAlign='center';
-ctx.fillText('Press START to play', W/2, H/2); ctx.textAlign='left';
+// Static start screen — draw maze preview before startGame()
+map=makeMap(); frameCount=0;
+draw();
+ctx.fillStyle='rgba(0,0,0,0.55)'; ctx.fillRect(0,0,W,H);
+ctx.fillStyle='#a855ff'; ctx.font='bold 14px Orbitron'; ctx.textAlign='center';
+ctx.shadowColor='#a855ff'; ctx.shadowBlur=12;
+ctx.fillText('Press START to play', W/2, H/2);
+ctx.shadowBlur=0; ctx.textAlign='left';
 
 // ─── Arcade pay gate ──────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
