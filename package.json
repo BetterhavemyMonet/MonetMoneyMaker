@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "server": "node server.js",
     "build": "mkdir -p dist && cp *.html styles.css script.js wallet.js dist/ 2>/dev/null; cp *.jpg *.png dist/ 2>/dev/null; cp -r public/* dist/ 2>/dev/null; echo 'Build complete'",
     "preview": "vite preview"
   },
@@ -12,6 +13,8 @@
     "vite": "^8.0.10"
   },
   "dependencies": {
-    "@solana/web3.js": "^1.98.4"
+    "@solana/web3.js": "^1.98.4",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
   }
 }

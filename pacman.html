@@ -13,6 +13,8 @@
 .canvas-wrap canvas { border: 2px solid #a855ff; box-shadow: 0 0 24px #a855ff44; }
 .ctrl-btn-b { opacity: 0.4; pointer-events: none; }
 </style>
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -174,6 +176,7 @@ function gameOver(){
   gameRunning=false;
   document.getElementById('msg').textContent='GAME OVER — Score: '+score;
   saveScore(score);
+  arcadeSubmitScore('pacman', score);
 }
 
 function nextLevel(){
@@ -306,6 +309,11 @@ function saveScore(s){
 ctx.fillStyle='#000'; ctx.fillRect(0,0,W,H);
 ctx.fillStyle='#a855ff'; ctx.font='14px Orbitron'; ctx.textAlign='center';
 ctx.fillText('Press START to play', W/2, H/2); ctx.textAlign='left';
+
+// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showPayGate('pacman', () => {});
+});
 </script>
 </body>
 </html>

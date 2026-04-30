@@ -1,10 +1,13 @@
 <!DOCTYPE html>
 <html>
 <head>
+<meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Monet Money Arcade</title>
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 <style>
 body {
   background-image: url('/title.jpg');
@@ -100,19 +103,90 @@ body::before {
   margin-left:auto;
   margin-right:auto;
 }
+
+.pot-banner {
+  max-width:700px; margin:10px auto 4px; padding:0 16px;
+}
+.pot-inner {
+  background:linear-gradient(135deg,rgba(168,85,255,0.12),rgba(0,240,255,0.08));
+  border:1px solid #a855ff44; border-radius:14px;
+  padding:14px 20px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px;
+}
+.pot-num  { font-family:'Orbitron',sans-serif; font-size:22px; font-weight:800; color:#ffd700; }
+.pot-sub  { font-size:10px; color:#888; margin-top:1px; }
+.pot-btns { display:flex; gap:8px; }
+.pot-btn  { padding:7px 14px; border-radius:8px; border:none; cursor:pointer; font-family:'Orbitron',sans-serif; font-size:10px; font-weight:800; }
+.pot-btn-h2h    { background:linear-gradient(135deg,#00f0ff22,#00f0ff11); color:#00f0ff; border:1px solid #00f0ff44; }
+.pot-btn-tourny { background:linear-gradient(135deg,#ffd70022,#ffd70011); color:#ffd700; border:1px solid #ffd70044; }
+.pot-btn:hover  { filter:brightness(1.3); }
+
+.compete-grid {
+  display:grid; grid-template-columns:1fr 1fr;
+  gap:12px; max-width:700px; margin:0 auto; padding:0 16px;
+}
+.compete-card {
+  border-radius:14px; padding:18px 14px; cursor:pointer;
+  text-decoration:none; display:block; transition:transform .15s, box-shadow .15s;
+}
+.compete-card:hover { transform:translateY(-3px); }
+.compete-card.h2h     { background:rgba(0,240,255,0.06); border:1px solid #00f0ff33; box-shadow:0 0 0 #00f0ff00; }
+.compete-card.h2h:hover { box-shadow:0 0 20px #00f0ff33; }
+.compete-card.tourney { background:rgba(255,215,0,0.06); border:1px solid #ffd70033; }
+.compete-card.tourney:hover { box-shadow:0 0 20px #ffd70033; }
+.cc-icon  { font-size:28px; margin-bottom:6px; }
+.cc-title { font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800; margin-bottom:4px; }
+.cc-h2h   { color:#00f0ff; }
+.cc-gold  { color:#ffd700; }
+.cc-desc  { font-size:10px; color:#888; line-height:1.4; }
+.cc-badge { display:inline-block; font-size:9px; padding:2px 7px; border-radius:20px; margin-top:6px; font-family:'Orbitron',sans-serif; font-weight:bold; }
+.cc-badge-h2h   { background:rgba(0,240,255,0.1); color:#00f0ff; border:1px solid #00f0ff33; }
+.cc-badge-gold  { background:rgba(255,215,0,0.1); color:#ffd700; border:1px solid #ffd70033; }
+
+.wallet-bar { text-align:right; padding:6px 16px; background:rgba(0,0,0,0.3); font-size:12px; }
 </style>
 </head>
 <body>
+<div class="wallet-bar" id="wbar"></div>
 <div class="page">
 <img src="/logo.png" style="width:80px;display:block;margin:12px auto 6px;filter:drop-shadow(0 0 16px #a855ff)">
 <h1>MONET ARCADE</h1>
-<div class="subtitle">Choose your game · 5 MONET entry · 80% payout to winner</div>
+<div class="subtitle">Choose your game · 5 MONET entry · Solo 80% · H2H/Tournament 90%</div>
 
 <div class="nav-row">
   <button class="nav-btn" onclick="location.href='index.html'">&#8592; Home</button>
   <button class="nav-btn" onclick="location.href='exchange.html'">&#8645; Exchange</button>
   <button class="nav-btn" onclick="location.href='portfolio.html'">&#128188; Portfolio</button>
   <button class="nav-btn" onclick="location.href='leaderboard.html'">&#127942; Scores</button>
+</div>
+
+<!-- Treasury Pot Banner -->
+<div class="pot-banner">
+  <div class="pot-inner">
+    <div>
+      <div class="pot-num" id="pot-balance">— MONET</div>
+      <div class="pot-sub">Treasury pot · live balance</div>
+    </div>
+    <div class="pot-btns">
+      <button class="pot-btn pot-btn-h2h"   onclick="location.href='challenge.html'">&#9876; 1v1 Challenge</button>
+      <button class="pot-btn pot-btn-tourny" onclick="location.href='tournament.html'">&#127942; Tournament</button>
+    </div>
+  </div>
+</div>
+
+<div class="section-label">&#9876; Compete &amp; Win</div>
+<div class="compete-grid">
+  <a class="compete-card h2h" href="challenge.html">
+    <div class="cc-icon">&#9876;</div>
+    <div class="cc-title cc-h2h">HEAD-TO-HEAD</div>
+    <div class="cc-desc">Challenge a friend. Pay 5 MONET each. Higher score wins the 9 MONET pot.</div>
+    <span class="cc-badge cc-badge-h2h">90% TO WINNER</span>
+  </a>
+  <a class="compete-card tourney" href="tournament.html">
+    <div class="cc-icon">&#127942;</div>
+    <div class="cc-title cc-gold">TOURNAMENTS</div>
+    <div class="cc-desc">Join a field of players. Top 3 split 50/30/10% of the entire prize pool.</div>
+    <span class="cc-badge cc-badge-gold">PRIZE POOL</span>
+  </a>
 </div>
 
 <div class="section-label">&#127918; New Games</div>
@@ -196,5 +270,22 @@ body::before {
 
 </div>
 </div>
+
+<script>
+async function loadPotBalance() {
+  try {
+    const res  = await api('/api/status');
+    const bal  = res.balance;
+    const el   = document.getElementById('pot-balance');
+    if (el) el.textContent = (typeof bal === 'number' ? bal.toFixed(2) : '—') + ' MONET';
+  } catch { }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderWalletBar('wbar');
+  loadPotBalance();
+  setInterval(loadPotBalance, 30000);
+});
+</script>
 </body>
 </html>

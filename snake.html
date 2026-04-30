@@ -12,6 +12,8 @@
 }
 .canvas-wrap canvas { border: 2px solid #00ff9d; box-shadow: 0 0 20px #00ff9d44; }
 </style>
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -84,7 +86,7 @@ function tick() {
   if (head.x<0||head.x>=COLS||head.y<0||head.y>=ROWS||snake.some(s=>s.x===head.x&&s.y===head.y)) {
     gameRunning = false; clearInterval(intervalId);
     document.getElementById('msg').textContent = 'GAME OVER — Score: ' + score;
-    saveScore(score); draw(); return;
+    saveScore(score); arcadeSubmitScore('snake', score); draw(); return;
   }
   snake.unshift(head);
   if (head.x===food.x && head.y===food.y) {
@@ -171,6 +173,11 @@ function saveScore(s) {
 ctx.fillStyle = '#02040a'; ctx.fillRect(0, 0, W, H);
 ctx.fillStyle = '#00ff9d'; ctx.font = '14px Orbitron'; ctx.textAlign = 'center';
 ctx.fillText('Press START to play', W/2, H/2); ctx.textAlign = 'left';
+
+// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showPayGate('snake', () => {});
+});
 </script>
 </body>
 </html>

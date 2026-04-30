@@ -16,6 +16,8 @@
 .dpad-right { opacity: 0.3; pointer-events: none; }
 .ctrl-btn-a, .ctrl-btn-b { font-size: 11px; }
 </style>
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -143,10 +145,10 @@ function update() {
 
 function checkWin() {
   if (playerScore >= WIN_SCORE) {
-    gameRunning = false; document.getElementById('msg').textContent = 'YOU WIN! 🏆'; saveScore(playerScore*100);
+    gameRunning = false; document.getElementById('msg').textContent = 'YOU WIN! 🏆'; saveScore(playerScore*100); arcadeSubmitScore('pong', playerScore*100);
   }
   if (cpuScore >= WIN_SCORE) {
-    gameRunning = false; document.getElementById('msg').textContent = 'CPU WINS!'; saveScore(playerScore*50);
+    gameRunning = false; document.getElementById('msg').textContent = 'CPU WINS!'; saveScore(playerScore*50); arcadeSubmitScore('pong', playerScore*50);
   }
 }
 
@@ -221,6 +223,11 @@ function saveScore(s) {
   lb.sort((a,b)=>b.score-a.score);
   localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
+
+// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showPayGate('pong', () => {});
+});
 </script>
 </body>
 </html>

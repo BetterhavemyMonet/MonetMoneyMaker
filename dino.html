@@ -70,6 +70,8 @@
 .dpad-left  { opacity: 0.3; pointer-events: none; }
 .dpad-right { opacity: 0.3; pointer-events: none; }
 </style>
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
 </head>
 <body class="game-page">
 <div class="game-wrap">
@@ -282,6 +284,7 @@ function endGame(){
   gameRunning=false;
   document.getElementById('msg').textContent='GAME OVER — Score: '+Math.floor(score);
   saveScore(Math.floor(score));
+  arcadeSubmitScore('dino', Math.floor(score));
 }
 
 function makeRandomObs(){
@@ -572,6 +575,11 @@ function saveScore(s){
   lb.sort((a,b)=>b.score-a.score);
   localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
+
+// ─── Arcade pay gate ──────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  showPayGate('dino', () => {});
+});
 </script>
 </body>
 </html>

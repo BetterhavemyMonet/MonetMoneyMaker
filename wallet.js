@@ -578,3 +578,243 @@ if (document.readyState === 'loading') {
 } else {
   tryAutoConnect();
 }
+
+// ─── API Client ───────────────────────────────────────────────────────────────
+async function api(path, method = 'GET', body = null) {
+  const opts = { method, headers: { 'Content-Type': 'application/json' } };
+  if (body) opts.body = JSON.stringify(body);
+  const res = await fetch(path, opts);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || `API error ${res.status}`);
+  return data;
+}
+
+// ─── Pay Gate Overlay ─────────────────────────────────────────────────────────
+function _injectPayGateStyles() {
+  if (document.getElementById('pg-styles')) return;
+  const s = document.createElement('style');
+  s.id = 'pg-styles';
+  s.textContent = `
+    #pg-overlay {
+      position:fixed; inset:0; background:rgba(2,4,10,0.96);
+      z-index:99990; display:flex; align-items:center; justify-content:center;
+      font-family:'Orbitron',sans-serif; backdrop-filter:blur(4px);
+    }
+    #pg-box {
+      background:linear-gradient(160deg,#0d1017,#111827);
+      border:1px solid #a855ff; border-radius:20px;
+      padding:28px 24px 22px; width:min(360px,94vw);
+      box-shadow:0 0 60px #a855ff33; color:#fff; text-align:center;
+    }
+    #pg-star  { font-size:40px; margin-bottom:4px; }
+    #pg-title { font-size:16px; font-weight:800; color:#a855ff; margin-bottom:2px; }
+    #pg-game  { font-size:11px; color:#666; letter-spacing:2px; margin-bottom:14px; }
+    .pg-row   { display:flex; justify-content:space-between; align-items:center;
+                font-size:12px; padding:8px 0; border-bottom:1px solid #ffffff0d; }
+    .pg-row:last-of-type { border:none; }
+    .pg-label { color:#888; }
+    .pg-val   { font-weight:700; }
+    .pg-pot   { font-size:14px; font-weight:800; color:#ffd700; }
+    #pg-wallet-row { font-size:11px; color:#888; margin:12px 0 0; }
+    #pg-pay-btn {
+      margin-top:14px; width:100%; padding:13px;
+      border-radius:12px; border:none; cursor:pointer;
+      background:linear-gradient(135deg,#a855ff,#7c3aed);
+      color:#fff; font-family:'Orbitron',sans-serif; font-size:13px; font-weight:800;
+      box-shadow:0 4px 24px #a855ff44; letter-spacing:0.5px;
+      transition:opacity .15s;
+    }
+    #pg-pay-btn:disabled { opacity:0.5; cursor:not-allowed; }
+    #pg-connect-btn {
+      margin-top:14px; width:100%; padding:13px;
+      border-radius:12px; border:none; cursor:pointer;
+      background:linear-gradient(135deg,#00ff9d,#00c97b);
+      color:#000; font-family:'Orbitron',sans-serif; font-size:13px; font-weight:800;
+      box-shadow:0 4px 24px #00ff9d44;
+    }
+    #pg-back  {
+      margin-top:10px; background:none; border:none; color:#555;
+      font-family:'Orbitron',sans-serif; font-size:10px; cursor:pointer;
+    }
+    #pg-back:hover { color:#ff4488; }
+    #pg-err   { color:#ff4488; font-size:11px; margin-top:8px; min-height:16px; }
+    #pg-challenge-badge {
+      background:rgba(0,240,255,0.1); border:1px solid #00f0ff44;
+      border-radius:8px; padding:8px; margin-bottom:12px; font-size:11px; color:#00f0ff;
+    }
+    #pg-tourney-badge {
+      background:rgba(255,215,0,0.1); border:1px solid #ffd70044;
+      border-radius:8px; padding:8px; margin-bottom:12px; font-size:11px; color:#ffd700;
+    }
+  `;
+  document.head.appendChild(s);
+}
+
+window._pgOnSuccess = null;
+window._pgGameName  = null;
+
+async function showPayGate(gameName, onSuccess) {
+  if (hasValidSession(gameName)) { if (onSuccess) onSuccess(); return; }
+  _injectPayGateStyles();
+
+  const urlParams     = new URLSearchParams(location.search);
+  const challengeCode = urlParams.get('challenge');
+  const tournamentId  = urlParams.get('tournament');
+
+  window._pgOnSuccess = onSuccess;
+  window._pgGameName  = gameName;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'pg-overlay';
+  document.body.appendChild(overlay);
+
+  function renderGate() {
+    const conn     = WalletState.connected;
+    const bal      = WalletState.monetBalance;
+    const hasEnough = bal >= MONET_CONFIG.ENTRY_FEE;
+    const short    = conn ? WalletState.address.slice(0,4)+'...'+WalletState.address.slice(-4) : '';
+    const potAmt   = challengeCode ? (MONET_CONFIG.ENTRY_FEE * 2 * (1 - 0.10)).toFixed(1)
+                   : tournamentId  ? 'Pool grows with players'
+                   : (MONET_CONFIG.ENTRY_FEE * MONET_CONFIG.PAYOUT_RATE).toFixed(1) + ' MONET';
+
+    overlay.innerHTML = `
+      <div id="pg-box">
+        <div id="pg-star">&#9733;</div>
+        <div id="pg-title">PAY TO PLAY</div>
+        <div id="pg-game">${gameName.toUpperCase()}</div>
+
+        ${challengeCode ? `<div id="pg-challenge-badge">&#9876; HEAD-TO-HEAD CHALLENGE<br><b style="font-size:14px">${challengeCode}</b></div>` : ''}
+        ${tournamentId  ? `<div id="pg-tourney-badge">&#127942; TOURNAMENT ENTRY</div>` : ''}
+
+        <div class="pg-row">
+          <span class="pg-label">Entry Fee</span>
+          <span class="pg-val" style="color:#ff4488">${MONET_CONFIG.ENTRY_FEE} MONET</span>
+        </div>
+        <div class="pg-row">
+          <span class="pg-label">Prize Pot</span>
+          <span class="pg-pot">${potAmt}</span>
+        </div>
+        <div class="pg-row">
+          <span class="pg-label">House Rake</span>
+          <span class="pg-val" style="color:#888">${challengeCode || tournamentId ? '10%' : Math.round((1 - MONET_CONFIG.PAYOUT_RATE) * 100) + '%'}</span>
+        </div>
+
+        ${conn ? `
+          <div id="pg-wallet-row">
+            &#9679; ${short} &nbsp;|&nbsp;
+            <span style="color:${hasEnough?'#00ff9d':'#ff4488'}">${bal.toFixed(2)} MONET</span>
+          </div>
+          ${hasEnough ? `
+            <button id="pg-pay-btn" onclick="pgPay()">PAY ${MONET_CONFIG.ENTRY_FEE} MONET &amp; PLAY</button>
+          ` : `
+            <div style="color:#ff4488;font-size:11px;margin-top:10px">Insufficient MONET — need ${MONET_CONFIG.ENTRY_FEE}</div>
+            <button id="pg-pay-btn" onclick="location.href='exchange.html'" style="background:linear-gradient(135deg,#ff4488,#c0136c)">GET MONET &#8594;</button>
+          `}
+        ` : `
+          <button id="pg-connect-btn" onclick="pgConnect()">CONNECT WALLET</button>
+        `}
+        <div id="pg-err"></div>
+        <button id="pg-back" onclick="pgBack()">&#8592; Back to Arcade</button>
+      </div>
+    `;
+  }
+
+  renderGate();
+  document.addEventListener('walletConnected', renderGate);
+  document.addEventListener('balanceUpdated',  renderGate);
+}
+
+async function pgConnect() {
+  const btn = document.getElementById('pg-connect-btn');
+  if (btn) { btn.textContent = 'Connecting...'; btn.disabled = true; }
+  try {
+    await connectWallet();
+  } catch(e) {
+    const errEl = document.getElementById('pg-err');
+    if (errEl) errEl.textContent = e.message;
+    if (btn) { btn.textContent = 'CONNECT WALLET'; btn.disabled = false; }
+  }
+}
+
+async function pgPay() {
+  const btn = document.getElementById('pg-pay-btn');
+  const err = document.getElementById('pg-err');
+  if (btn) { btn.textContent = 'Processing...'; btn.disabled = true; }
+  if (err) err.textContent = '';
+  try {
+    const txId = await payEntryFee(window._pgGameName);
+
+    const urlParams     = new URLSearchParams(location.search);
+    const challengeCode = urlParams.get('challenge');
+    const tournamentId  = urlParams.get('tournament');
+
+    if (challengeCode) {
+      try {
+        const existing = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
+        if (!existing) {
+          const res = await api(`/api/challenge/${challengeCode}`);
+          const ch  = res.challenge;
+          if (ch.status === 'open' && ch.player1.wallet !== WalletState.address) {
+            await api('/api/challenge/join', 'POST', { code: challengeCode, wallet: WalletState.address, txId });
+          }
+          sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: ch.id, code: challengeCode, txId }));
+        }
+      } catch(e2) { console.warn('[ARCADE] Challenge join error:', e2.message); }
+    }
+
+    if (tournamentId) {
+      try {
+        await api('/api/tournament/register', 'POST', { tournamentId, wallet: WalletState.address, txId });
+      } catch(e2) { console.warn('[ARCADE] Tournament register error:', e2.message); }
+    }
+
+    document.getElementById('pg-overlay')?.remove();
+    if (window._pgOnSuccess) window._pgOnSuccess();
+  } catch(e) {
+    if (btn) { btn.textContent = `PAY ${MONET_CONFIG.ENTRY_FEE} MONET & PLAY`; btn.disabled = false; }
+    if (err) err.textContent = e.message;
+  }
+}
+
+function pgBack() { location.href = 'arcade.html'; }
+
+window.pgConnect = pgConnect;
+window.pgPay     = pgPay;
+window.pgBack    = pgBack;
+
+// ─── Arcade Score Submission ──────────────────────────────────────────────────
+async function arcadeSubmitScore(gameName, score) {
+  const urlParams     = new URLSearchParams(location.search);
+  const challengeCode = urlParams.get('challenge');
+  const tournamentId  = urlParams.get('tournament');
+
+  if (challengeCode) {
+    try {
+      const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
+      if (cs) {
+        await api('/api/challenge/submit', 'POST', { challengeId: cs.challengeId, wallet: WalletState.address, score });
+        console.log('[ARCADE] Challenge score submitted:', score);
+      }
+    } catch(e) { console.warn('[ARCADE] Challenge submit error:', e.message); }
+  } else if (tournamentId) {
+    try {
+      await api('/api/tournament/submit', 'POST', { tournamentId, wallet: WalletState.address, score });
+      console.log('[ARCADE] Tournament score submitted:', score);
+    } catch(e) { console.warn('[ARCADE] Tournament submit error:', e.message); }
+  } else {
+    if (score > 0 && WalletState.connected) recordWin(gameName, score);
+  }
+}
+
+window.arcadeSubmitScore = arcadeSubmitScore;
+
+// ─── Create challenge from game page ─────────────────────────────────────────
+async function createChallenge(game) {
+  if (!WalletState.connected) throw new Error('Connect wallet first');
+  const txId = await payEntryFee(game);
+  const res  = await api('/api/challenge/create', 'POST', { wallet: WalletState.address, txId, game });
+  sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: res.challengeId, code: res.code, txId }));
+  return res;
+}
+
+window.createChallenge = createChallenge;
