@@ -226,13 +226,14 @@ function draw(){
       ctx.fillStyle='#060012';ctx.fillRect(x,y,CELL,CELL);
     }
   }
+  const wallFlicker=0.75+0.25*Math.sin(frameCount*0.04);
   ctx.save();
   ctx.strokeStyle='#a855ff';
   ctx.lineWidth=3;
   ctx.lineCap='square';
   ctx.lineJoin='miter';
   ctx.shadowColor='#cc77ff';
-  ctx.shadowBlur=12;
+  ctx.shadowBlur=12*wallFlicker;
   const wallAt=(r,c)=>{
     if(r<0||r>=ROWS||c<0||c>=COLS) return false;
     return BASE_MAP[r][c]===1;
@@ -248,8 +249,8 @@ function draw(){
     if(!wallAt(r,c+1)){ ctx.moveTo(x+CELL-OFF,y); ctx.lineTo(x+CELL-OFF,y+CELL); }
   }
   ctx.stroke();
-  ctx.shadowBlur=24;
-  ctx.globalAlpha=0.35;
+  ctx.shadowBlur=24*wallFlicker;
+  ctx.globalAlpha=0.35*wallFlicker;
   ctx.stroke();
   ctx.globalAlpha=1;
   ctx.restore();
