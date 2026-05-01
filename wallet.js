@@ -353,9 +353,15 @@ async function connectWallet() {
   localStorage.setItem('wallet_address', address);
   localStorage.setItem('wallet_name', chosen.name);
 
-  await refreshBalances();
-  ensureMonetAccount(); // fire-and-forget: treasury creates player ATA if missing
+  // Fire walletConnected immediately so the UI shows "connected" right away,
+  // then fetch the balance (may need a retry if RPC is warm-up rate-limiting).
   document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address, walletName: chosen.name } }));
+  await refreshBalances();
+  // If balance is still 0 after first fetch, retry once more after a short delay
+  if (WalletState.monetBalance === 0) {
+    setTimeout(async () => { await refreshBalances(); }, 4000);
+  }
+  ensureMonetAccount(); // fire-and-forget: treasury creates player ATA if missing
   return address;
 }
 
@@ -392,9 +398,12 @@ async function tryAutoConnect() {
     WalletState.connected    = true;
     WalletState.address      = address;
     localStorage.setItem('wallet_address', address);
-    await refreshBalances();
-    ensureMonetAccount(); // fire-and-forget: treasury creates player ATA if missing
     document.dispatchEvent(new CustomEvent('walletConnected', { detail: { address } }));
+    await refreshBalances();
+    if (WalletState.monetBalance === 0) {
+      setTimeout(async () => { await refreshBalances(); }, 4000);
+    }
+    ensureMonetAccount(); // fire-and-forget: treasury creates player ATA if missing
   } catch(e) { /* not previously trusted */ }
 }
 
@@ -403,23 +412,29 @@ async function tryAutoConnect() {
 // browser CORS / rate-limit 403s that plague public Solana RPC endpoints.
 async function refreshBalances() {
   if (!WalletState.address) return;
-  let usedServer = false;
+  let updated = false;
   try {
     const res  = await fetch(`/api/balance/${WalletState.address}`);
     if (res.ok) {
       const data = await res.json();
-      WalletState.monetBalance = data.monet ?? 0;
-      WalletState.solBalance   = data.sol   ?? 0;
-      WalletState.hasMonetAta  = data.hasAta ?? false;
-      usedServer = true;
+      // Only overwrite balance if the server returned a real value.
+      // If the server served stale cache that's fine — still correct.
+      // Never reset to 0 when RPC fails; keep last known value instead.
+      if (data.monet > 0 || !WalletState.hasMonetAta) {
+        WalletState.monetBalance = data.monet ?? WalletState.monetBalance;
+      }
+      WalletState.solBalance  = data.sol    ?? WalletState.solBalance;
+      WalletState.hasMonetAta = data.hasAta ?? WalletState.hasMonetAta;
+      updated = true;
     }
+    // 503 = all RPCs down with no cache — keep whatever balance we already have
   } catch(_) {}
 
-  if (!usedServer) {
-    // Fallback: direct browser RPC (may fail on rate-limited public endpoints)
+  if (!updated) {
+    // Fallback: direct browser RPC — only update if we get a real value back
     await Promise.allSettled([
-      getMonetBalanceDirect().then(b => { WalletState.monetBalance = b; }).catch(() => {}),
-      getSolBalanceDirect().then(b   => { WalletState.solBalance   = b; }).catch(() => {}),
+      getMonetBalanceDirect().then(b => { if (b > 0) WalletState.monetBalance = b; }).catch(() => {}),
+      getSolBalanceDirect().then(b   => { if (b >= 0) WalletState.solBalance = b; }).catch(() => {}),
     ]);
   }
   document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
@@ -477,6 +492,8 @@ async function getSolBalanceDirect() {
 // Treasury pays the ~0.002 SOL rent so the player needs no SOL to get started.
 async function ensureMonetAccount() {
   if (!WalletState.address) return;
+  // Skip entirely if we already know the ATA exists — avoids unnecessary RPC calls
+  if (WalletState.hasMonetAta) return;
   try {
     const res  = await fetch('/api/create-token-account', {
       method:  'POST',
@@ -487,7 +504,6 @@ async function ensureMonetAccount() {
     if (data.created) {
       console.log('[MONET] Token account created for player:', data.ata);
       WalletState.hasMonetAta = true;
-      // Refresh so the wallet bar reflects the new account
       setTimeout(refreshBalances, 2000);
     } else if (data.ok) {
       WalletState.hasMonetAta = true;

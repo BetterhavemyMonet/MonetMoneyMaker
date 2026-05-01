@@ -34,13 +34,12 @@ const ASSOC_PROG   = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3
 // Primary: user-configured via env var (recommended for production).
 // Fallback: best-effort free public endpoints — server-side Node.js bypasses
 // the browser CORS/rate-limit 403s that hit these from the frontend.
-// Set SOLANA_RPC_URL env var (e.g. a Helius free-tier key) for best reliability.
-// Fallbacks are free public endpoints that work from Node.js (no CORS/key required).
 // Set SOLANA_RPC_URL secret for a dedicated RPC (Helius free tier recommended).
-// Fallbacks are public endpoints — mainnet-beta works fine server-side.
+// Fallbacks are public endpoints that work from Node.js (no browser CORS issues).
 const RPCS = [
   process.env.SOLANA_RPC_URL,
   'https://api.mainnet-beta.solana.com',
+  'https://solana.drpc.org',
   'https://mainnet.helius-rpc.com/',
 ].filter(Boolean);
 
@@ -145,15 +144,19 @@ async function sendPayout(toAddress, amount) {
   });
 }
 
+let _tBal = 0, _tBalTs = 0;
 async function getTreasuryBalance() {
+  if (Date.now() - _tBalTs < 60_000) return _tBal;
   try {
     const mint  = new PublicKey(MINT_ADDRESS);
     const owner = new PublicKey(TREASURY_ADDR);
-    return withRpc(async conn => {
+    const bal = await withRpc(async conn => {
       const res = await conn.getParsedTokenAccountsByOwner(owner, { mint });
       return res?.value?.[0]?.account?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
     });
-  } catch { return 0; }
+    _tBal = bal; _tBalTs = Date.now();
+    return bal;
+  } catch { return _tBal; }
 }
 
 // ─── ID generators ────────────────────────────────────────────────────────────
@@ -173,45 +176,74 @@ const CPU_RANGES = {
   hard:   { frogger:[1800,4000],  snake:[80,140], pacman:[20000,40000], pong:[7,9], dino:[5000,12000]},
 };
 
+// ─── Balance cache (stale-while-revalidate) ───────────────────────────────────
+// Keeps the last known-good balance per wallet for up to 90 seconds.
+// When RPCs are rate-limited the cached value is returned instead of 0,
+// so the user sees a correct balance even during 429 windows.
+const BALANCE_CACHE     = new Map();  // wallet → { monet, sol, ata, hasAta, ts }
+const BALANCE_CACHE_TTL = 90_000;    // ms
+
 // ─── Routes: wallet utilities ────────────────────────────────────────────────
-// Single server-side call: returns MONET + SOL balance for any wallet.
-// Clients call this instead of hitting Solana RPCs directly from the browser,
-// which are blocked by CORS/rate-limit 403s on public endpoints.
 app.get('/api/balance/:wallet', async (req, res) => {
+  const walletAddr = req.params.wallet;
+  const cached     = BALANCE_CACHE.get(walletAddr);
+
+  // Serve stale cache while a fresh fetch runs in the background
+  if (cached && Date.now() - cached.ts < BALANCE_CACHE_TTL) {
+    return res.json({ ok: true, ...cached, cached: true });
+  }
+
   try {
-    const owner = new PublicKey(req.params.wallet);
+    const owner = new PublicKey(walletAddr);
     const mint  = new PublicKey(MINT_ADDRESS);
 
-    // Use getParsedTokenAccountsByOwner filtered by mint — the most reliable
-    // way to get an SPL token balance. getParsedAccountInfo on a derived ATA
-    // can return un-parsed Buffer data depending on the RPC endpoint.
+    // getParsedTokenAccountsByOwner is the most reliable method — returns
+    // fully parsed data regardless of which RPC node answers.
     const [tokenResult, solResult] = await Promise.allSettled([
       withRpc(conn => conn.getParsedTokenAccountsByOwner(owner, { mint })),
       withRpc(conn => conn.getBalance(owner)),
     ]);
 
+    const tokenOk = tokenResult.status === 'fulfilled';
+    const solOk   = solResult.status   === 'fulfilled';
+
+    // Token RPC failed — serve stale cache or 503 rather than a false 0
+    if (!tokenOk) {
+      if (cached) {
+        console.warn(`[MONET] balance ${walletAddr.slice(0,8)}… token RPC failed, serving cache`);
+        const solBalance = solOk ? (solResult.value ?? 0) / 1e9 : cached.sol;
+        return res.json({ ok: true, ...cached, sol: solBalance, cached: true, stale: !solOk });
+      }
+      // No cache and token RPC failed — tell client to keep whatever it has
+      console.warn(`[MONET] balance ${walletAddr.slice(0,8)}… token RPC failed, no cache`);
+      return res.status(503).json({ error: 'Token RPC unavailable, no cached balance' });
+    }
+
     let monetBalance = 0;
     let hasAta       = false;
     let ata          = null;
-    if (tokenResult.status === 'fulfilled' && tokenResult.value?.value?.length > 0) {
+    if (tokenResult.value?.value?.length > 0) {
       const acct   = tokenResult.value.value[0];
       monetBalance = acct.account.data.parsed.info.tokenAmount.uiAmount ?? 0;
       hasAta       = true;
       ata          = acct.pubkey.toString();
     } else {
-      // ATA doesn't exist yet — derive address for reference
       ata = getATA(mint, owner).toString();
     }
 
-    const solBalance = solResult.status === 'fulfilled'
-      ? (solResult.value ?? 0) / 1e9
-      : 0;
+    const solBalance = solOk ? (solResult.value ?? 0) / 1e9 : (cached?.sol ?? 0);
+    const entry = { monet: monetBalance, sol: solBalance, ata, hasAta, ts: Date.now() };
+    BALANCE_CACHE.set(walletAddr, entry);
 
-    console.log(`[MONET] balance ${req.params.wallet.slice(0,8)}… monet=${monetBalance} sol=${solBalance} hasAta=${hasAta}`);
-    res.json({ ok: true, monet: monetBalance, sol: solBalance, ata, hasAta });
+    console.log(`[MONET] balance ${walletAddr.slice(0,8)}… monet=${monetBalance} sol=${solBalance} hasAta=${hasAta}`);
+    res.json({ ok: true, ...entry });
   } catch(e) {
+    if (cached) {
+      console.warn(`[MONET] /api/balance error (serving cache):`, e.message);
+      return res.json({ ok: true, ...cached, cached: true, stale: true });
+    }
     console.error('[MONET] /api/balance error:', e.message);
-    res.status(500).json({ error: e.message });
+    res.status(503).json({ error: e.message });
   }
 });
 
