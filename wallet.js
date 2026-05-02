@@ -1139,12 +1139,26 @@ window.createChallenge = createChallenge;
 // Shows a small persistent bar during an active Head-to-Head game that polls
 // the challenge endpoint every 3 s and updates both players' best scores live.
 // Expands to a winner banner when the challenge settles.
+
+// Singleton state — ensures only one watcher runs at a time.
+let _h2wPollId   = null;
+let _h2wBarEl    = null;
+
+function _h2wStop() {
+  if (_h2wPollId !== null) { clearInterval(_h2wPollId); _h2wPollId = null; }
+  if (_h2wBarEl  && _h2wBarEl.parentNode) { _h2wBarEl.remove(); }
+  _h2wBarEl = null;
+}
+
 function startH2HWatch(code) {
   if (!code) {
     const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
     code = cs?.code;
   }
   if (!code) return;
+
+  // Stop any previous watcher before starting a new one
+  _h2wStop();
 
   // ── styles (injected once) ──
   if (!document.getElementById('h2w-styles')) {
@@ -1185,11 +1199,10 @@ function startH2HWatch(code) {
     document.head.appendChild(s);
   }
 
-  // Remove any existing bar
-  document.getElementById('h2w-bar')?.remove();
-
+  // Bar starts hidden; made visible only once status === 'active'
   const bar = document.createElement('div');
   bar.id = 'h2w-bar';
+  bar.style.display = 'none';
   bar.innerHTML = `
     <div class="h2w-dot"></div>
     <span class="h2w-you">YOU&nbsp;<span class="h2w-sc" id="h2w-my">—</span></span>
@@ -1198,16 +1211,26 @@ function startH2HWatch(code) {
     <span class="h2w-code">${code}</span>
   `;
   document.body.appendChild(bar);
+  _h2wBarEl = bar;
 
-  let pollId   = null;
   let myWallet = null;
   let settled  = false;
 
   async function poll() {
+    // Abort if bar was removed externally (e.g. page navigation)
+    if (!bar.parentNode) { _h2wStop(); return; }
+
     try {
       const r = await fetch(`/api/challenge/${encodeURIComponent(code)}`);
       if (!r.ok) return;
       const { challenge: ch } = await r.json();
+
+      // Only show the bar once the challenge is actually active or settled
+      const isActive  = ch.status === 'active';
+      const isSettled = ch.status === 'complete' || ch.status === 'expired';
+      if (!isActive && !isSettled) return; // still 'open' — keep bar hidden
+
+      bar.style.display = 'flex';
 
       // Resolve which side we are (wallet may not be set immediately)
       if (!myWallet) {
@@ -1226,24 +1249,28 @@ function startH2HWatch(code) {
         myScore = p1?.score ?? null; opScore = p2?.score ?? null;
       }
 
-      const myEl = document.getElementById('h2w-my');
-      const opEl = document.getElementById('h2w-op');
-      if (!myEl || !opEl) return; // bar was removed
+      if (isActive) {
+        const myEl = document.getElementById('h2w-my');
+        const opEl = document.getElementById('h2w-op');
+        if (!myEl || !opEl) return;
 
-      const fmt = v => v !== null ? v.toLocaleString() : '—';
-      myEl.textContent = fmt(myScore);
-      opEl.textContent = fmt(opScore);
+        const fmt = v => v !== null ? v.toLocaleString() : '—';
+        myEl.textContent = fmt(myScore);
+        opEl.textContent = fmt(opScore);
 
-      // Highlight the leader
-      myEl.classList.toggle('h2w-lead', myScore !== null && (opScore === null || myScore > opScore));
-      opEl.classList.toggle('h2w-lead', opScore !== null && (myScore === null || opScore > myScore));
+        // Highlight the leader
+        myEl.classList.toggle('h2w-lead', myScore !== null && (opScore === null || myScore > opScore));
+        opEl.classList.toggle('h2w-lead', opScore !== null && (myScore === null || opScore > myScore));
+      }
 
-      if ((ch.status === 'complete' || ch.status === 'expired') && !settled) {
+      if (isSettled && !settled) {
         settled = true;
-        clearInterval(pollId);
+        clearInterval(_h2wPollId);
+        _h2wPollId = null;
 
-        const iWon = ch.winner && ch.winner === myWallet;
-        const pot  = ch.pot ?? '?';
+        const fmt   = v => v !== null ? v.toLocaleString() : '—';
+        const iWon  = ch.winner && ch.winner === myWallet;
+        const pot   = ch.pot ?? '?';
 
         bar.classList.add('winner');
         bar.innerHTML = `
@@ -1253,17 +1280,16 @@ function startH2HWatch(code) {
             <div class="h2w-win-sub">YOU ${fmt(myScore)} · OPP ${fmt(opScore)}</div>
           </span>
         `;
-        // Auto-dismiss after 9 s
-        setTimeout(() => bar.remove(), 9000);
+        setTimeout(() => { bar.remove(); _h2wBarEl = null; }, 9000);
       }
     } catch (_) { /* ignore transient errors */ }
   }
 
   poll(); // immediate first fetch
-  pollId = setInterval(poll, 3000);
+  _h2wPollId = setInterval(poll, 3000);
 
   // Clean up when navigating away
-  window.addEventListener('beforeunload', () => clearInterval(pollId), { once: true });
+  window.addEventListener('beforeunload', _h2wStop, { once: true });
 }
 
 window.startH2HWatch = startH2HWatch;
