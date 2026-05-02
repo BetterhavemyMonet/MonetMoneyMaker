@@ -229,12 +229,13 @@ function draw(){
     }
   }
   const wallFlicker=0.75+0.25*Math.sin(frameCount*0.04);
+  const wallHue=265+45*Math.sin(frameCount*0.007);
   ctx.save();
-  ctx.strokeStyle='#a855ff';
+  ctx.strokeStyle=`hsl(${wallHue},90%,62%)`;
   ctx.lineWidth=3;
   ctx.lineCap='square';
   ctx.lineJoin='miter';
-  ctx.shadowColor='#cc77ff';
+  ctx.shadowColor=`hsl(${wallHue},80%,75%)`;
   ctx.shadowBlur=12*wallFlicker;
   const wallAt=(r,c)=>{
     if(r<0||r>=ROWS||c<0||c>=COLS) return false;
@@ -270,15 +271,16 @@ function draw(){
   if(!player) return;
   ctx.save();ctx.translate(player.x,player.y);
   const rot=Math.atan2(player.dy,player.dx)||0;ctx.rotate(rot);
+  const PR=CELL/2+4;
   if(charImg.complete&&charImg.naturalWidth>0){
     ctx.beginPath();
-    ctx.arc(0,0,CELL/2-1,player.mouthAngle*Math.PI,(2-player.mouthAngle)*Math.PI);
+    ctx.arc(0,0,PR,player.mouthAngle*Math.PI,(2-player.mouthAngle)*Math.PI);
     ctx.lineTo(0,0);ctx.closePath();ctx.clip();
-    ctx.drawImage(charImg,-CELL/2+1,-CELL/2+1,CELL-2,CELL-2);
+    ctx.drawImage(charImg,-PR,-PR,PR*2,PR*2);
   } else {
     ctx.fillStyle='#ffdd00';ctx.shadowColor='#ffdd00';ctx.shadowBlur=10;
     ctx.beginPath();
-    ctx.arc(0,0,CELL/2-1,player.mouthAngle*Math.PI,(2-player.mouthAngle)*Math.PI);
+    ctx.arc(0,0,PR,player.mouthAngle*Math.PI,(2-player.mouthAngle)*Math.PI);
     ctx.lineTo(0,0);ctx.closePath();ctx.fill();
   }
   ctx.restore();ctx.shadowBlur=0;
@@ -375,7 +377,10 @@ GamepadMgr.on('start', () => startGame());
 
 // ─── Game Lobby ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-  showGameLobby('pacman', () => {});
+  const isCpu = new URLSearchParams(location.search).get('cpu');
+  if (!isCpu) {
+    showGameLobby('pacman', () => {});
+  }
 });
 </script>
 </body>

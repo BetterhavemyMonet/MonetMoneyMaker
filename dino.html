@@ -588,6 +588,8 @@ GamepadMgr.on('start', () => startEndless());
 
 // ─── Game Lobby ───────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
+  const isCpu = new URLSearchParams(location.search).get('cpu');
+  if (isCpu) return;
   // If launched with #create anchor, open create tab immediately
   if (sessionStorage.getItem('dino_tab') === 'create') {
     sessionStorage.removeItem('dino_tab');
