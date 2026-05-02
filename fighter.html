@@ -357,16 +357,17 @@ class Fighter {
     this._shadow(ctx);
     ctx.fillStyle = c.shadow; this._r(ctx,  3, -32, 12, 32);
     ctx.fillStyle = c.main;   this._r(ctx, -15, -32, 12, 32);
-    ctx.fillStyle = c.shadow; this._r(ctx,  12, -78, 10, 28);
+    ctx.fillStyle = c.main;   this._r(ctx, -24, -78, 10, 28);
     ctx.fillStyle = c.main;   this._r(ctx, -16, -82, 32, 44);
     ctx.fillStyle = c.shadow; this._r(ctx, -16, -40, 32, 9);
-    ctx.fillStyle = c.main;   ctx.fillRect(-24, -79, 10 + ext, 10);
-    ctx.fillStyle = c.shadow; this._r(ctx, -24 + ext, -81, 15, 15, 4);
+    ctx.fillStyle = c.shadow; ctx.fillRect(14, -79, 10 + ext, 10);
+    ctx.fillStyle = c.shadow; this._r(ctx, 14 + ext, -81, 15, 15, 4);
     if (f >= atk.aStart && f <= atk.aEnd) {
       ctx.save(); ctx.globalAlpha = 0.65;
-      const g = ctx.createRadialGradient(-14 + ext, -74, 2, -14 + ext, -74, 22);
+      const gx = 24 + ext, gy = -74;
+      const g = ctx.createRadialGradient(gx, gy, 2, gx, gy, 22);
       g.addColorStop(0, c.glow); g.addColorStop(1, 'transparent');
-      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(-14 + ext, -74, 22, 0, Math.PI*2); ctx.fill();
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, gy, 22, 0, Math.PI*2); ctx.fill();
       ctx.restore();
     }
     this._head(ctx, c, 0);
@@ -376,18 +377,18 @@ class Fighter {
     const atk = ATTACKS.kick;
     const ext = Math.min(1, f >= atk.aStart ? 1 : (f - 2) / 7);
     this._shadow(ctx);
-    ctx.fillStyle = c.shadow; this._r(ctx, 3, -32, 12, 32);
+    ctx.fillStyle = c.main;   this._r(ctx, -15, -32, 12, 32);
     ctx.fillStyle = c.shadow; this._r(ctx, 14, -78, 10, 32);
     ctx.fillStyle = c.main;   this._r(ctx, -24, -78, 10, 32);
     ctx.fillStyle = c.main;   this._r(ctx, -16, -82, 32, 44);
     ctx.fillStyle = c.shadow; this._r(ctx, -16, -40, 32, 9);
-    ctx.save(); ctx.translate(-10, -38); ctx.rotate(-1.0 * ext);
-    ctx.fillStyle = c.main;   ctx.fillRect(-6, -58, 13, 40);
-    ctx.fillStyle = c.shadow; this._r(ctx, -9, -20, 20, 14, 3);
+    ctx.save(); ctx.translate(10, -38); ctx.rotate(1.0 * ext);
+    ctx.fillStyle = c.shadow; ctx.fillRect(-6, -58, 13, 40);
+    ctx.fillStyle = c.main;   this._r(ctx, -9, -20, 20, 14, 3);
     ctx.restore();
     if (f >= atk.aStart && f <= atk.aEnd) {
       ctx.save(); ctx.globalAlpha = 0.4; ctx.strokeStyle = c.glow; ctx.lineWidth = 4;
-      ctx.beginPath(); ctx.arc(-10, -38, 50, -1.6, -0.2); ctx.stroke(); ctx.restore();
+      ctx.beginPath(); ctx.arc(10, -38, 50, 0.2, 1.6); ctx.stroke(); ctx.restore();
     }
     this._head(ctx, c, 0);
   }

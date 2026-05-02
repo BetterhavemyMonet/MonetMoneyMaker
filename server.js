@@ -689,6 +689,36 @@ app.post('/api/cpu/submit', async (req, res) => {
   res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore, payout: g.won ? payout : 0 });
 });
 
+// ─── Auto-retry pending payouts ───────────────────────────────────────────────
+// Runs every 90 seconds. Any claim still in 'pending' state (failed on first
+// attempt) is retried automatically as long as TREASURY_PRIVATE_KEY is set.
+async function retryPendingClaims() {
+  if (!getTreasuryKP()) return; // no key — nothing to do
+  const claims = dbRead('claims');
+  const pending = claims.filter(c => c.status === 'pending');
+  if (!pending.length) return;
+  console.log(`[PAYOUT-RETRY] ${pending.length} pending claim(s) — retrying…`);
+  let changed = false;
+  for (const claim of pending) {
+    try {
+      claim.payoutTxId  = await sendPayout(claim.wallet, claim.amount);
+      claim.status      = 'paid';
+      claim.processedAt = Date.now();
+      delete claim.error;
+      console.log(`[PAYOUT-RETRY] ✓ ${claim.type} ${claim.id.slice(0,8)} → ${claim.wallet.slice(0,8)}… ${claim.amount} MONET`);
+      changed = true;
+    } catch(e) {
+      claim.error       = e.message;
+      claim.lastRetryAt = Date.now();
+      console.warn(`[PAYOUT-RETRY] ✗ ${claim.id.slice(0,8)} failed again: ${e.message}`);
+    }
+  }
+  if (changed) dbWrite('claims', claims);
+}
+setInterval(retryPendingClaims, 90_000);
+// Also run once 15 s after boot so fresh deploys pick up any queued claims fast
+setTimeout(retryPendingClaims, 15_000);
+
 // ─── Static files (production) ────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   const distDir = path.join(__dirname, 'dist');
