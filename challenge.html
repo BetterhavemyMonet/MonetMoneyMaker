@@ -114,6 +114,84 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 
 .tab-panel { display:none; }
 .tab-panel.active { display:block; }
+
+/* ── Live Lobby ── */
+.lobby-header {
+  display:flex; align-items:center; justify-content:space-between;
+  margin-bottom:12px;
+}
+.live-dot {
+  display:inline-flex; align-items:center; gap:5px;
+  font-size:10px; color:#00ff9d; font-family:'Orbitron',sans-serif;
+}
+.live-dot::before {
+  content:''; width:7px; height:7px; border-radius:50%;
+  background:#00ff9d; display:inline-block;
+  box-shadow:0 0 6px #00ff9d;
+  animation: pulse-dot 1.4s ease-in-out infinite;
+}
+@keyframes pulse-dot {
+  0%,100% { opacity:1; box-shadow:0 0 6px #00ff9d; }
+  50%      { opacity:.4; box-shadow:0 0 2px #00ff9d; }
+}
+.lobby-card {
+  background:rgba(168,85,255,0.05); border:1px solid #a855ff33;
+  border-radius:12px; padding:14px; margin-bottom:10px;
+  transition:border-color .15s;
+}
+.lobby-card:hover { border-color:#a855ff88; }
+.lobby-card-top {
+  display:flex; justify-content:space-between; align-items:flex-start;
+  margin-bottom:10px;
+}
+.lobby-game-label {
+  font-family:'Orbitron',sans-serif; font-size:13px; font-weight:800; color:#fff;
+}
+.lobby-pot {
+  font-family:'Orbitron',sans-serif; font-size:14px; font-weight:800; color:#ffd700;
+}
+.lobby-meta { font-size:10px; color:#666; margin-top:3px; }
+.lobby-creator {
+  font-size:10px; color:#888; margin-top:2px;
+  font-family:monospace; letter-spacing:0.5px;
+}
+.lobby-time {
+  font-size:10px; padding:2px 8px; border-radius:20px;
+  background:rgba(0,255,157,0.08); color:#00ff9d;
+  border:1px solid #00ff9d33; white-space:nowrap;
+}
+.lobby-time.expiring { background:rgba(255,68,136,0.1); color:#ff4488; border-color:#ff448833; }
+.btn-join {
+  width:100%; padding:10px; border-radius:10px; border:none; cursor:pointer;
+  background:linear-gradient(135deg,#a855ff,#7c3aed); color:#fff;
+  font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800;
+  box-shadow:0 2px 14px #a855ff33; transition:opacity .15s;
+}
+.btn-join:hover { opacity:.85; }
+.btn-join:disabled { opacity:.4; cursor:not-allowed; }
+.lobby-empty {
+  text-align:center; padding:28px 0; color:#444;
+  font-family:'Orbitron',sans-serif; font-size:11px; line-height:1.8;
+}
+.lobby-spinner {
+  text-align:center; padding:24px 0; color:#555;
+  font-family:'Orbitron',sans-serif; font-size:10px;
+}
+.lobby-count-badge {
+  background:rgba(168,85,255,0.15); border:1px solid #a855ff44;
+  border-radius:20px; padding:2px 10px; font-size:10px; color:#a855ff;
+  font-family:'Orbitron',sans-serif;
+}
+.game-filter-row {
+  display:flex; gap:5px; flex-wrap:wrap; margin-bottom:12px;
+}
+.gf-btn {
+  padding:4px 10px; border-radius:20px; border:1px solid #333;
+  background:#111; color:#666; cursor:pointer;
+  font-family:'Orbitron',sans-serif; font-size:9px; font-weight:700;
+  transition:all .12s;
+}
+.gf-btn.active { border-color:#a855ff; background:#a855ff22; color:#a855ff; }
 </style>
 </head>
 <body>
@@ -131,8 +209,9 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 <div class="section">
 
   <div class="tabs">
-    <button class="tab-btn active-h2h" id="tab-h2h" onclick="switchTab('h2h')">&#9876; 1v1 FRIEND</button>
-    <button class="tab-btn" id="tab-cpu" onclick="switchTab('cpu')">&#129302; vs CPU</button>
+    <button class="tab-btn active-h2h" id="tab-h2h" onclick="switchTab('h2h')">&#9876; 1v1</button>
+    <button class="tab-btn" id="tab-cpu" onclick="switchTab('cpu')">&#129302; CPU</button>
+    <button class="tab-btn" id="tab-lobby" onclick="switchTab('lobby')">&#127381; LOBBY</button>
     <button class="tab-btn" id="tab-join" onclick="switchTab('join')">&#128273; JOIN</button>
   </div>
 
@@ -197,6 +276,35 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
       <div style="font-size:10px;color:#555;margin:6px 0 10px" id="cpu-range-hint">CPU score target: 80 &#8211; 250 pts</div>
       <button class="btn-cpu btn-full" id="cpu-start-btn" onclick="startCpuChallenge()">PAY 5 MONET &amp; PLAY vs CPU</button>
       <div class="err" id="cpu-err"></div>
+    </div>
+  </div>
+
+  <!-- ── Live Lobby Tab ── -->
+  <div class="tab-panel" id="panel-lobby">
+    <div class="card">
+      <div class="lobby-header">
+        <div>
+          <div class="card-title" style="margin-bottom:2px">&#127381; LIVE CHALLENGE LOBBY</div>
+          <div style="font-size:10px;color:#555">Open challenges from all players — join &amp; play instantly</div>
+        </div>
+        <span class="live-dot">LIVE</span>
+      </div>
+
+      <div class="game-filter-row" id="lobby-filters">
+        <button class="gf-btn active" data-game="all" onclick="setLobbyFilter(this)">ALL GAMES</button>
+        <button class="gf-btn" data-game="pacman"   onclick="setLobbyFilter(this)">&#128049; PAC-MAN</button>
+        <button class="gf-btn" data-game="dino"     onclick="setLobbyFilter(this)">&#9889; RUNNER</button>
+        <button class="gf-btn" data-game="frogger"  onclick="setLobbyFilter(this)">&#128056; FROGGER</button>
+        <button class="gf-btn" data-game="snake"    onclick="setLobbyFilter(this)">&#128013; SNAKE</button>
+        <button class="gf-btn" data-game="pong"     onclick="setLobbyFilter(this)">&#127934; PONG</button>
+      </div>
+
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span class="lobby-count-badge" id="lobby-count">Loading...</span>
+        <button onclick="loadLobby(true)" style="background:none;border:none;color:#555;font-size:10px;cursor:pointer;font-family:'Orbitron',sans-serif" id="lobby-refresh-btn">&#8635; Refresh</button>
+      </div>
+
+      <div id="lobby-list"><div class="lobby-spinner">Loading open challenges...</div></div>
     </div>
   </div>
 
