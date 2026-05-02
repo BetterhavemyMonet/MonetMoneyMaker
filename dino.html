@@ -152,7 +152,7 @@
     </div>
     <div class="ctrl-ab">
       <button class="ctrl-btn-a" ontouchstart="ctrlJump(event)" onmousedown="ctrlJump()">A</button>
-      <button class="ctrl-btn-b" ontouchstart="ctrlDuck(event)" onmousedown="ctrlDuck()">B</button>
+      <button class="ctrl-btn-b" ontouchstart="ctrlDuck(event)" ontouchend="unduck()" onmousedown="ctrlDuck()" onmouseup="unduck()" onmouseleave="unduck()">B</button>
     </div>
   </div>
 </div>
@@ -306,9 +306,13 @@ function updatePhysics(p){
   if(p.y>=GROUND-CHAR_H){p.y=GROUND-CHAR_H;p.vy=0;p.onGround=true;}
 }
 
+const DUCK_H = 22;
 function checkCollisions(p,obs,onDie){
+  const pH = p.ducking ? DUCK_H : CHAR_H;
+  const pyOff = p.ducking ? CHAR_H - DUCK_H : 0;
   obs.forEach(o=>{
-    if(p.x+8<o.x+o.w&&p.x+CHAR_W-8>o.x&&p.y+8<o.y+o.h&&p.y+CHAR_H-8>o.y) onDie();
+    if(p.x+8<o.x+o.w && p.x+CHAR_W-8>o.x &&
+       p.y+pyOff+4<o.y+o.h && p.y+pyOff+pH-4>o.y) onDie();
   });
 }
 
@@ -402,7 +406,10 @@ function jump(){
   if(player&&player.onGround){player.vy=-15;player.onGround=false;}
 }
 function duck(){
-  if(gameRunning&&player) player.vy=8;
+  if(gameRunning&&player){ player.vy=8; player.ducking=true; }
+}
+function unduck(){
+  if(player) player.ducking=false;
 }
 
 function ctrlJump(e){ if(e) e.preventDefault(); jump(); }
@@ -412,7 +419,10 @@ function ctrlStart(e){ if(e) e.preventDefault(); startEndless(); }
 document.addEventListener('keydown',e=>{
   if(window.isLobbyOpen&&window.isLobbyOpen())return;
   if(e.code==='Space'||e.code==='ArrowUp'){jump();e.preventDefault();}
-  if(e.code==='ArrowDown'&&gameRunning&&player){player.vy=8;e.preventDefault();}
+  if(e.code==='ArrowDown'){duck();e.preventDefault();}
+});
+document.addEventListener('keyup',e=>{
+  if(e.code==='ArrowDown') unduck();
 });
 canvas.addEventListener('touchstart',e=>{jump();e.preventDefault();},{passive:false});
 

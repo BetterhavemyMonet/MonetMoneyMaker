@@ -86,7 +86,8 @@ const BASE_MAP=[
 let map, player, ghosts, score, lives, level, gameRunning, animId, frameCount, nextDir;
 
 const GHOST_COLORS=['#ff4444','#ffb8ff','#00ffff','#ffb852'];
-const GHOST_STARTS=[[9,10],[10,10],[11,10],[10,9]];
+// Start ghosts outside the ghost house at maze corridor positions
+const GHOST_STARTS=[[4,9],[16,9],[4,11],[16,11]];
 
 function makeMap(){ return BASE_MAP.map(row=>row.map(c=>c===1?1:c===3?3:c===2?2:0)); }
 function countDots(m){ return m.reduce((a,r)=>a+r.reduce((b,c)=>b+(c===2||c===3?1:0),0),0); }
@@ -220,8 +221,8 @@ function moveGhost(g){
 
 function draw(){
   ctx.clearRect(0,0,W,H);
-  if(bgImg.complete){ctx.globalAlpha=0.08;ctx.drawImage(bgImg,0,0,W,H);ctx.globalAlpha=1;}
   ctx.fillStyle='#000';ctx.fillRect(0,0,W,H);
+  if(bgImg.complete&&bgImg.naturalWidth>0){ctx.globalAlpha=0.06;ctx.drawImage(bgImg,0,0,W,H);ctx.globalAlpha=1;}
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
     const t=map[r][c], x=c*CELL, y=r*CELL;
     if(t===1){
@@ -286,7 +287,8 @@ function draw(){
   ctx.restore();ctx.shadowBlur=0;
   if(ghosts) ghosts.forEach(g=>{
     ctx.save();ctx.translate(g.x,g.y);
-    const flash=frameCount%20<10;
+    const flashRate = player.powerTimer < 100 ? 8 : 20;
+    const flash = frameCount % flashRate < flashRate/2;
     const gc=g.frightened?(flash?'#2255ff':'#99aaff'):g.color;
     const glowColor=g.frightened?(flash?'#0044ff':'#aabbff'):g.color;
 

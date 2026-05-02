@@ -62,6 +62,8 @@ let snake, dir, nextDir, food, score, gameRunning, intervalId;
 let bestScore = parseInt(localStorage.getItem('snake_best')||'0');
 document.getElementById('best').textContent = bestScore;
 
+function snakeSpeed() { return Math.max(60, 120 - Math.floor(snake.length / 3) * 5); }
+
 function startGame() {
   snake = [{x:10,y:10},{x:9,y:10},{x:8,y:10}];
   dir = {x:1,y:0}; nextDir = {x:1,y:0};
@@ -70,7 +72,7 @@ function startGame() {
   document.getElementById('score').textContent = 0;
   placeFood();
   if (intervalId) clearInterval(intervalId);
-  intervalId = setInterval(tick, 120);
+  intervalId = setInterval(tick, snakeSpeed());
 }
 
 function placeFood() {
@@ -99,6 +101,9 @@ function tick() {
     }
     document.getElementById('score').textContent = score;
     placeFood();
+    // Speed up as snake grows
+    clearInterval(intervalId);
+    intervalId = setInterval(tick, snakeSpeed());
   } else { snake.pop(); }
   draw();
 }

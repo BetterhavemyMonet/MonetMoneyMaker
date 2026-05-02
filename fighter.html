@@ -360,8 +360,8 @@ class Fighter {
     ctx.fillStyle = c.main;   this._r(ctx, -24, -78, 10, 28);
     ctx.fillStyle = c.main;   this._r(ctx, -16, -82, 32, 44);
     ctx.fillStyle = c.shadow; this._r(ctx, -16, -40, 32, 9);
-    ctx.fillStyle = c.shadow; ctx.fillRect(14, -79, 10 + ext, 10);
-    ctx.fillStyle = c.shadow; this._r(ctx, 14 + ext, -81, 15, 15, 4);
+    ctx.fillStyle = c.main;   ctx.fillRect(14, -79, 10 + ext, 10);
+    ctx.fillStyle = c.shadow; this._r(ctx, 14 + ext, -81, 14, 14, 4);
     if (f >= atk.aStart && f <= atk.aEnd) {
       ctx.save(); ctx.globalAlpha = 0.65;
       const gx = 24 + ext, gy = -74;

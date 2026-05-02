@@ -257,8 +257,8 @@ function update() {
   invaderBullets = invaderBullets.filter(b => {
     b.y += b.vy;
     if (b.y > H) return false;
-    // Hit player
-    if (b.x < player.x + PLAYER_W && b.x + 4 > player.x &&
+    // Hit player — skip while invincibility frames are active
+    if (!player.hit && b.x < player.x + PLAYER_W && b.x + 4 > player.x &&
         b.y < player.y + PLAYER_H && b.y + 12 > player.y) {
       loseLife(); return false;
     }

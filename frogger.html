@@ -213,7 +213,7 @@ function update() {
 }
 
 function die() {
-  if (!frog) return;
+  if (!frog || frog.dead) return;
   frog.dead = true; lives--;
   document.getElementById('lives').textContent = lives;
   if (lives <= 0) {

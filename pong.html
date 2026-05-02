@@ -141,8 +141,8 @@ function update() {
   cpuPad.y += Math.sign(diff) * cpuSpd;
   cpuPad.y = Math.max(0, Math.min(H-PAD_H, cpuPad.y));
 
-  if (ball.x < 0) { cpuScore++; checkWin(); launchBall(); }
-  if (ball.x > W) { playerScore++; checkWin(); launchBall(); }
+  if (ball.x < 0) { cpuScore++; checkWin(); if (gameRunning) launchBall(); }
+  if (ball.x > W) { playerScore++; checkWin(); if (gameRunning) launchBall(); }
 }
 
 function checkWin() {
