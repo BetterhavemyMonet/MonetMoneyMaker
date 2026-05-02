@@ -1027,6 +1027,8 @@ async function pgPay() {
 
     document.getElementById('pg-overlay')?.remove();
     if (window._pgOnSuccess) window._pgOnSuccess();
+    // If this was an H2H game launched via ?challenge= URL, start live score watch
+    if (challengeCode && window.startH2HWatch) startH2HWatch(challengeCode);
   } catch(e) {
     if (_rg) {
       document.addEventListener('walletConnected', _rg);
@@ -1132,3 +1134,136 @@ async function createChallenge(game, wager) {
 }
 
 window.createChallenge = createChallenge;
+
+// ─── H2H Live Score Overlay ───────────────────────────────────────────────────
+// Shows a small persistent bar during an active Head-to-Head game that polls
+// the challenge endpoint every 3 s and updates both players' best scores live.
+// Expands to a winner banner when the challenge settles.
+function startH2HWatch(code) {
+  if (!code) {
+    const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
+    code = cs?.code;
+  }
+  if (!code) return;
+
+  // ── styles (injected once) ──
+  if (!document.getElementById('h2w-styles')) {
+    const s = document.createElement('style');
+    s.id = 'h2w-styles';
+    s.textContent = `
+      #h2w-bar {
+        position: fixed; top: 42px; left: 50%; transform: translateX(-50%);
+        z-index: 9990; display: flex; align-items: center; gap: 10px;
+        background: rgba(2,4,10,0.93); border: 1px solid #00f0ff33;
+        border-radius: 20px; padding: 5px 14px;
+        font-family: 'Orbitron', sans-serif; font-size: 10px; color: #fff;
+        white-space: nowrap; pointer-events: none;
+        box-shadow: 0 0 18px #00f0ff18; backdrop-filter: blur(6px);
+        transition: border-color 0.4s, box-shadow 0.4s, padding 0.3s;
+      }
+      #h2w-bar.winner {
+        border-color: #ffd70088;
+        box-shadow: 0 0 30px #ffd70033;
+        padding: 7px 20px; pointer-events: auto;
+      }
+      .h2w-dot {
+        width: 6px; height: 6px; border-radius: 50%;
+        background: #00ff9d; flex-shrink: 0;
+        animation: h2w-blink 1.6s ease-in-out infinite;
+      }
+      @keyframes h2w-blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+      .h2w-you  { color: #00f0ff; font-weight: 800; }
+      .h2w-opp  { color: #ff6600; font-weight: 800; }
+      .h2w-vs   { color: #444; font-size: 9px; letter-spacing: 1px; }
+      .h2w-sc   { font-size: 13px; font-weight: 800; display: inline-block; min-width: 38px; text-align: center; }
+      .h2w-code { color: #333; font-size: 8px; letter-spacing: 2px; margin-left: 2px; }
+      .h2w-lead { color: #ffd700; }
+      .h2w-win-icon { font-size: 16px; }
+      .h2w-win-txt  { font-size: 11px; font-weight: 800; color: #ffd700; letter-spacing: 0.5px; }
+      .h2w-win-sub  { font-size: 9px; color: #888; }
+    `;
+    document.head.appendChild(s);
+  }
+
+  // Remove any existing bar
+  document.getElementById('h2w-bar')?.remove();
+
+  const bar = document.createElement('div');
+  bar.id = 'h2w-bar';
+  bar.innerHTML = `
+    <div class="h2w-dot"></div>
+    <span class="h2w-you">YOU&nbsp;<span class="h2w-sc" id="h2w-my">—</span></span>
+    <span class="h2w-vs">VS</span>
+    <span class="h2w-opp"><span class="h2w-sc" id="h2w-op">—</span>&nbsp;OPP</span>
+    <span class="h2w-code">${code}</span>
+  `;
+  document.body.appendChild(bar);
+
+  let pollId   = null;
+  let myWallet = null;
+  let settled  = false;
+
+  async function poll() {
+    try {
+      const r = await fetch(`/api/challenge/${encodeURIComponent(code)}`);
+      if (!r.ok) return;
+      const { challenge: ch } = await r.json();
+
+      // Resolve which side we are (wallet may not be set immediately)
+      if (!myWallet) {
+        myWallet = WalletState.address || localStorage.getItem('wallet_address') || '';
+      }
+
+      const p1 = ch.player1;
+      const p2 = ch.player2;
+      let myScore = null, opScore = null;
+
+      if (myWallet && p1?.wallet === myWallet) {
+        myScore = p1.score; opScore = p2?.score ?? null;
+      } else if (myWallet && p2?.wallet === myWallet) {
+        myScore = p2.score; opScore = p1?.score ?? null;
+      } else {
+        myScore = p1?.score ?? null; opScore = p2?.score ?? null;
+      }
+
+      const myEl = document.getElementById('h2w-my');
+      const opEl = document.getElementById('h2w-op');
+      if (!myEl || !opEl) return; // bar was removed
+
+      const fmt = v => v !== null ? v.toLocaleString() : '—';
+      myEl.textContent = fmt(myScore);
+      opEl.textContent = fmt(opScore);
+
+      // Highlight the leader
+      myEl.classList.toggle('h2w-lead', myScore !== null && (opScore === null || myScore > opScore));
+      opEl.classList.toggle('h2w-lead', opScore !== null && (myScore === null || opScore > myScore));
+
+      if ((ch.status === 'complete' || ch.status === 'expired') && !settled) {
+        settled = true;
+        clearInterval(pollId);
+
+        const iWon = ch.winner && ch.winner === myWallet;
+        const pot  = ch.pot ?? '?';
+
+        bar.classList.add('winner');
+        bar.innerHTML = `
+          <span class="h2w-win-icon">${iWon ? '🏆' : '💀'}</span>
+          <span>
+            <div class="h2w-win-txt">${iWon ? `YOU WIN! +${pot} MONET` : 'OPPONENT WINS'}</div>
+            <div class="h2w-win-sub">YOU ${fmt(myScore)} · OPP ${fmt(opScore)}</div>
+          </span>
+        `;
+        // Auto-dismiss after 9 s
+        setTimeout(() => bar.remove(), 9000);
+      }
+    } catch (_) { /* ignore transient errors */ }
+  }
+
+  poll(); // immediate first fetch
+  pollId = setInterval(poll, 3000);
+
+  // Clean up when navigating away
+  window.addEventListener('beforeunload', () => clearInterval(pollId), { once: true });
+}
+
+window.startH2HWatch = startH2HWatch;

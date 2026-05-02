@@ -393,6 +393,7 @@
           _clearPolling();
           _remove();
           if (_onStart) _onStart({ mode: 'h2h', challengeId: res.challengeId, code: res.code });
+          if (window.startH2HWatch) startH2HWatch(res.code);
         }
       } catch (e) { /* ignore transient poll errors */ }
     }, POLL_INTERVAL);
@@ -476,6 +477,7 @@
     _remove();
     const cs = JSON.parse(sessionStorage.getItem('challenge_session') || '{}');
     if (_onStart) _onStart({ mode: 'h2h', challengeId: cs.challengeId, code });
+    if (window.startH2HWatch) startH2HWatch(code);
   }
 
   function _cancelWait() {
