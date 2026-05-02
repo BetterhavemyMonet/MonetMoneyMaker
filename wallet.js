@@ -214,6 +214,22 @@ function createTransferInstruction(sourcePubkey, destPubkey, ownerPubkey, rawAmo
   });
 }
 
+// Memo program — adds a human-readable label to a transaction.
+// Phantom (and other wallets) display this text in the approval dialog
+// instead of showing a raw token transfer, which removes the "unknown"
+// warning for players.
+const MEMO_PROGRAM_ID = 'MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr';
+
+function createMemoInstruction(signerPubkey, text) {
+  const w = getSolanaWeb3();
+  const encoder = new TextEncoder();
+  return new w.TransactionInstruction({
+    keys:      [{ pubkey: signerPubkey, isSigner: true, isWritable: false }],
+    programId: new w.PublicKey(MEMO_PROGRAM_ID),
+    data:      encoder.encode(text),
+  });
+}
+
 // ─── Wallet Picker Modal ──────────────────────────────────────────────────────
 function _injectModalStyles() {
   if (document.getElementById('wm-styles')) return;
@@ -611,6 +627,11 @@ async function payEntryFee(gameName, onProgress, amount) {
   }
 
   tx.add(createTransferInstruction(sourceATA, destATA, payer, toRawAmount(fee)));
+
+  // Memo so wallets display a clear label ("Monet Arcade | PACMAN | 5 MONET")
+  // instead of an anonymous token transfer, which reduces Phantom's risk warnings.
+  const gameLabel = (gameName || 'GAME').toUpperCase();
+  tx.add(createMemoInstruction(payer, `Monet Arcade | ${gameLabel} | ${fee} MONET entry fee`));
 
   // ── Step 3: sign & send via wallet (wallet uses its own RPC for broadcast) ─
   report('signing');
