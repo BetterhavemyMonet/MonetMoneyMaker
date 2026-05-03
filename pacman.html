@@ -119,9 +119,16 @@ function loop(){ update(); draw(); animId=requestAnimationFrame(loop); }
 function update(){
   if(!gameRunning) return;
   frameCount++;
-  const np={col:player.col+nextDir.dx, row:player.row+nextDir.dy};
-  if(canMove(np.col,np.row)){player.dx=nextDir.dx;player.dy=nextDir.dy;}
   const speed=2;
+  // Only allow direction change when player is snapped to cell center (fixes off-track glitch)
+  const cx=player.col*CELL+CELL/2, cy=player.row*CELL+CELL/2;
+  if(Math.abs(player.x-cx)<=speed&&Math.abs(player.y-cy)<=speed){
+    const np={col:player.col+nextDir.dx, row:player.row+nextDir.dy};
+    if(canMove(np.col,np.row)){
+      player.dx=nextDir.dx; player.dy=nextDir.dy;
+      player.x=cx; player.y=cy;
+    }
+  }
   const tx=(player.col+player.dx)*CELL+CELL/2, ty=(player.row+player.dy)*CELL+CELL/2;
   const nc={col:player.col+player.dx, row:player.row+player.dy};
   if(canMove(nc.col,nc.row)){
@@ -227,7 +234,12 @@ function draw(){
   for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++){
     const t=map[r][c], x=c*CELL, y=r*CELL;
     if(t===1){
-      ctx.fillStyle='#060012';ctx.fillRect(x,y,CELL,CELL);
+      const wg=ctx.createLinearGradient(x,y,x+CELL,y+CELL);
+      wg.addColorStop(0,'#0c0024');wg.addColorStop(1,'#030008');
+      ctx.fillStyle=wg;ctx.fillRect(x,y,CELL,CELL);
+      // 3D bevel - lighter inner top-left edge
+      ctx.fillStyle='rgba(100,60,180,0.18)';ctx.fillRect(x,y,CELL,2);
+      ctx.fillStyle='rgba(100,60,180,0.12)';ctx.fillRect(x,y,2,CELL);
     }
   }
   const wallFlicker=0.75+0.25*Math.sin(frameCount*0.04);
@@ -273,17 +285,25 @@ function draw(){
   if(!player) return;
   ctx.save();ctx.translate(player.x,player.y);
   const rot=Math.atan2(player.dy,player.dx)||0;ctx.rotate(rot);
-  const PR=CELL/2+4;
+  const PR=CELL/2+9;
   if(charImg.complete&&charImg.naturalWidth>0){
     ctx.beginPath();
     ctx.arc(0,0,PR,player.mouthAngle*Math.PI,(2-player.mouthAngle)*Math.PI);
     ctx.lineTo(0,0);ctx.closePath();ctx.clip();
     ctx.drawImage(charImg,-PR,-PR,PR*2,PR*2);
+    // 3D sphere highlight
+    ctx.fillStyle='rgba(255,255,255,0.3)';
+    ctx.beginPath();ctx.arc(-PR*0.28,-PR*0.32,PR*0.22,0,Math.PI*2);ctx.fill();
   } else {
-    ctx.fillStyle='#ffdd00';ctx.shadowColor='#ffdd00';ctx.shadowBlur=10;
+    const grd=ctx.createRadialGradient(-PR*0.3,-PR*0.35,PR*0.05,0,0,PR);
+    grd.addColorStop(0,'#fff7b0');grd.addColorStop(0.35,'#ffdd00');grd.addColorStop(1,'#b07800');
+    ctx.fillStyle=grd;ctx.shadowColor='#ffdd00';ctx.shadowBlur=14;
     ctx.beginPath();
     ctx.arc(0,0,PR,player.mouthAngle*Math.PI,(2-player.mouthAngle)*Math.PI);
     ctx.lineTo(0,0);ctx.closePath();ctx.fill();
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,255,255,0.38)';
+    ctx.beginPath();ctx.arc(-PR*0.28,-PR*0.32,PR*0.22,0,Math.PI*2);ctx.fill();
   }
   ctx.restore();ctx.shadowBlur=0;
   if(ghosts) ghosts.forEach(g=>{
@@ -305,6 +325,10 @@ function draw(){
 
     ctx.shadowColor=glowColor;ctx.shadowBlur=18;
     ghostPath();ctx.fillStyle=gc;ctx.fill();
+    // 3D sphere highlight on ghost body
+    ctx.shadowBlur=0;
+    ctx.fillStyle='rgba(255,255,255,0.26)';
+    ctx.beginPath();ctx.ellipse(-CELL*0.14,-CELL*0.26,CELL*0.16,CELL*0.11,0,0,Math.PI*2);ctx.fill();
 
     ctx.shadowColor=glowColor;ctx.shadowBlur=8;
     ghostPath();ctx.fill();
@@ -350,6 +374,7 @@ canvas.addEventListener('touchstart',e=>{
 },{passive:false});
 canvas.addEventListener('touchend',e=>{
   const dx=e.changedTouches[0].clientX-tSX,dy=e.changedTouches[0].clientY-tSY;
+  if(Math.abs(dx)<8&&Math.abs(dy)<8) return; // ignore tiny taps
   if(Math.abs(dx)>Math.abs(dy)) setDir(dx>0?1:-1,0); else setDir(0,dy>0?1:-1);
   e.preventDefault();
 },{passive:false});
