@@ -146,6 +146,26 @@ const ITEM_BOXES = [
 ];
 const ITEM_RESPAWN_MS = 12000;
 
+// ─── Camera / perspective constants ───────────────────────────────────────────
+const CAM_H    = 55;                       // camera height above road
+const FOCAL    = 215;                      // focal length (higher = tighter FOV)
+const HORIZON  = Math.round(GH * 0.38);   // screen-Y where sky meets road (~137)
+
+function worldToScreen(wx, wy) {
+  if (!myKart) return null;
+  const dx = wx - myKart.x, dy = wy - myKart.y;
+  const ca = Math.cos(myKart.angle), sa = Math.sin(myKart.angle);
+  const camZ =  dx * ca + dy * sa;   // depth (forward)
+  const camX = -dx * sa + dy * ca;   // lateral
+  if (camZ <= 0.5) return null;
+  return {
+    x: GW / 2 + FOCAL * camX / camZ,
+    y: HORIZON  + FOCAL * CAM_H  / camZ,
+    scale: FOCAL / camZ,
+    camZ,
+  };
+}
+
 // ─── Physics constants ────────────────────────────────────────────────────────
 const MAX_SPD  = 4.6;
 const ACCEL    = 0.14;
@@ -328,134 +348,205 @@ function updateHUD() {
   }
 }
 
-// ─── Rendering ────────────────────────────────────────────────────────────────
-function drawTrack() {
-  // Grass background
-  ctx.fillStyle = '#1e6b1e';
-  ctx.fillRect(0, 0, GW, GH);
+// ─── 3-D first-person renderer ────────────────────────────────────────────────
+function draw3DScene() {
+  // ── Sky ──────────────────────────────────────────────────────────────────────
+  const sky = ctx.createLinearGradient(0, 0, 0, HORIZON);
+  sky.addColorStop(0, '#010209');
+  sky.addColorStop(1, '#0b1836');
+  ctx.fillStyle = sky;
+  ctx.fillRect(0, 0, GW, HORIZON);
 
-  // Track surface
-  ctx.fillStyle = '#4d4d55';
-  ctx.beginPath();
-  ctx.ellipse(CX, CY, ORX, ORY, 0, 0, Math.PI*2);
-  ctx.fill();
+  // Static stars
+  ctx.fillStyle = 'rgba(255,255,255,0.75)';
+  for (let i = 0; i < 55; i++) {
+    const sx = ((i * 97  +  7) * 1337) % GW;
+    const sy = ((i * 53  + 11) *  953) % HORIZON;
+    ctx.fillRect(sx, sy, i % 6 === 0 ? 2 : 1, i % 6 === 0 ? 2 : 1);
+  }
 
-  // Outer border
-  ctx.strokeStyle = '#e0e0e0';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(CX, CY, ORX, ORY, 0, 0, Math.PI*2);
-  ctx.stroke();
+  // ── Grass ground ─────────────────────────────────────────────────────────────
+  const gnd = ctx.createLinearGradient(0, HORIZON, 0, GH);
+  gnd.addColorStop(0, '#1a5c1a');
+  gnd.addColorStop(1, '#0d3d0d');
+  ctx.fillStyle = gnd;
+  ctx.fillRect(0, HORIZON, GW, GH - HORIZON);
 
-  // Infield grass
-  ctx.fillStyle = '#1e6b1e';
-  ctx.beginPath();
-  ctx.ellipse(CX, CY, IRX - 2, IRY - 2, 0, 0, Math.PI*2);
-  ctx.fill();
+  if (!myKart) return;
 
-  // Inner border
-  ctx.strokeStyle = '#e0e0e0';
-  ctx.lineWidth = 3;
-  ctx.beginPath();
-  ctx.ellipse(CX, CY, IRX, IRY, 0, 0, Math.PI*2);
-  ctx.stroke();
+  // ── Sample oval edges ahead of player ────────────────────────────────────────
+  const playerAngle = Math.atan2(myKart.y - CY, myKart.x - CX);
+  const SEG_N = 95, SEG_STEP = 0.033;
+  const segs = [];
+  for (let i = 0; i <= SEG_N; i++) {
+    const a  = playerAngle - i * SEG_STEP;
+    const pi = worldToScreen(CX + IRX * Math.cos(a), CY + IRY * Math.sin(a));
+    const po = worldToScreen(CX + ORX * Math.cos(a), CY + ORY * Math.sin(a));
+    segs.push({ pi, po, i });
+  }
 
-  // Dashed center line
-  ctx.setLineDash([18, 14]);
-  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-  ctx.lineWidth = 1.5;
+  // Clip all road drawing to below the horizon
+  ctx.save();
   ctx.beginPath();
-  ctx.ellipse(CX, CY, (ORX+IRX)/2, (ORY+IRY)/2, 0, 0, Math.PI*2);
+  ctx.rect(0, HORIZON, GW, GH - HORIZON);
+  ctx.clip();
+
+  // ── Road trapezoids (far → near) ─────────────────────────────────────────────
+  for (let i = segs.length - 1; i >= 1; i--) {
+    const { pi: pi0, po: po0 } = segs[i];
+    const { pi: pi1, po: po1 } = segs[i - 1];
+    if (!pi0 || !po0 || !pi1 || !po1) continue;
+    const clamp = y => Math.max(y, HORIZON);
+    ctx.beginPath();
+    ctx.moveTo(pi0.x, clamp(pi0.y));
+    ctx.lineTo(po0.x, clamp(po0.y));
+    ctx.lineTo(po1.x, clamp(po1.y));
+    ctx.lineTo(pi1.x, clamp(pi1.y));
+    ctx.closePath();
+    ctx.fillStyle = Math.floor(i / 5) % 2 === 0 ? '#4d4d56' : '#45454e';
+    ctx.fill();
+  }
+
+  // ── Road borders ─────────────────────────────────────────────────────────────
+  function drawEdge(pts, color, w) {
+    ctx.strokeStyle = color; ctx.lineWidth = w;
+    ctx.beginPath(); let go = false;
+    for (const p of pts) {
+      if (!p) { go = false; continue; }
+      const y = Math.max(p.y, HORIZON);
+      if (!go) { ctx.moveTo(p.x, y); go = true; } else ctx.lineTo(p.x, y);
+    }
+    ctx.stroke();
+  }
+  drawEdge(segs.map(s => s.po), '#e0e0e0', 2.5);   // outer white
+  drawEdge(segs.map(s => s.pi), '#e0e0e0', 2.5);   // inner white
+
+  // ── Dashed centre line ───────────────────────────────────────────────────────
+  ctx.setLineDash([12, 10]);
+  ctx.strokeStyle = 'rgba(255,240,80,0.5)'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); let go2 = false;
+  for (const { pi, po } of segs) {
+    if (!pi || !po) { go2 = false; continue; }
+    const mx = (pi.x + po.x) / 2, my = Math.max((pi.y + po.y) / 2, HORIZON);
+    if (!go2) { ctx.moveTo(mx, my); go2 = true; } else ctx.lineTo(mx, my);
+  }
   ctx.stroke();
   ctx.setLineDash([]);
 
-  // Start/finish line (checkered)
-  const tiles = 5, tw = 12, th = 20;
-  for (let i = 0; i < tiles; i++) {
-    ctx.fillStyle = i % 2 === 0 ? '#fff' : '#111';
-    ctx.fillRect(268 + i * tw, 292, tw, th);
+  // ── Start/finish line (checkered) ────────────────────────────────────────────
+  const fl = [
+    worldToScreen(268, 292), worldToScreen(328, 292),
+    worldToScreen(328, 312), worldToScreen(268, 312),
+  ];
+  if (fl.every(Boolean)) {
+    const lerp = (a, b, t) => a + (b - a) * t;
+    const TILES = 6;
+    for (let c = 0; c < TILES; c++) {
+      const t0 = c / TILES, t1 = (c + 1) / TILES;
+      const lx0 = lerp(fl[0].x, fl[3].x, t0), ly0 = Math.max(lerp(fl[0].y, fl[3].y, t0), HORIZON);
+      const lx1 = lerp(fl[0].x, fl[3].x, t1), ly1 = Math.max(lerp(fl[0].y, fl[3].y, t1), HORIZON);
+      const rx0 = lerp(fl[1].x, fl[2].x, t0), ry0 = Math.max(lerp(fl[1].y, fl[2].y, t0), HORIZON);
+      const rx1 = lerp(fl[1].x, fl[2].x, t1), ry1 = Math.max(lerp(fl[1].y, fl[2].y, t1), HORIZON);
+      ctx.beginPath();
+      ctx.moveTo(lx0, ly0); ctx.lineTo(rx0, ry0);
+      ctx.lineTo(rx1, ry1); ctx.lineTo(lx1, ly1);
+      ctx.closePath();
+      ctx.fillStyle = c % 2 === 0 ? '#fff' : '#111';
+      ctx.fill();
+    }
   }
 
-  // Direction arrows on infield
-  ctx.fillStyle = 'rgba(255,255,255,0.15)';
-  ctx.font = 'bold 16px sans-serif';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('→', 549, 172);
-  ctx.fillText('←', 51,  172);
-  ctx.fillText('↑', 300, 44);
-  ctx.fillText('↓', 300, 302);
-  ctx.textBaseline = 'alphabetic';
-}
-
-function drawItemBoxes() {
+  // ── Item boxes ───────────────────────────────────────────────────────────────
   for (const box of ITEM_BOXES) {
     if (!box.active) continue;
-    const s = 14;
-    ctx.fillStyle = '#ffd700';
-    ctx.strokeStyle = '#fff';
-    ctx.lineWidth = 1.5;
-    ctx.fillRect(box.x - s/2, box.y - s/2, s, s);
-    ctx.strokeRect(box.x - s/2, box.y - s/2, s, s);
+    const p = worldToScreen(box.x, box.y);
+    if (!p || p.y < HORIZON || p.y > GH + 30) continue;
+    const s = Math.min(Math.max(7, 30 * p.scale), 60);
+    ctx.fillStyle = '#ffd700'; ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
+    ctx.fillRect(p.x - s / 2, p.y - s, s, s);
+    ctx.strokeRect(p.x - s / 2, p.y - s, s, s);
     ctx.fillStyle = '#000';
-    ctx.font = 'bold 11px sans-serif';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText('?', box.x, box.y);
+    ctx.font = `bold ${Math.max(8, s * 0.65)}px sans-serif`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText('?', p.x, p.y - s / 2);
     ctx.textBaseline = 'alphabetic';
+  }
+
+  // ── Other karts / CPU ────────────────────────────────────────────────────────
+  const kartsToDraw = others.map(o => ({ x: o.x, y: o.y, color: o.color, label: o.name || '???' }));
+  if (cpuKart) kartsToDraw.push({ x: cpuKart.x, y: cpuKart.y, color: '#888888', label: 'CPU' });
+  // Sort far → near so closer karts draw on top
+  kartsToDraw.sort((a, b) => {
+    const pa = worldToScreen(a.x, a.y), pb = worldToScreen(b.x, b.y);
+    return (pb?.camZ ?? 0) - (pa?.camZ ?? 0);
+  });
+  for (const k of kartsToDraw) drawKart3D(k.x, k.y, k.color, k.label);
+
+  ctx.restore(); // end clip
+
+  // ── Boost speed-lines ────────────────────────────────────────────────────────
+  if (myKart && myKart.boostTimer > 0) {
+    const alpha = Math.min(myKart.boostTimer / 60, 1) * 0.55;
+    ctx.save(); ctx.globalAlpha = alpha;
+    ctx.strokeStyle = '#ffd700'; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 14; i++) {
+      const lx = (i / 14) * GW;
+      const ly = HORIZON + Math.random() * (GH - HORIZON) * 0.55;
+      ctx.beginPath(); ctx.moveTo(lx, ly); ctx.lineTo(lx, ly + 25 + Math.random() * 35); ctx.stroke();
+    }
+    ctx.restore();
+  }
+
+  // ── Speedometer (bottom-right arc gauge) ─────────────────────────────────────
+  if (myKart) {
+    const spd = Math.max(0, myKart.speed), pct = spd / MAX_SPD;
+    const cx2 = GW - 46, cy2 = GH - 36, r = 27;
+    ctx.save();
+    ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(cx2, cy2, r, Math.PI * 0.75, Math.PI * 2.25); ctx.stroke();
+    const grad = ctx.createLinearGradient(cx2 - r, 0, cx2 + r, 0);
+    grad.addColorStop(0, '#00ff88'); grad.addColorStop(0.6, '#ffd700'); grad.addColorStop(1, '#ff4444');
+    ctx.strokeStyle = grad; ctx.lineWidth = 6;
+    ctx.beginPath(); ctx.arc(cx2, cy2, r, Math.PI * 0.75, Math.PI * 0.75 + pct * Math.PI * 1.5); ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px Orbitron, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(Math.round(spd * 22) + '', cx2, cy2 + 4);
+    ctx.font = '7px Orbitron, sans-serif'; ctx.fillStyle = '#aaa';
+    ctx.fillText('KPH', cx2, cy2 + 14);
+    ctx.restore();
   }
 }
 
-function drawKart(x, y, angle, color, label, boosting) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(angle + Math.PI / 2);
-
-  const KW = 14, KH = 22;
-
+function drawKart3D(wx, wy, color, label) {
+  const p = worldToScreen(wx, wy);
+  if (!p || p.camZ < 2 || p.y > GH + 20 || p.y < HORIZON) return;
+  const w = Math.min(Math.max(10, 65 * p.scale), GW * 0.46);
+  const h = w * 0.58;
+  const x = p.x, y = p.y;
   // Shadow
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
-  ctx.fillRect(-KW/2 + 2, -KH/2 + 2, KW, KH);
-
+  ctx.fillStyle = 'rgba(0,0,0,0.3)';
+  ctx.fillRect(x - w * 0.44 + 3, y - h + 3, w * 0.88, h * 0.9);
   // Body
-  if (boosting) {
-    ctx.shadowColor = '#ffd700';
-    ctx.shadowBlur  = 14;
-  }
   ctx.fillStyle = color;
-  ctx.fillRect(-KW/2, -KH/2, KW, KH);
-  ctx.shadowBlur = 0;
-
+  ctx.fillRect(x - w / 2, y - h, w, h);
   // Windshield
-  ctx.fillStyle = 'rgba(180,220,255,0.7)';
-  ctx.fillRect(-KW/2 + 2, -KH/2 + 2, KW - 4, KH / 3);
-
-  // Wheels (4 corners)
+  ctx.fillStyle = 'rgba(180,225,255,0.62)';
+  ctx.fillRect(x - w * 0.3, y - h + h * 0.08, w * 0.6, h * 0.32);
+  // Wheels
   ctx.fillStyle = '#111';
-  [[-KW/2 - 3, -KH/2 + 3], [KW/2 - 1, -KH/2 + 3],
-   [-KW/2 - 3,  KH/2 - 8], [KW/2 - 1,  KH/2 - 8]].forEach(([wx, wy]) => {
-    ctx.fillRect(wx, wy, 4, 6);
-  });
-
-  ctx.restore();
-
-  // Name label above kart
-  ctx.save();
-  ctx.font = '7px Orbitron, sans-serif';
-  ctx.textAlign = 'center';
-  const tw  = ctx.measureText(label).width + 8;
-  const lx  = x - tw / 2;
-  const ly  = y - 24;
-  ctx.fillStyle   = label === 'YOU' ? '#a855ff' : 'rgba(0,0,0,0.72)';
-  ctx.strokeStyle = label === 'YOU' ? '#d080ff' : '#444';
-  ctx.lineWidth   = 1;
-  ctx.beginPath();
-  ctx.roundRect(lx, ly, tw, 11, 3);
-  ctx.fill();
-  ctx.stroke();
-  ctx.fillStyle = '#fff';
-  ctx.fillText(label, x, ly + 8.5);
-  ctx.restore();
+  const ww = Math.max(3, w * 0.12), wh = Math.max(4, h * 0.38);
+  ctx.fillRect(x - w / 2 - ww + 1, y - h * 0.7, ww, wh);
+  ctx.fillRect(x + w / 2 - 1,       y - h * 0.7, ww, wh);
+  // Label
+  if (w > 16) {
+    ctx.font = `bold ${Math.max(7, Math.round(w * 0.17))}px Orbitron, sans-serif`;
+    ctx.textAlign = 'center';
+    const tw = ctx.measureText(label).width + 7;
+    ctx.fillStyle = 'rgba(0,0,0,0.72)';
+    ctx.fillRect(x - tw / 2, y - h - 13, tw, 12);
+    ctx.fillStyle = '#fff';
+    ctx.fillText(label, x, y - h - 3);
+  }
 }
 
 // ─── Main render loop ─────────────────────────────────────────────────────────
@@ -463,19 +554,7 @@ function loop() {
   requestAnimationFrame(loop);
   updateMyKart();
   updateCpuKart();
-
-  drawTrack();
-  drawItemBoxes();
-
-  for (const o of others) {
-    drawKart(o.x, o.y, o.angle, o.color, o.name || '???', false);
-  }
-  if (cpuKart) {
-    drawKart(cpuKart.x, cpuKart.y, cpuKart.facing, '#888888', 'CPU', false);
-  }
-  if (myKart) {
-    drawKart(myKart.x, myKart.y, myKart.angle, myKart.color, 'YOU', myKart.boostTimer > 0);
-  }
+  draw3DScene();
 
   // Network: send state ~15×/sec
   if (ws && ws.readyState === 1 && myKart && gamePhase === 'racing') {
