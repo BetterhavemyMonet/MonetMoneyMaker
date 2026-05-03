@@ -814,6 +814,24 @@ setInterval(retryPendingClaims, 90_000);
 // Also run once 15 s after boot so fresh deploys pick up any queued claims fast
 setTimeout(retryPendingClaims, 15_000);
 
+// ─── Terms acceptance log ─────────────────────────────────────────────────────
+app.post('/api/terms/accept', (req, res) => {
+  const { username } = req.body || {};
+  const record = {
+    id: Math.random().toString(36).slice(2),
+    username: username || 'anonymous',
+    ip: (req.headers['x-forwarded-for'] || '').split(',')[0].trim() || req.socket?.remoteAddress || 'unknown',
+    userAgent: req.headers['user-agent'] || '',
+    timestamp: Date.now(),
+    date: new Date().toISOString(),
+  };
+  const logs = dbRead('terms_log');
+  logs.push(record);
+  dbWrite('terms_log', logs);
+  console.log(`[TERMS] accepted by ${record.username} from ${record.ip}`);
+  res.json({ ok: true });
+});
+
 // ─── Static files (production) ────────────────────────────────────────────────
 if (process.env.NODE_ENV === 'production') {
   const distDir = path.join(__dirname, 'dist');

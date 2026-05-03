@@ -322,6 +322,83 @@ input::placeholder { color: #444; }
 .ctrl-msg.err { color: #ff4488; }
 .ctrl-msg.ok  { color: #00ff9d; }
 
+/* ── TERMS OVERLAY ── */
+#terms-overlay {
+  position: fixed; inset: 0; z-index: 999;
+  background: rgba(2,4,10,0.97);
+  display: flex; align-items: center; justify-content: center;
+  padding: 20px;
+}
+#terms-overlay.hidden { display: none; }
+.terms-box {
+  width: min(460px, 96vw);
+  background: linear-gradient(160deg,#12122a,#0b0b1c);
+  border: 2px solid #2d2d4e;
+  border-radius: 20px;
+  padding: 24px 22px 20px;
+  box-shadow: 0 0 60px rgba(168,85,255,0.15), 0 0 120px rgba(0,240,255,0.06);
+  display: flex; flex-direction: column; gap: 14px;
+}
+.terms-logo {
+  text-align: center;
+  font-size: 14px; font-weight: 800; letter-spacing: 2px;
+  background: linear-gradient(90deg,#00f0ff,#a855ff);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.terms-logo span { display: block; font-size: 9px; color: #555; -webkit-text-fill-color: #555; letter-spacing: 1px; margin-top: 2px; }
+.terms-summary {
+  background: rgba(0,0,0,0.35);
+  border: 1px solid #1a1a2e;
+  border-radius: 10px;
+  padding: 14px 16px;
+  display: flex; flex-direction: column; gap: 7px;
+  max-height: 240px; overflow-y: auto;
+}
+.terms-summary::-webkit-scrollbar { width: 4px; }
+.terms-summary::-webkit-scrollbar-thumb { background: #2d2d4e; border-radius: 4px; }
+.terms-item {
+  display: flex; align-items: flex-start; gap: 9px;
+  font-size: 9px; color: #8a8aaa; line-height: 1.7; letter-spacing: 0.3px;
+}
+.terms-item .ti-icon { font-size: 12px; flex-shrink: 0; margin-top: 1px; }
+.terms-full-link {
+  text-align: center; font-size: 9px; color: #6b21a8;
+  letter-spacing: 0.5px;
+}
+.terms-full-link a { color: #a855ff; text-decoration: none; }
+.terms-full-link a:hover { text-decoration: underline; }
+.terms-check-row {
+  display: flex; align-items: center; gap: 10px;
+  background: rgba(168,85,255,0.06);
+  border: 1px solid #3d1d5e;
+  border-radius: 10px; padding: 12px 14px;
+  cursor: pointer;
+}
+.terms-check-row input[type=checkbox] {
+  width: 18px; height: 18px; flex-shrink: 0;
+  accent-color: #a855ff; cursor: pointer;
+  display: block; margin: 0; padding: 0; border-radius: 0; border: none;
+  background: none; box-shadow: none;
+}
+.terms-check-row label {
+  font-size: 9px; color: #bbb; line-height: 1.6; letter-spacing: 0.3px; cursor: pointer;
+}
+.terms-check-row label a { color: #a855ff; text-decoration: none; }
+.btn-accept-terms {
+  width: 100%; padding: 13px;
+  border-radius: 12px; border: none; cursor: pointer;
+  font-family: 'Orbitron', sans-serif; font-size: 12px;
+  font-weight: 800; letter-spacing: 2px;
+  background: linear-gradient(135deg,#a855ff,#7c3aed);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(168,85,255,0.35), 0 4px 16px rgba(0,0,0,0.4);
+  transition: all .15s; opacity: 0.45; pointer-events: none;
+  margin: 0;
+}
+.btn-accept-terms.enabled { opacity: 1; pointer-events: all; }
+.btn-accept-terms.enabled:hover { transform: translateY(-1px); box-shadow: 0 0 32px rgba(168,85,255,0.55); }
+.terms-age-note { font-size: 8px; color: #444; text-align: center; letter-spacing: 0.3px; }
+
 /* ── ANALOG STICKS decorative ── */
 .ctrl-sticks {
   display: flex;
@@ -340,6 +417,43 @@ input::placeholder { color: #444; }
 </style>
 </head>
 <body>
+
+<!-- ── TERMS OVERLAY ── -->
+<div id="terms-overlay">
+  <div class="terms-box">
+    <div class="terms-logo">
+      MONET ARCADE
+      <span>TERMS OF SERVICE &amp; PRIVACY POLICY</span>
+    </div>
+
+    <div class="terms-summary">
+      <div class="terms-item"><span class="ti-icon">🔞</span><span><strong>18+ only.</strong> You must be at least 18 years old (or legal majority in your jurisdiction) to use this Site.</span></div>
+      <div class="terms-item"><span class="ti-icon">🎮</span><span><strong>Skill-based games only.</strong> This Site offers arcade-style games for entertainment. No gambling or wagering services are offered.</span></div>
+      <div class="terms-item"><span class="ti-icon">🔐</span><span><strong>Account security.</strong> You are responsible for keeping your credentials confidential and for all activity under your account.</span></div>
+      <div class="terms-item"><span class="ti-icon">🪙</span><span><strong>Token disclaimer.</strong> Digital rewards and tokens have no guaranteed monetary value and may be modified or discontinued at any time. We are not responsible for wallet errors or blockchain issues.</span></div>
+      <div class="terms-item"><span class="ti-icon">🚫</span><span><strong>No cheating.</strong> Bots, scripts, exploits, and fraudulent activity are strictly prohibited and may result in immediate account termination and forfeiture of rewards.</span></div>
+      <div class="terms-item"><span class="ti-icon">⚖️</span><span><strong>No liability.</strong> The Site is provided "as-is." We are not liable for financial losses, missed rewards, or service interruptions. Use at your own risk.</span></div>
+      <div class="terms-item"><span class="ti-icon">🔒</span><span><strong>Privacy.</strong> We collect usernames, gameplay data, and wallet addresses to operate the Site. We do not sell your data.</span></div>
+      <div class="terms-item"><span class="ti-icon">🍪</span><span><strong>Cookies.</strong> We use cookies for session and performance purposes. You may disable them in your browser settings.</span></div>
+      <div class="terms-item"><span class="ti-icon">📋</span><span><strong>Disputes.</strong> Disputes are resolved through binding arbitration. Class-action lawsuits are waived where legally enforceable.</span></div>
+    </div>
+
+    <div class="terms-full-link">
+      <a href="terms.html" target="_blank">Read the full Terms of Service &amp; Privacy Policy &#8599;</a>
+    </div>
+
+    <div class="terms-check-row" onclick="document.getElementById('agree-chk').click()">
+      <input type="checkbox" id="agree-chk" onclick="event.stopPropagation()" onchange="document.getElementById('accept-btn').classList.toggle('enabled',this.checked)">
+      <label for="agree-chk">
+        I am 18 or older and I have read and agree to the
+        <a href="terms.html" target="_blank" onclick="event.stopPropagation()">Terms of Service &amp; Privacy Policy</a>
+      </label>
+    </div>
+
+    <button class="btn-accept-terms" id="accept-btn" onclick="acceptTerms()">ENTER ARCADE</button>
+    <div class="terms-age-note">Acceptance is logged with timestamp for legal compliance.</div>
+  </div>
+</div>
 
 <div class="ctrl-scene">
 
@@ -434,6 +548,28 @@ input::placeholder { color: #444; }
 </div>
 
 <script>
+// ── Terms gate ────────────────────────────────────────────────────────────────
+(function checkTerms() {
+  const accepted = localStorage.getItem('mm_terms_accepted');
+  if (accepted) {
+    document.getElementById('terms-overlay').classList.add('hidden');
+  }
+})();
+
+function acceptTerms() {
+  if (!document.getElementById('agree-chk').checked) return;
+  const ts = Date.now();
+  localStorage.setItem('mm_terms_accepted', ts);
+  const username = localStorage.getItem('player_name') || 'anonymous';
+  fetch('/api/terms/accept', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username, timestamp: ts })
+  }).catch(() => {});
+  document.getElementById('terms-overlay').classList.add('hidden');
+}
+
+// ── Login ─────────────────────────────────────────────────────────────────────
 let mode = 'signin';
 
 function switchMode(m) {
