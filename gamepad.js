@@ -313,3 +313,123 @@
     setTimeout(initAll, 80);
   }
 })();
+
+// ─── CANVAS CONTAIN-SCALER ───────────────────────────────────────────────────
+// Like object-fit:contain for <canvas>: scales to fill the canvas-wrap while
+// preserving the game's native aspect ratio. Reruns on every resize.
+(function () {
+  function fitAll() {
+    document.querySelectorAll('.canvas-wrap').forEach(function (wrap) {
+      // Use the first canvas that isn't a tiny preview canvas
+      var canvas = Array.prototype.find.call(
+        wrap.querySelectorAll('canvas'),
+        function (c) { return c.width > 60 && c.height > 60; }
+      );
+      if (!canvas || !canvas.width || !canvas.height) return;
+
+      var availW = wrap.clientWidth;
+      var availH = wrap.clientHeight;
+      if (!availW || !availH) return;
+
+      var scale  = Math.min(availW / canvas.width, availH / canvas.height);
+      var dispW  = Math.round(canvas.width  * scale);
+      var dispH  = Math.round(canvas.height * scale);
+
+      canvas.style.width  = dispW + 'px';
+      canvas.style.height = dispH + 'px';
+    });
+  }
+
+  function boot() {
+    // Run immediately, then again after a short delay so game scripts that set
+    // canvas.width/height dynamically (snake, pacman, frogger…) are ready.
+    fitAll();
+    setTimeout(fitAll, 120);
+    setTimeout(fitAll, 400);
+    window.addEventListener('resize', fitAll);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+
+// ─── CONTROLLER AUTO-SCALER ──────────────────────────────────────────────────
+// Measures .ctrl-body's natural size vs the .ctrl-area it lives in and applies
+// a uniform CSS scale so it always fits — even on very short screens.
+(function () {
+  function scaleCtrl() {
+    var area = document.querySelector('.ctrl-area');
+    var body = document.querySelector('.ctrl-body');
+    if (!area || !body) return;
+
+    // Reset so we can measure the natural size
+    body.style.transform      = '';
+    body.style.transformOrigin = 'center center';
+
+    var aW = area.clientWidth  - 12;   // a little breathing room
+    var aH = area.clientHeight - 8;
+    var bW = body.scrollWidth;
+    var bH = body.scrollHeight;
+    if (!bW || !bH) return;
+
+    var scale = Math.min(1, aW / bW, aH / bH);
+    if (scale < 1) {
+      body.style.transform = 'scale(' + scale.toFixed(3) + ')';
+    }
+  }
+
+  function boot() {
+    scaleCtrl();
+    setTimeout(scaleCtrl, 150);
+    window.addEventListener('resize', scaleCtrl);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else {
+    boot();
+  }
+})();
+
+// ─── TAP-TO-JUMP ─────────────────────────────────────────────────────────────
+// A quick tap anywhere on the game canvas fires the current game's jump action.
+// The d-pad buttons, ctrl-area, and any overlays are excluded automatically.
+(function () {
+  function setup() {
+    document.querySelectorAll('.canvas-wrap').forEach(function (wrap) {
+      if (wrap._tapJumpReady) return;
+      wrap._tapJumpReady = true;
+
+      var t0, x0, y0;
+
+      wrap.addEventListener('touchstart', function (e) {
+        t0 = Date.now();
+        x0 = e.touches[0].clientX;
+        y0 = e.touches[0].clientY;
+      }, { passive: true });
+
+      wrap.addEventListener('touchend', function (e) {
+        var dt   = Date.now() - t0;
+        var dx   = e.changedTouches[0].clientX - x0;
+        var dy   = e.changedTouches[0].clientY - y0;
+        var dist = Math.sqrt(dx * dx + dy * dy);
+
+        // Short tap (< 220 ms, < 28 px travel) = jump
+        if (dt < 220 && dist < 28) {
+          if      (typeof window.ctrlJump  === 'function') window.ctrlJump();
+          else if (typeof window.ctrlDir   === 'function') window.ctrlDir(0, -1);
+          else if (typeof window.ctrlMove  === 'function') window.ctrlMove(0, -1);
+        }
+      }, { passive: true });
+    });
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(setup, 100); });
+  } else {
+    setTimeout(setup, 100);
+  }
+})();
