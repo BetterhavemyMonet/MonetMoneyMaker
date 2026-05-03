@@ -43,24 +43,43 @@ body.game-page::before {
 
 .game-wrap {
   flex: 1; min-height: 0;
-  display: flex; flex-direction: column; align-items: center;
-  position: relative; z-index: 1; padding: 4px 8px 0; overflow: hidden;
+  display: flex; flex-direction: column; align-items: stretch;
+  position: relative; z-index: 1; overflow: hidden;
+  /* no padding — canvas fills this entirely */
 }
+
+/* HUD overlaid on top of canvas */
 .game-header {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 20;
   display: flex; align-items: center; justify-content: center;
-  gap: 10px; flex-wrap: wrap; flex-shrink: 0; padding: 2px 0;
+  gap: 10px; flex-wrap: wrap; padding: 4px 8px;
+  background: linear-gradient(180deg, rgba(0,0,0,0.72) 0%, transparent 100%);
+  pointer-events: none;
 }
+.game-header > * { pointer-events: auto; }
 .game-title { font-size: 13px; font-weight: 800; }
 .game-hud   { font-size: 11px; color: #00f0ff; }
 .coin-hud   { font-size: 10px; color: #ffd700; }
-.game-msg   { font-size: 12px; min-height: 16px; color: #00ff9d; font-family: 'Orbitron', sans-serif; flex-shrink: 0; }
+
+/* Status message overlaid on canvas */
+.game-msg {
+  position: absolute; bottom: 8px; left: 0; right: 0; z-index: 20;
+  font-size: 12px; color: #00ff9d; font-family: 'Orbitron', sans-serif;
+  text-align: center; pointer-events: none;
+  text-shadow: 0 0 8px #00ff9d88;
+}
 
 .canvas-wrap {
-  flex: 1; min-height: 0;
-  display: flex; align-items: center; justify-content: center; width: 100%;
+  flex: 1; min-height: 0; width: 100%; position: relative;
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
 }
 .canvas-wrap canvas {
-  display: block; max-width: 100%; max-height: 100%; border-radius: 6px;
+  display: block;
+  width: 100%; height: 100%;
+  max-width: 100%; max-height: 100%;
+  border-radius: 0;
+  /* Canvas renders at its pixel resolution; CSS scales it to fill */
 }
 
 /* ─── NINTENDO CONTROLLER ─────────────────────────────────────────────────── */
@@ -94,9 +113,12 @@ body.game-page::before {
   -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation;
   margin: 0;
 }
-.ctrl-dpad button:active {
+.ctrl-dpad button:active,
+.ctrl-dpad button.dpad-pressed {
   background: linear-gradient(180deg, #3a3e46, #2e323b);
-  box-shadow: 0 1px 0 transparent; transform: translateY(4px);
+  box-shadow: 0 1px 0 transparent, 0 0 12px rgba(168,85,255,0.55);
+  transform: translateY(4px);
+  color: #c084fc;
 }
 .dpad-up    { top: 0;    left: 68px; border-radius: 8px 8px 2px 2px; }
 .dpad-down  { bottom: 0; left: 68px; border-radius: 2px 2px 8px 8px; }

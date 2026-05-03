@@ -396,6 +396,57 @@ function updateCpuHint() {
   if (sub) sub.textContent = `Prize pot if you win · ${DIFF_LABELS[selectedDiff]} difficulty`;
 }
 
+// ── Lobby ──────────────────────────────────────────────────────────────────
+let _lobbyFilter = 'all';
+
+async function loadLobby(force) {
+  const listEl = document.getElementById('lobby-list');
+  const cntEl  = document.getElementById('lobby-count');
+  if (!listEl) return;
+  listEl.innerHTML = '<div class="lobby-spinner">Loading open challenges...</div>';
+  if (cntEl) cntEl.textContent = 'Loading...';
+  try {
+    const res = await api('/api/challenges');
+    let list = (res.challenges || []).filter(c => c.status === 'open');
+    if (_lobbyFilter !== 'all') list = list.filter(c => c.game === _lobbyFilter);
+    if (cntEl) cntEl.textContent = list.length + ' open';
+    if (!list.length) {
+      listEl.innerHTML = '<div style="text-align:center;padding:24px;color:#555;font-size:11px">No open challenges right now.<br>Create one to be the first!</div>';
+      return;
+    }
+    listEl.innerHTML = list.map(c => {
+      const gameLabel = GAME_LABELS[c.game] || c.game;
+      const timeLeft  = Math.max(0, Math.floor((c.expiresAt - Date.now()) / 60000));
+      const expiring  = timeLeft < 30;
+      const walletShort = (c.player1?.wallet || '').slice(0,6) + '...' + (c.player1?.wallet || '').slice(-4);
+      return `<div class="lobby-card">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px">
+          <div>
+            <div style="font-size:12px;font-weight:800;color:#00f0ff">${gameLabel}</div>
+            <div style="font-size:9px;color:#555;margin-top:2px">${walletShort}</div>
+          </div>
+          <div style="text-align:right">
+            <div style="font-size:13px;font-weight:800;color:#ffd700">${c.pot} MONET</div>
+            <div style="font-size:9px;color:#555">${c.entryFee||5} MONET entry</div>
+          </div>
+          <div style="font-size:9px;color:${expiring?'#ff4488':'#555'};margin-left:8px">${timeLeft}m left</div>
+        </div>
+        <button class="btn-join" onclick="joinAndPlay('${c.code}','${c.game}')">JOIN &amp; PLAY</button>
+      </div>`;
+    }).join('');
+  } catch(e) {
+    if (listEl) listEl.innerHTML = `<div style="color:#ff4488;font-size:11px;text-align:center;padding:16px">${e.message}</div>`;
+    if (cntEl) cntEl.textContent = 'Error';
+  }
+}
+
+function setLobbyFilter(btn) {
+  document.querySelectorAll('#lobby-filters .gf-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  _lobbyFilter = btn.dataset.game;
+  loadLobby(true);
+}
+
 async function createH2HChallenge() {
   const btn = document.getElementById('h2h-create-btn');
   const err = document.getElementById('h2h-err');

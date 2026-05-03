@@ -125,3 +125,191 @@
   // Start polling immediately in case already connected
   start();
 })();
+
+// ─── ANALOG D-PAD ────────────────────────────────────────────────────────────
+// Makes every .ctrl-dpad accept touch/click anywhere in its area.
+// Direction is calculated from the angle of the touch relative to the centre.
+// The matching .dpad-* button's existing handlers are fired via synthetic
+// mouse events, so every game's own code continues to work unchanged.
+(function () {
+  'use strict';
+
+  const DEAD_RATIO = 0.16;   // dead-zone as fraction of half-width
+  const THUMB_R    = 18;     // thumb-dot radius in px
+
+  function initDpad(dpad) {
+    if (dpad._analogReady) return;
+    dpad._analogReady = true;
+
+    if (getComputedStyle(dpad).position === 'static') dpad.style.position = 'relative';
+
+    // Transparent overlay that swallows all input on the d-pad
+    const overlay = document.createElement('div');
+    overlay.style.cssText =
+      'position:absolute;inset:0;z-index:50;touch-action:none;' +
+      '-webkit-tap-highlight-color:transparent;border-radius:inherit;user-select:none;';
+    dpad.appendChild(overlay);
+
+    // Floating thumb dot — visual feedback
+    const thumb = document.createElement('div');
+    thumb.style.cssText =
+      'position:absolute;width:' + (THUMB_R * 2) + 'px;height:' + (THUMB_R * 2) + 'px;' +
+      'border-radius:50%;background:rgba(168,85,255,0.5);' +
+      'border:2.5px solid rgba(168,85,255,0.95);' +
+      'box-shadow:0 0 14px rgba(168,85,255,0.7);' +
+      'pointer-events:none;transform:translate(-50%,-50%);' +
+      'transition:left .03s,top .03s;display:none;z-index:52;';
+    overlay.appendChild(thumb);
+
+    const btnUp    = dpad.querySelector('.dpad-up');
+    const btnDown  = dpad.querySelector('.dpad-down');
+    const btnLeft  = dpad.querySelector('.dpad-left');
+    const btnRight = dpad.querySelector('.dpad-right');
+    const btnMap   = { up: btnUp, down: btnDown, left: btnLeft, right: btnRight };
+
+    const held     = new Set();  // currently simulated-pressed buttons
+    const lastDirs = new Set();  // directions active on last frame
+
+    function isOff(btn) {
+      if (!btn) return true;
+      const s = btn.style;
+      return s.pointerEvents === 'none' || parseFloat(s.opacity || '1') < 0.5;
+    }
+
+    function press(btn) {
+      if (isOff(btn) || held.has(btn)) return;
+      held.add(btn);
+      btn.classList.add('dpad-pressed');
+      btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true }));
+    }
+
+    function release(btn) {
+      if (!held.has(btn)) return;
+      held.delete(btn);
+      btn.classList.remove('dpad-pressed');
+      btn.dispatchEvent(new MouseEvent('mouseup',    { bubbles: true, cancelable: true }));
+      btn.dispatchEvent(new MouseEvent('mouseleave', { bubbles: true, cancelable: true }));
+    }
+
+    function releaseAll() {
+      for (const b of [...held]) release(b);
+      lastDirs.clear();
+    }
+
+    // Returns array of active direction strings from a touch/mouse position
+    function calcDirs(clientX, clientY) {
+      const r  = dpad.getBoundingClientRect();
+      const cx = r.left + r.width  / 2;
+      const cy = r.top  + r.height / 2;
+      const dx = clientX - cx;
+      const dy = clientY - cy;
+      const d  = Math.hypot(dx, dy);
+      if (d < (r.width / 2) * DEAD_RATIO) return [];
+      const adx = Math.abs(dx), ady = Math.abs(dy);
+      const dirs = [];
+      // Vertical: dominant if its component > 35% of horizontal
+      if (ady >= adx * 0.35) dirs.push(dy < 0 ? 'up' : 'down');
+      // Horizontal: dominant if its component > 35% of vertical
+      if (adx >= ady * 0.35) dirs.push(dx < 0 ? 'left' : 'right');
+      return dirs;
+    }
+
+    // Clamps raw position inside the d-pad circle for the thumb dot
+    function thumbPos(clientX, clientY) {
+      const r   = dpad.getBoundingClientRect();
+      const cx  = r.left + r.width  / 2;
+      const cy  = r.top  + r.height / 2;
+      const dx  = clientX - cx;
+      const dy  = clientY - cy;
+      const max = r.width  / 2 - 6;
+      const d   = Math.hypot(dx, dy);
+      const s   = d > max ? max / d : 1;
+      return { x: r.width / 2 + dx * s, y: r.height / 2 + dy * s };
+    }
+
+    function applyDirs(dirs) {
+      const dirSet = new Set(dirs);
+      // Release buttons whose direction is no longer active
+      for (const [dir, btn] of Object.entries(btnMap)) {
+        if (!dirSet.has(dir)) release(btn);
+      }
+      // Press buttons for newly active directions
+      for (const dir of dirs) {
+        if (!lastDirs.has(dir)) press(btnMap[dir]);
+      }
+      lastDirs.clear();
+      for (const d of dirs) lastDirs.add(d);
+    }
+
+    function showThumb(clientX, clientY) {
+      const tp = thumbPos(clientX, clientY);
+      thumb.style.display = 'block';
+      thumb.style.left = tp.x + 'px';
+      thumb.style.top  = tp.y + 'px';
+    }
+
+    // ── Touch ──────────────────────────────────────────────────────────────────
+    overlay.addEventListener('touchstart', function (e) {
+      e.preventDefault();
+      const t = e.touches[0];
+      showThumb(t.clientX, t.clientY);
+      applyDirs(calcDirs(t.clientX, t.clientY));
+    }, { passive: false });
+
+    overlay.addEventListener('touchmove', function (e) {
+      e.preventDefault();
+      if (!e.touches.length) return;
+      const t = e.touches[0];
+      showThumb(t.clientX, t.clientY);
+      applyDirs(calcDirs(t.clientX, t.clientY));
+    }, { passive: false });
+
+    overlay.addEventListener('touchend', function (e) {
+      e.preventDefault();
+      if (e.touches.length === 0) {
+        thumb.style.display = 'none';
+        releaseAll();
+      } else {
+        const t = e.touches[0];
+        showThumb(t.clientX, t.clientY);
+        applyDirs(calcDirs(t.clientX, t.clientY));
+      }
+    }, { passive: false });
+
+    overlay.addEventListener('touchcancel', function (e) {
+      thumb.style.display = 'none';
+      releaseAll();
+    }, { passive: false });
+
+    // ── Mouse (desktop testing) ────────────────────────────────────────────────
+    overlay.addEventListener('mousedown', function (e) {
+      showThumb(e.clientX, e.clientY);
+      applyDirs(calcDirs(e.clientX, e.clientY));
+    });
+
+    overlay.addEventListener('mousemove', function (e) {
+      if (!(e.buttons & 1)) return;
+      showThumb(e.clientX, e.clientY);
+      applyDirs(calcDirs(e.clientX, e.clientY));
+    });
+
+    function endMouse() {
+      thumb.style.display = 'none';
+      releaseAll();
+    }
+
+    overlay.addEventListener('mouseup',    endMouse);
+    overlay.addEventListener('mouseleave', endMouse);
+    document.addEventListener('mouseup',   endMouse);
+  }
+
+  function initAll() {
+    document.querySelectorAll('.ctrl-dpad').forEach(initDpad);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', function () { setTimeout(initAll, 80); });
+  } else {
+    setTimeout(initAll, 80);
+  }
+})();

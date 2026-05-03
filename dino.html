@@ -24,16 +24,26 @@
 .section { display: none; flex: 1; min-height: 0; flex-direction: column; }
 .section.active { display: flex; }
 
-/* Play section */
-#sec-play { align-items: center; padding: 2px 8px 0; }
+/* Play section — canvas fills all remaining space */
+#sec-play { align-items: stretch; padding: 0; position: relative; }
 .game-title {
   font-size: 12px;
   background: linear-gradient(90deg, #a855ff, #00f0ff);
   -webkit-background-clip: text; -webkit-text-fill-color: transparent;
 }
 .game-hud { font-size: 10px; }
-.game-msg { font-size: 11px; min-height: 15px; }
-.canvas-wrap canvas { border: 2px solid #a855ff; box-shadow: 0 0 20px #a855ff44; background: #000; }
+/* Keep game-header in normal flow for tabbed games so it stays below tabs-row */
+#sec-play .game-header {
+  position: relative; top: auto; left: auto; right: auto; z-index: 5;
+  background: rgba(0,0,0,0.6); padding: 3px 8px; flex-shrink: 0;
+}
+/* Keep game-msg visible as absolute overlay within sec-play */
+#sec-play .game-msg {
+  position: absolute; bottom: 8px; left: 0; right: 0; z-index: 20; font-size: 11px;
+}
+/* Tabs stay on top */
+.tabs-row { position: relative; z-index: 30; }
+.canvas-wrap canvas { background: #000; }
 
 /* Create / Challenge sections */
 #sec-create, #sec-challenge {

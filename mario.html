@@ -54,38 +54,38 @@
     <span class="coin-hud">★ <span id="hud-monet">0</span> MONET</span>
   </div>
 
-  <div id="color-picker">
-    <div id="cp-label">PICK YOUR DINO</div>
-    <div id="cp-row">
-      <canvas id="color-preview" width="44" height="44"></canvas>
-      <div id="cp-swatches"></div>
-    </div>
-  </div>
-
   <div class="canvas-wrap">
     <canvas id="gc" width="800" height="400"></canvas>
-  </div>
-
-  <div class="ctrl-area" id="ctrlArea">
-    <div class="ctrl-body">
-      <div class="ctrl-dpad">
-        <div class="ctrl-dpad-center"></div>
-        <button class="dpad-up"    ontouchstart="ctrlJump(event)"      onmousedown="ctrlJump()">&#9650;</button>
-        <button class="dpad-down"  ontouchstart="ctrlFire(event)"      onmousedown="ctrlFire()">&#9660;</button>
-        <button class="dpad-left"  ontouchstart="ctrlLeftOn(event)"  ontouchend="ctrlLeftOff(event)"  onmousedown="ctrlLeftOn()"  onmouseup="ctrlLeftOff()">&#9664;</button>
-        <button class="dpad-right" ontouchstart="ctrlRightOn(event)" ontouchend="ctrlRightOff(event)" onmousedown="ctrlRightOn()" onmouseup="ctrlRightOff()">&#9654;</button>
-      </div>
-      <div class="ctrl-mid">
-        <button class="ctrl-start" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">START</button>
-        <a class="ctrl-home" href="arcade.html">&#8962;</a>
-      </div>
-      <div class="ctrl-ab">
-        <button class="ctrl-btn-a" ontouchstart="ctrlJump(event)"  onmousedown="ctrlJump()">A</button>
-        <button class="ctrl-btn-b" ontouchstart="ctrlFire(event)"  onmousedown="ctrlFire()">B</button>
+    <!-- Color picker overlaid on canvas during title screen -->
+    <div id="color-picker" style="position:absolute;bottom:8px;left:0;right:0;z-index:15;pointer-events:auto">
+      <div id="cp-label">PICK YOUR CHARACTER</div>
+      <div id="cp-row">
+        <canvas id="color-preview" width="44" height="44"></canvas>
+        <div id="cp-swatches"></div>
       </div>
     </div>
   </div>
 
+</div>
+
+<div class="ctrl-area" id="ctrlArea">
+  <div class="ctrl-body">
+    <div class="ctrl-dpad">
+      <div class="ctrl-dpad-center"></div>
+      <button class="dpad-up"    ontouchstart="ctrlJump(event)"      onmousedown="ctrlJump()">&#9650;</button>
+      <button class="dpad-down"  ontouchstart="ctrlFire(event)"      onmousedown="ctrlFire()">&#9660;</button>
+      <button class="dpad-left"  ontouchstart="ctrlLeftOn(event)"  ontouchend="ctrlLeftOff(event)"  onmousedown="ctrlLeftOn()"  onmouseup="ctrlLeftOff()">&#9664;</button>
+      <button class="dpad-right" ontouchstart="ctrlRightOn(event)" ontouchend="ctrlRightOff(event)" onmousedown="ctrlRightOn()" onmouseup="ctrlRightOff()">&#9654;</button>
+    </div>
+    <div class="ctrl-mid">
+      <button class="ctrl-start" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">START</button>
+      <a class="ctrl-home" href="arcade.html">&#8962;</a>
+    </div>
+    <div class="ctrl-ab">
+      <button class="ctrl-btn-a" ontouchstart="ctrlJump(event)"  onmousedown="ctrlJump()">A</button>
+      <button class="ctrl-btn-b" ontouchstart="ctrlFire(event)"  onmousedown="ctrlFire()">B</button>
+    </div>
+  </div>
 </div>
 <script>
 // ─── Canvas ────────────────────────────────────────────────────────────────────

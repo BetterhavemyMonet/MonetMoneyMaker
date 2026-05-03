@@ -1,0 +1,15 @@
+[
+  {
+    "id": "mopwgkkxv8uc",
+    "wallet": "4Uuga2iskhPvJyVAysQufh3vDwF9NRLmZQzHECwx8Cb4",
+    "txId": "practice-mode",
+    "game": "mario",
+    "difficulty": "easy",
+    "cpuScore": 281,
+    "playerScore": null,
+    "won": null,
+    "payoutTxId": null,
+    "status": "active",
+    "createdAt": 1777820561457
+  }
+]
