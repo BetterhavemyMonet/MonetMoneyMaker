@@ -75,7 +75,7 @@
     <div class="ctrl-dpad">
       <div class="ctrl-dpad-center"></div>
       <button class="dpad-up"    ontouchstart="ctrlJump(event)"      onmousedown="ctrlJump()">&#9650;</button>
-      <button class="dpad-down"  ontouchstart="ctrlFire(event)"      onmousedown="ctrlFire()">&#9660;</button>
+      <button class="dpad-down"  ontouchstart="ctrlDownOn(event)" ontouchend="ctrlDownOff(event)" onmousedown="ctrlDownOn()" onmouseup="ctrlDownOff()">&#9660;</button>
       <button class="dpad-left"  ontouchstart="ctrlLeftOn(event)"  ontouchend="ctrlLeftOff(event)"  onmousedown="ctrlLeftOn()"  onmouseup="ctrlLeftOff()">&#9664;</button>
       <button class="dpad-right" ontouchstart="ctrlRightOn(event)" ontouchend="ctrlRightOff(event)" onmousedown="ctrlRightOn()" onmouseup="ctrlRightOff()">&#9654;</button>
     </div>
@@ -279,14 +279,14 @@ let powerupItems=[], fireballs=[];
 let lives=3, score=0, coinCt=0, monetEarned=0, tick=0, wonTimer=0, timeLeft=300;
 const TOTAL_COINS=COIN_STARTS.length;
 let cpuGameId=null, playerWallet=null, sessionActive=false;
-let keys={}, tLeft=false, tRight=false, tJump=false, tFire=false, autoRun=false;
+let keys={}, tLeft=false, tRight=false, tJump=false, tFire=false, tDown=false, autoRun=false;
 const LEVEL_PX_W=LW*T;
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 function initLevel(){
   for(let r=0;r<LH;r++) _map[r]=[..._map[r]]; // restore done in resetGame
   qUsed={};
-  const PW=38,PH=48;
+  const PW=30,PH=34;
   player={x:2*T,y:8*T-PH, vx:0,vy:0, w:PW,h:PH,
           onGround:false, alive:true, facing:1,
           frame:0,fTick:0, running:false, invFrames:0, jumpBuf:0,
@@ -410,16 +410,16 @@ function applyPowerup(type){
   if(!player) return;
   if(type==='mushroom'){
     player.powerup='mushroom'; player.bigHit=false;
-    const newW=46,newH=58;
+    const newW=38,newH=46;
     player.y-=(newH-player.h); player.w=newW; player.h=newH;
     addPts(500,player.x,player.y);
   } else if(type==='fire'){
     player.powerup='fire'; player.bigHit=false;
-    if(player.h<58){const newH=58;player.y-=(newH-player.h);player.h=newH;player.w=46;}
+    if(player.h<46){const newH=46;player.y-=(newH-player.h);player.h=newH;player.w=38;}
     addPts(500,player.x,player.y);
   } else if(type==='wings'){
     player.powerup='wings'; player.wingJumps=1;
-    if(player.h<58){const newH=58;player.y-=(newH-player.h);player.h=newH;player.w=46;}
+    if(player.h<46){const newH=46;player.y-=(newH-player.h);player.h=newH;player.w=38;}
     addPts(500,player.x,player.y);
   }
 }
@@ -454,14 +454,26 @@ function updateFireballs(){
 function updatePlayer(){
   if(!player.alive) return;
   const gL=keys['ArrowLeft']||keys['a']||keys['A']||tLeft;
-  const gR=keys['ArrowRight']||keys['d']||keys['D']||tRight||autoRun;
+  const gR=keys['ArrowRight']||keys['d']||keys['D']||tRight;
+  const gD=keys['ArrowDown']||keys['s']||keys['S']||tDown;
   const gJ=keys['ArrowUp']||keys['w']||keys['W']||keys[' ']||tJump;
 
   if(gJ) player.jumpBuf=8; else if(player.jumpBuf>0) player.jumpBuf--;
 
-  if(gL){player.vx=Math.max(player.vx-1.4,-WSPD);player.facing=-1;player.running=true;autoRun=false;const bb=document.getElementById('btnB');if(bb){bb.classList.remove('autorun-on');}}
-  else if(gR){player.vx=Math.min(player.vx+1.4,WSPD);player.facing=1;player.running=true;}
-  else{player.vx*=0.76;if(Math.abs(player.vx)<0.3){player.vx=0;player.running=false;}}
+  // Right + Down combo activates sprint
+  if(gR&&gD&&!autoRun){autoRun=true;const bb=document.getElementById('btnB');if(bb)bb.classList.add('autorun-on');}
+
+  if(gL){
+    player.vx=Math.max(player.vx-1.4,-WSPD);player.facing=-1;player.running=true;
+    autoRun=false;const bb=document.getElementById('btnB');if(bb){bb.classList.remove('autorun-on');}
+  } else if(gR){
+    player.vx=Math.min(player.vx+1.4,WSPD);player.facing=1;player.running=true;
+  } else if(autoRun){
+    // Sprint in the direction the character is facing
+    if(player.facing===1) player.vx=Math.min(player.vx+1.4,WSPD);
+    else player.vx=Math.max(player.vx-1.4,-WSPD);
+    player.running=true;
+  } else{player.vx*=0.76;if(Math.abs(player.vx)<0.3){player.vx=0;player.running=false;}}
 
   // Jump
   if(player.jumpBuf>0&&player.onGround){
@@ -909,62 +921,148 @@ function drawGoomba(g){
   ctx.restore();
 }
 
+// ─── Hex color helpers ─────────────────────────────────────────────────────────
+function hexRgb(hex){
+  hex=hex||'#22c55e';
+  return[parseInt(hex.slice(1,3),16),parseInt(hex.slice(3,5),16),parseInt(hex.slice(5,7),16)];
+}
+function rgb(r,g,b){return`rgb(${Math.max(0,Math.min(255,r))},${Math.max(0,Math.min(255,g))},${Math.max(0,Math.min(255,b))})`;}
+
 function drawPlayer(){
   if(!player) return;
   const sx=player.x-cam.x, sy=player.y;
   if(player.invFrames>0&&Math.floor(player.invFrames/3)%2===1) return;
 
-  // Pick the best available image source; fall back to a coloured rectangle
-  const img=tintCanvas||(charImgReady?charImg:null);
+  const pw=player.w, ph=player.h;
+  const cx=sx+pw/2;
 
-  // Drop shadow for 3D depth
+  // Base colour from selected palette
+  const baseHex=(DINO_COLORS[colorIdx]||DINO_COLORS[0]).hex||'#22c55e';
+  const[br,bg,bb]=hexRgb(baseHex);
+  const lc=rgb(br+90,bg+90,bb+90);   // highlight
+  const dc=rgb(br-60,bg-60,bb-60);   // shadow
+  const vdc=rgb(br-110,bg-110,bb-110); // deep shadow
+
+  // Walk animation
+  const wk=player.onGround&&(player.running||Math.abs(player.vx)>0.4);
+  const spd=autoRun?0.36:0.28;
+  const la=wk?Math.sin(tick*spd)*0.62:0;
+  const aa=wk?-Math.sin(tick*spd)*0.5:0;
+  const bobY=wk?Math.abs(Math.sin(tick*spd))*2.5:0;
+  // Jump stretch / land squash
+  const airStretch=(!player.onGround&&player.vy<-3)?-2:0;
+  const airSquash =(!player.onGround&&player.vy>5)?2:0;
+
+  // Ground shadow ellipse
   ctx.save();
-  ctx.shadowColor='rgba(0,0,0,0.55)'; ctx.shadowBlur=10; ctx.shadowOffsetY=4;
-  ctx.fillStyle='rgba(0,0,0,0.0)';
-  ctx.fillRect(sx+4,sy+player.h-2,player.w-8,4);
+  ctx.fillStyle='rgba(0,0,0,0.28)';
+  ctx.beginPath();
+  ctx.ellipse(cx,sy+ph+2,pw*0.46,4,0,0,Math.PI*2);
+  ctx.fill();
   ctx.restore();
 
   ctx.save();
-  try{
-    // Wings glow
-    if(player.powerup==='wings'){
-      ctx.shadowColor='#a78bfa'; ctx.shadowBlur=12;
-      const wa=0.4+0.3*Math.sin(tick*0.15);
-      ctx.strokeStyle=`rgba(167,139,250,${wa})`;
-      ctx.lineWidth=2;
-      ctx.beginPath();
-      ctx.moveTo(sx,sy+player.h*0.4);
-      ctx.quadraticCurveTo(sx-18,sy+player.h*0.2,sx-20,sy+player.h*0.5);
-      ctx.stroke();
-      ctx.beginPath();
-      ctx.moveTo(sx+player.w,sy+player.h*0.4);
-      ctx.quadraticCurveTo(sx+player.w+18,sy+player.h*0.2,sx+player.w+20,sy+player.h*0.5);
-      ctx.stroke();
-    }
-    // Fire aura
-    if(player.powerup==='fire'){
-      ctx.shadowColor='#ff6600'; ctx.shadowBlur=8;
-    }
-    ctx.shadowBlur=0;
+  // Mirror whole drawing for left-facing
+  if(player.facing===-1){ctx.translate(cx*2,0);ctx.scale(-1,1);}
 
-    if(img){
-      if(player.facing===-1){
-        ctx.translate(sx+player.w,sy);
-        ctx.scale(-1,1);
-        ctx.drawImage(img,0,0,player.w,player.h);
-      } else {
-        ctx.drawImage(img,sx,sy,player.w,player.h);
-      }
-    } else {
-      // Sprite not ready — draw a simple green rectangle placeholder
-      ctx.fillStyle=(DINO_COLORS[colorIdx]||DINO_COLORS[0]).hex||'#22c55e';
-      ctx.fillRect(sx,sy,player.w,player.h);
-      ctx.fillStyle='rgba(0,0,0,0.3)';
-      ctx.fillRect(sx,sy,player.w,player.h*0.4);
-    }
-  }catch(e){
-    // drawImage can throw if the image is in a broken state — swallow silently
+  // ── LEGS ─────────────────────────────────────────────────────────────
+  function drawLeg(ox,angle){
+    ctx.save();
+    ctx.translate(cx+ox, sy+ph*0.65-bobY);
+    ctx.rotate(angle);
+    const lg=ctx.createLinearGradient(0,0,0,ph*0.35);
+    lg.addColorStop(0,dc); lg.addColorStop(1,vdc);
+    ctx.fillStyle=lg;
+    ctx.fillRect(-pw*0.11,0,pw*0.22,ph*0.33);
+    // Foot
+    ctx.fillStyle=vdc;
+    ctx.beginPath();
+    ctx.ellipse(pw*0.05,ph*0.34,pw*0.15,ph*0.08,0,0,Math.PI*2);
+    ctx.fill();
+    ctx.restore();
   }
+  drawLeg(-pw*0.17, la);
+  drawLeg( pw*0.17,-la);
+
+  // ── BODY ─────────────────────────────────────────────────────────────
+  const bTop=sy+ph*0.28-bobY+airStretch;
+  const bH  =ph*0.44+airSquash-airStretch*2;
+  const bW  =pw*0.80;
+  const bx  =cx-bW/2;
+  const bg2=ctx.createLinearGradient(bx,bTop,bx+bW,bTop);
+  bg2.addColorStop(0,vdc); bg2.addColorStop(0.2,dc);
+  bg2.addColorStop(0.5,lc); bg2.addColorStop(0.8,baseHex);
+  bg2.addColorStop(1,vdc);
+  ctx.fillStyle=bg2;
+  ctx.beginPath();
+  ctx.roundRect(bx,bTop,bW,bH,7);
+  ctx.fill();
+  // Belly shine
+  ctx.fillStyle='rgba(255,255,255,0.22)';
+  ctx.beginPath();
+  ctx.ellipse(cx-bW*0.12,bTop+bH*0.32,bW*0.22,bH*0.2,0,0,Math.PI*2);
+  ctx.fill();
+  // Body outline
+  ctx.strokeStyle=vdc; ctx.lineWidth=1.2;
+  ctx.beginPath(); ctx.roundRect(bx,bTop,bW,bH,7); ctx.stroke();
+
+  // ── ARMS ─────────────────────────────────────────────────────────────
+  function drawArm(ox,angle){
+    ctx.save();
+    ctx.translate(cx+ox, sy+ph*0.33-bobY);
+    ctx.rotate(angle);
+    const ag=ctx.createLinearGradient(0,0,0,ph*0.26);
+    ag.addColorStop(0,baseHex); ag.addColorStop(1,dc);
+    ctx.fillStyle=ag;
+    ctx.beginPath(); ctx.roundRect(-pw*0.1,0,pw*0.19,ph*0.27,4); ctx.fill();
+    ctx.strokeStyle=vdc; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.roundRect(-pw*0.1,0,pw*0.19,ph*0.27,4); ctx.stroke();
+    ctx.restore();
+  }
+  drawArm(-pw*0.46, aa-0.28);
+  drawArm( pw*0.46,-aa+0.28);
+
+  // ── HEAD ─────────────────────────────────────────────────────────────
+  const hcy=sy+ph*0.15-bobY+airStretch*0.5;
+  const hrx=pw*0.46, hry=ph*0.22;
+  const hg=ctx.createRadialGradient(cx-pw*0.1,hcy-hry*0.3,2,cx,hcy,hrx*1.1);
+  hg.addColorStop(0,lc); hg.addColorStop(0.45,baseHex); hg.addColorStop(1,dc);
+  ctx.fillStyle=hg;
+  ctx.beginPath(); ctx.ellipse(cx,hcy,hrx,hry,0,0,Math.PI*2); ctx.fill();
+  ctx.strokeStyle=vdc; ctx.lineWidth=1.3; ctx.stroke();
+
+  // ── EYES ─────────────────────────────────────────────────────────────
+  const ex=cx+pw*0.12, ey=hcy-ph*0.03;
+  ctx.fillStyle='#fff';
+  ctx.beginPath(); ctx.ellipse(ex,ey,pw*0.12,ph*0.1,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='#111';
+  ctx.beginPath(); ctx.ellipse(ex+pw*0.03,ey,pw*0.07,ph*0.07,0,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle='rgba(255,255,255,0.88)';
+  ctx.beginPath(); ctx.ellipse(ex+pw*0.05,ey-ph*0.03,pw*0.028,ph*0.028,0,0,Math.PI*2); ctx.fill();
+
+  // ── POWER-UP AURA ────────────────────────────────────────────────────
+  if(player.powerup==='wings'){
+    ctx.shadowColor='#a78bfa'; ctx.shadowBlur=14;
+    const wa=0.5+0.35*Math.sin(tick*0.16);
+    ctx.strokeStyle=`rgba(167,139,250,${wa})`; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    ctx.moveTo(cx-pw*0.5,hcy+hry*0.2);
+    ctx.quadraticCurveTo(cx-pw*0.95,hcy-hry*0.8,cx-pw,hcy+hry*0.5);
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.moveTo(cx+pw*0.5,hcy+hry*0.2);
+    ctx.quadraticCurveTo(cx+pw*0.95,hcy-hry*0.8,cx+pw,hcy+hry*0.5);
+    ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+  if(player.powerup==='fire'){
+    const fp=0.5+0.4*Math.sin(tick*0.22);
+    ctx.strokeStyle=`rgba(255,120,0,${fp})`; ctx.lineWidth=2.5;
+    ctx.shadowColor='#ff6600'; ctx.shadowBlur=12;
+    ctx.beginPath(); ctx.arc(cx,sy+ph*0.5-bobY,pw*0.62+Math.sin(tick*0.4)*3,0,Math.PI*2); ctx.stroke();
+    ctx.shadowBlur=0;
+  }
+
   ctx.restore();
 }
 
@@ -1123,6 +1221,18 @@ function ctrlLeftOn(e){if(e)e.preventDefault();tLeft=true;}
 function ctrlLeftOff(e){if(e)e.preventDefault();tLeft=false;}
 function ctrlRightOn(e){if(e)e.preventDefault();tRight=true;}
 function ctrlRightOff(e){if(e)e.preventDefault();tRight=false;}
+function ctrlDownOn(e){
+  if(e)e.preventDefault();
+  tDown=true;
+  // Right + Down = activate sprint in current facing direction
+  if((tRight||keys['ArrowRight']||keys['d']||keys['D'])&&state==='playing'&&player){
+    autoRun=true;const bb=document.getElementById('btnB');if(bb)bb.classList.add('autorun-on');
+  } else {
+    // Also fires fireball when not combining with right
+    ctrlFire(null);
+  }
+}
+function ctrlDownOff(e){if(e)e.preventDefault();tDown=false;}
 function ctrlBBtn(e){
   if(e)e.preventDefault();
   if(state==='title'){triggerPayGate();return;}
