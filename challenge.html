@@ -272,6 +272,7 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
         <div class="diff-opt active" data-diff="easy" onclick="selectDiff(this)">&#128994; EASY</div>
         <div class="diff-opt" data-diff="medium" onclick="selectDiff(this)">&#128992; MEDIUM</div>
         <div class="diff-opt" data-diff="hard" onclick="selectDiff(this)">&#128308; HARD</div>
+        <div class="diff-opt" data-diff="expert" onclick="selectDiff(this)" style="border-color:#ff0066;color:#ff0066">💀 EXPERT</div>
       </div>
       <div style="font-size:10px;color:#555;margin:6px 0 10px" id="cpu-range-hint">CPU score target: 80 &#8211; 250 pts</div>
       <button class="btn-cpu btn-full" id="cpu-start-btn" onclick="startCpuChallenge()">PAY 5 MONET &amp; PLAY vs CPU</button>
@@ -333,17 +334,20 @@ let selectedCPUGame  = 'frogger';
 let selectedDiff     = 'easy';
 
 const CPU_RANGES = {
-  easy:   { frogger:[100,350],    snake:[6,16],   pacman:[1000,3500],   pong:[2,4], dino:[300,900]   },
-  medium: { frogger:[500,1100],   snake:[22,50],  pacman:[5000,11000],  pong:[5,7], dino:[1200,3000] },
-  hard:   { frogger:[1800,4000],  snake:[80,140], pacman:[20000,40000], pong:[7,9], dino:[5000,12000]},
+  easy:   { frogger:[100,350],    snake:[6,16],    pacman:[1000,3500],    pong:[2,4], dino:[300,900]    },
+  medium: { frogger:[500,1100],   snake:[22,50],   pacman:[5000,11000],   pong:[5,7], dino:[1200,3000]  },
+  hard:   { frogger:[1800,4000],  snake:[80,140],  pacman:[20000,40000],  pong:[7,9], dino:[5000,12000] },
+  expert: { frogger:[8000,20000], snake:[200,500], pacman:[100000,500000],pong:[9,9], dino:[20000,80000]},
 };
 
 function switchTab(tab) {
-  ['h2h','cpu','join'].forEach(t => {
-    document.getElementById('panel-'+t).classList.toggle('active', t===tab);
+  ['h2h','cpu','lobby','join'].forEach(t => {
+    const panel = document.getElementById('panel-'+t);
+    if (panel) panel.classList.toggle('active', t===tab);
     const btn = document.getElementById('tab-'+t);
-    btn.className = 'tab-btn' + (t===tab ? ' active-'+t : '');
+    if (btn) btn.className = 'tab-btn' + (t===tab ? ' active-'+t : '');
   });
+  if (tab === 'lobby') loadLobby(false);
 }
 
 function selectGame(el, mode) {
@@ -370,8 +374,8 @@ function selectDiff(el) {
   updateCpuHint();
 }
 
-const CPU_PAYOUTS = { easy: 6, medium: 7, hard: 9 };
-const DIFF_LABELS  = { easy: 'Easy', medium: 'Medium', hard: 'Hard' };
+const CPU_PAYOUTS = { easy: 6, medium: 7, hard: 9, expert: 8 };
+const DIFF_LABELS  = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
 
 function updateCpuHint() {
   const r    = CPU_RANGES[selectedDiff]?.[selectedCPUGame];
@@ -539,10 +543,54 @@ async function loadMyChallenges() {
 document.addEventListener('walletConnected', loadMyChallenges);
 document.addEventListener('DOMContentLoaded', () => {
   renderWalletBar('wbar');
+
+  const up   = new URLSearchParams(location.search);
+  const pGame = up.get('game');
+  const pTab  = up.get('tab')  || 'h2h';
+  const pDiff = up.get('diff');
+  const pCode = up.get('code');
+
+  // Pre-select game in H2H panel
+  if (pGame) {
+    const h2hOpt = document.querySelector(`#h2h-game-opts [data-game="${pGame}"]`);
+    if (h2hOpt) {
+      document.querySelectorAll('#h2h-game-opts .game-opt').forEach(e => e.classList.remove('active'));
+      h2hOpt.classList.add('active');
+      selectedH2HGame = pGame;
+    }
+    // Pre-select game in CPU panel
+    const cpuOpt = document.querySelector(`#cpu-game-opts [data-game="${pGame}"]`);
+    if (cpuOpt) {
+      document.querySelectorAll('#cpu-game-opts .game-opt').forEach(e => e.classList.remove('active'));
+      cpuOpt.classList.add('active');
+      selectedCPUGame = pGame;
+    }
+    // Pre-filter lobby
+    const lobbyBtn = document.querySelector(`#lobby-filters [data-game="${pGame}"]`);
+    if (lobbyBtn) { document.querySelectorAll('#lobby-filters .gf-btn').forEach(b => b.classList.remove('active')); lobbyBtn.classList.add('active'); }
+  }
+
+  // Pre-select difficulty
+  if (pDiff) {
+    const diffEl = document.querySelector(`.diff-opt[data-diff="${pDiff}"]`);
+    if (diffEl) {
+      document.querySelectorAll('.diff-opt').forEach(e => e.classList.remove('active'));
+      diffEl.classList.add('active');
+      selectedDiff = pDiff;
+    }
+  }
+
   updateCpuHint();
   loadMyChallenges();
-  const urlCode = new URLSearchParams(location.search).get('code');
-  if (urlCode) { switchTab('join'); document.getElementById('join-code').value = urlCode; lookupChallenge(); }
+
+  // Switch to requested tab
+  if (pCode) {
+    switchTab('join');
+    document.getElementById('join-code').value = pCode;
+    lookupChallenge();
+  } else {
+    switchTab(pTab);
+  }
 });
 </script>
 </body>

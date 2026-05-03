@@ -850,8 +850,20 @@ window._pgRenderGate = null;
 async function showPayGate(gameName, onSuccess, opts = {}) {
   if (hasValidSession(gameName)) { if (onSuccess) onSuccess(); return; }
 
-  // Bypass for players who already paid via challenge.html
+  // Practice mode — free play, no payment, no prize
   const _up = new URLSearchParams(location.search);
+  if (_up.has('practice')) {
+    if (onSuccess) onSuccess('practice-mode');
+    // Show a small non-blocking banner so the player knows they're in practice mode
+    const _pb = document.createElement('div');
+    _pb.id = '_practice-banner';
+    _pb.style.cssText = 'position:fixed;top:50px;left:50%;transform:translateX(-50%);z-index:9999;background:rgba(168,85,255,0.18);border:1px solid #a855ff66;border-radius:20px;padding:5px 18px;font-family:Orbitron,sans-serif;font-size:10px;color:#a855ff;pointer-events:none;white-space:nowrap;';
+    _pb.textContent = '🎮 PRACTICE MODE — no entry fee · no prize';
+    document.body.appendChild(_pb);
+    return;
+  }
+
+  // Bypass for players who already paid via challenge.html
   const _cc = _up.get('challenge');
   if (_cc) {
     const _cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');

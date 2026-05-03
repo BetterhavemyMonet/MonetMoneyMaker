@@ -273,6 +273,16 @@ document.addEventListener('DOMContentLoaded', () => {
   renderWalletBar('wbar');
   loadTourneys();
   setInterval(loadTourneys, 15000);
+
+  // Pre-select game from ?game= URL param
+  const pGame = new URLSearchParams(location.search).get('game');
+  if (pGame) {
+    const sel = document.getElementById('t-game');
+    if (sel) {
+      const opt = sel.querySelector(`option[value="${pGame}"]`);
+      if (opt) sel.value = pGame;
+    }
+  }
 });
 </script>
 </body>
