@@ -671,6 +671,85 @@ window.payEntryFee        = payEntryFee;
 window.ensureMonetAccount = ensureMonetAccount;
 window.refreshBalances    = refreshBalances;
 
+// ─── Pay Entry Fee (SOL) ──────────────────────────────────────────────────────
+// Sends native SOL to treasury (~$0.25 worth) as an alternative to MONET.
+const SOL_ENTRY_LAMPORTS = 1_500_000; // 0.0015 SOL ≈ $0.25 at ~$167/SOL
+
+async function payEntryFeeSOL(gameName, onProgress, lamports) {
+  const lam    = (lamports && lamports > 0) ? lamports : SOL_ENTRY_LAMPORTS;
+  const report = (step) => { try { onProgress && onProgress(step); } catch(_) {} };
+
+  report('checking');
+  if (!WalletState.connected || !WalletState.address) throw new Error('Connect wallet first');
+
+  await refreshBalances().catch(() => {});
+  const solNeeded = lam / 1e9 + 0.001; // add tx fee buffer
+  if (WalletState.solBalance < solNeeded) {
+    throw new Error(`Insufficient SOL. Need ~${(lam/1e9).toFixed(4)}, have ${WalletState.solBalance.toFixed(4)}`);
+  }
+
+  const provider = getProvider();
+  if (!provider)  throw new Error('No wallet provider found');
+
+  const w       = getSolanaWeb3();
+  const payer   = new w.PublicKey(WalletState.address);
+  const treasury = new w.PublicKey(MONET_CONFIG.TREASURY);
+
+  // Blockhash
+  let blockhash;
+  try {
+    const conn = await getWorkingConnection();
+    ({ blockhash } = await conn.getLatestBlockhash());
+  } catch(_) {
+    try {
+      const r = await fetch('/api/blockhash');
+      if (!r.ok) throw new Error(`/api/blockhash ${r.status}`);
+      ({ blockhash } = await r.json());
+    } catch(e) { throw new Error(`Could not fetch blockhash: ${e.message}`); }
+  }
+
+  const tx = new w.Transaction();
+  tx.feePayer = payer;
+  tx.recentBlockhash = blockhash;
+
+  // Native SOL transfer
+  tx.add(w.SystemProgram.transfer({ fromPubkey: payer, toPubkey: treasury, lamports: lam }));
+
+  // Memo for clear wallet display
+  const gameLabel = (gameName || 'GAME').toUpperCase();
+  tx.add(createMemoInstruction(payer, `Monet Arcade | ${gameLabel} | SOL entry fee`));
+
+  report('signing');
+  let txId;
+  try {
+    if (provider.signAndSendTransaction) {
+      const result = await provider.signAndSendTransaction(tx);
+      txId = result.signature || result;
+    } else {
+      const conn   = await getWorkingConnection();
+      const signed = await provider.signTransaction(tx);
+      txId = await conn.sendRawTransaction(signed.serialize());
+    }
+  } catch(e) { throw new Error(`Signing failed: ${e.message}`); }
+
+  report('confirming');
+  try {
+    const conn = await getWorkingConnection();
+    await conn.confirmTransaction(txId, 'confirmed');
+  } catch(_) {
+    console.warn('[MONET] SOL confirmTransaction timed out (tx may still confirm):', txId);
+  }
+
+  WalletState.solBalance -= lam / 1e9;
+  document.dispatchEvent(new CustomEvent('balanceUpdated', { detail: { ...WalletState } }));
+
+  const session = { game: gameName, txId, paidAt: Date.now(), wallet: WalletState.address, paymentType: 'sol', lamports: lam };
+  sessionStorage.setItem('game_session', JSON.stringify(session));
+  return txId;
+}
+
+window.payEntryFeeSOL = payEntryFeeSOL;
+
 // ─── Record Win / Claim ───────────────────────────────────────────────────────
 function recordWin(gameName, score) {
   const session = JSON.parse(sessionStorage.getItem('game_session') || 'null');
@@ -899,7 +978,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
     const hasEnough = bal >= MONET_CONFIG.ENTRY_FEE;
     const short    = conn ? WalletState.address.slice(0,4)+'...'+WalletState.address.slice(-4) : '';
     const potAmt   = opts.pot        ? opts.pot
-                   : challengeCode  ? (MONET_CONFIG.ENTRY_FEE * 2 * (1 - 0.10)).toFixed(1) + ' MONET'
+                   : challengeCode  ? (MONET_CONFIG.ENTRY_FEE * 2 * (1 - 0.20)).toFixed(1) + ' MONET'
                    : tournamentId   ? 'Pool grows with players'
                    : (MONET_CONFIG.ENTRY_FEE * MONET_CONFIG.PAYOUT_RATE).toFixed(1) + ' MONET';
 
@@ -922,13 +1001,15 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
         </div>
         <div class="pg-row">
           <span class="pg-label">House Rake</span>
-          <span class="pg-val" style="color:#888">${opts.rake !== undefined ? opts.rake : (challengeCode || tournamentId ? '10%' : Math.round((1 - MONET_CONFIG.PAYOUT_RATE) * 100) + '%')}</span>
+          <span class="pg-val" style="color:#888">${opts.rake !== undefined ? opts.rake : (challengeCode || tournamentId ? '20%' : Math.round((1 - MONET_CONFIG.PAYOUT_RATE) * 100) + '%')}</span>
         </div>
 
         ${conn ? `
           <div id="pg-wallet-row">
             &#9679; ${short} &nbsp;|&nbsp;
             <span style="color:${hasEnough?'#00ff9d':'#ff4488'}">${bal.toFixed(2)} MONET</span>
+            &nbsp;·&nbsp;
+            <span style="color:${WalletState.solBalance>=0.003?'#00ff9d':'#555'}">${WalletState.solBalance.toFixed(3)} SOL</span>
           </div>
           ${hasEnough ? `
             <button id="pg-pay-btn" onclick="pgPay()">PAY ${MONET_CONFIG.ENTRY_FEE} MONET &amp; PLAY</button>
@@ -936,6 +1017,11 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
             <div style="color:#ff4488;font-size:11px;margin-top:10px">Insufficient MONET — need ${MONET_CONFIG.ENTRY_FEE}</div>
             <button id="pg-pay-btn" onclick="location.href='exchange.html'" style="background:linear-gradient(135deg,#ff4488,#c0136c)">GET MONET &#8594;</button>
           `}
+          <button id="pg-pay-sol-btn" onclick="pgPaySOL()"
+            style="margin-top:8px;width:100%;padding:11px;border-radius:12px;border:1px solid ${WalletState.solBalance>=0.003?'#3b82f6':'#333'};cursor:${WalletState.solBalance>=0.003?'pointer':'not-allowed'};background:${WalletState.solBalance>=0.003?'rgba(59,130,246,0.12)':'rgba(255,255,255,0.03)'};color:${WalletState.solBalance>=0.003?'#60a5fa':'#555'};font-family:Orbitron,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px"
+            ${WalletState.solBalance>=0.003?'':'disabled'}>
+            ◎ PAY ~$0.25 IN SOL &amp; PLAY${WalletState.solBalance<0.003?' (need ~0.003 SOL)':''}
+          </button>
         ` : `
           <button id="pg-connect-btn" onclick="pgConnect()">CONNECT WALLET</button>
         `}
@@ -1023,7 +1109,7 @@ async function pgPay() {
           const res = await api(`/api/challenge/${challengeCode}`);
           const ch  = res.challenge;
           if (ch.status === 'open' && ch.player1.wallet !== WalletState.address) {
-            await api('/api/challenge/join', 'POST', { code: challengeCode, wallet: WalletState.address, txId });
+            await api('/api/challenge/join', 'POST', { code: challengeCode, wallet: WalletState.address, txId, paymentType: 'monet' });
           }
           sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: ch.id, code: challengeCode, txId }));
         }
@@ -1032,7 +1118,7 @@ async function pgPay() {
 
     if (tournamentId) {
       try {
-        await api('/api/tournament/register', 'POST', { tournamentId, wallet: WalletState.address, txId });
+        await api('/api/tournament/register', 'POST', { tournamentId, wallet: WalletState.address, txId, paymentType: 'monet' });
       } catch(e2) { console.warn('[ARCADE] Tournament register error:', e2.message); }
     }
 
@@ -1061,8 +1147,87 @@ function pgRetry() {
 
 function pgBack() { location.href = 'arcade.html'; }
 
+// ─── SOL payment path through the pay gate ────────────────────────────────────
+async function pgPaySOL() {
+  const solBtn   = document.getElementById('pg-pay-sol-btn');
+  const monetBtn = document.getElementById('pg-pay-btn');
+  const err      = document.getElementById('pg-err');
+  const spinner  = document.getElementById('pg-spinner');
+  const spinLbl  = document.getElementById('pg-spinner-label');
+  const retryBtn = document.getElementById('pg-retry-btn');
+  if (solBtn)   { solBtn.style.display = 'none'; }
+  if (monetBtn) { monetBtn.style.display = 'none'; }
+  if (retryBtn) { retryBtn.style.display = 'none'; }
+  if (err)      err.textContent = '';
+  if (spinner)  spinner.classList.add('active');
+  if (spinLbl)  spinLbl.textContent = 'CHECKING WALLET...';
+  const _rg = window._pgRenderGate;
+  if (_rg) {
+    document.removeEventListener('walletConnected', _rg);
+    document.removeEventListener('balanceUpdated',  _rg);
+  }
+  const STEP_LABELS = { checking:'CHECKING WALLET...', signing:'SIGN IN YOUR WALLET...', confirming:'CONFIRMING ON-CHAIN...' };
+  const STEP_NUM    = { checking:1, signing:2, confirming:3 };
+  function _setStep(n) {
+    for (let i = 1; i <= 3; i++) {
+      const seg = document.getElementById('pg-seg-' + i);
+      if (seg) seg.classList.toggle('active', i <= n);
+    }
+  }
+  _setStep(1);
+  function onProgress(step) {
+    if (spinLbl && STEP_LABELS[step]) spinLbl.textContent = STEP_LABELS[step];
+    _setStep(STEP_NUM[step] || 0);
+  }
+
+  try {
+    const txId = await payEntryFeeSOL(window._pgGameName, onProgress);
+    if (spinLbl) spinLbl.textContent = 'LAUNCHING GAME...';
+
+    const urlParams     = new URLSearchParams(location.search);
+    const challengeCode = urlParams.get('challenge');
+    const tournamentId  = urlParams.get('tournament');
+
+    if (challengeCode) {
+      try {
+        const existing = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
+        if (!existing) {
+          const res = await api(`/api/challenge/${challengeCode}`);
+          const ch  = res.challenge;
+          if (ch.status === 'open' && ch.player1.wallet !== WalletState.address) {
+            await api('/api/challenge/join', 'POST', { code: challengeCode, wallet: WalletState.address, txId, paymentType: 'sol' });
+          }
+          sessionStorage.setItem('challenge_session', JSON.stringify({ challengeId: ch.id, code: challengeCode, txId }));
+        }
+      } catch(e2) { console.warn('[ARCADE] Challenge join (SOL) error:', e2.message); }
+    }
+
+    if (tournamentId) {
+      try {
+        await api('/api/tournament/register', 'POST', { tournamentId, wallet: WalletState.address, txId, paymentType: 'sol' });
+      } catch(e2) { console.warn('[ARCADE] Tournament register (SOL) error:', e2.message); }
+    }
+
+    document.getElementById('pg-overlay')?.remove();
+    if (window._pgOnSuccess) window._pgOnSuccess(txId);
+    if (challengeCode && window.startH2HWatch) startH2HWatch(challengeCode);
+  } catch(e) {
+    if (_rg) {
+      document.addEventListener('walletConnected', _rg);
+      document.addEventListener('balanceUpdated',  _rg);
+    }
+    if (spinner)  spinner.classList.remove('active');
+    if (err)      err.textContent = e.message;
+    if (retryBtn) retryBtn.style.display = '';
+    // Re-show both buttons
+    if (solBtn)   solBtn.style.display = '';
+    if (monetBtn) monetBtn.style.display = '';
+  }
+}
+
 window.pgConnect = pgConnect;
 window.pgPay     = pgPay;
+window.pgPaySOL  = pgPaySOL;
 window.pgRetry   = pgRetry;
 window.pgBack    = pgBack;
 

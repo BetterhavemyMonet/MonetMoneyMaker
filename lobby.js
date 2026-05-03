@@ -1,10 +1,13 @@
 // ─── MONET ARCADE GAME LOBBY ──────────────────────────────────────────────────
-// Shared pre-game lobby: Solo (practice) vs Head-to-Head (wager MONET).
+// 5-mode lobby: Practice · CPU Expert · Join Live H2H · Create H2H · Tournament
+// Supports MONET or SOL (~$0.25) entry fee payments.
 // Requires wallet.js to be loaded first.
 
 (function () {
-  const WAGER_PRESETS = [5, 10, 25, 50];
-  const POLL_INTERVAL = 2500;
+  const WAGER_PRESETS  = [5, 10, 25, 50];
+  const POLL_INTERVAL  = 2500;
+  const HOUSE_RAKE     = 0.20;
+  const CPU_WIN_PAYOUT = 4;   // MONET paid to winner (server caps at 6)
 
   function _injectStyles() {
     if (document.getElementById('lb-styles')) return;
@@ -19,35 +22,59 @@
       #lb-box {
         background:linear-gradient(160deg,#0d1017,#111827);
         border:1px solid #a855ff; border-radius:20px;
-        padding:28px 24px 22px; width:min(380px,94vw);
+        padding:24px 20px 20px; width:min(400px,96vw);
         box-shadow:0 0 60px #a855ff33; color:#fff; text-align:center;
+        max-height:92vh; overflow-y:auto;
       }
-      #lb-logo { font-size:36px; margin-bottom:2px; }
+      #lb-logo { font-size:32px; margin-bottom:2px; }
       #lb-title {
-        font-size:15px; font-weight:800; color:#a855ff; margin-bottom:2px;
+        font-size:14px; font-weight:800; color:#a855ff; margin-bottom:2px;
         text-shadow:0 0 12px #a855ff66;
       }
-      #lb-game-label { font-size:10px; color:#666; letter-spacing:2px; margin-bottom:18px; }
-      .lb-mode-row { display:flex; gap:12px; margin:0 0 16px; }
-      .lb-mode-btn {
-        flex:1; padding:16px 8px; border-radius:14px; cursor:pointer; border:2px solid;
-        font-family:'Orbitron',sans-serif; font-size:11px; font-weight:800;
-        transition:transform .12s, box-shadow .12s; background:transparent;
-      }
-      .lb-mode-btn:hover { transform:translateY(-2px); }
-      .lb-mode-btn.solo {
-        border-color:#00ff9d; color:#00ff9d;
-      }
-      .lb-mode-btn.solo:hover { box-shadow:0 0 20px #00ff9d44; }
-      .lb-mode-btn.h2h {
-        border-color:#00f0ff; color:#00f0ff;
-      }
-      .lb-mode-btn.h2h:hover { box-shadow:0 0 20px #00f0ff44; }
-      .lb-mode-icon { font-size:24px; display:block; margin-bottom:4px; }
-      .lb-mode-sub  { font-size:9px; color:#888; margin-top:3px; font-weight:normal; }
+      #lb-game-label { font-size:10px; color:#666; letter-spacing:2px; margin-bottom:16px; }
 
+      /* ── 5-mode grid ── */
+      .lb-mode-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:10px; }
+      .lb-mode-card {
+        padding:14px 10px; border-radius:14px; cursor:pointer; border:1px solid;
+        font-family:'Orbitron',sans-serif; font-weight:800;
+        transition:transform .12s, box-shadow .12s; background:transparent;
+        text-align:center;
+      }
+      .lb-mode-card:hover { transform:translateY(-2px); }
+      .lb-mode-card.full-row { grid-column:1/-1; }
+      .lb-mc-icon { font-size:22px; display:block; margin-bottom:4px; }
+      .lb-mc-name { font-size:11px; margin-bottom:3px; }
+      .lb-mc-sub  { font-size:9px; font-weight:normal; color:#888; line-height:1.4; margin-top:2px; }
+
+      .lb-mode-card.free    { border-color:#00ff9d66; color:#00ff9d; }
+      .lb-mode-card.free:hover   { box-shadow:0 0 18px #00ff9d44; border-color:#00ff9d; }
+      .lb-mode-card.cpu    { border-color:#f97316aa; color:#f97316; }
+      .lb-mode-card.cpu:hover    { box-shadow:0 0 18px #f9731644; border-color:#f97316; }
+      .lb-mode-card.live   { border-color:#00f0ffaa; color:#00f0ff; }
+      .lb-mode-card.live:hover   { box-shadow:0 0 18px #00f0ff44; border-color:#00f0ff; }
+      .lb-mode-card.create { border-color:#a855ffaa; color:#a855ff; }
+      .lb-mode-card.create:hover { box-shadow:0 0 18px #a855ff44; border-color:#a855ff; }
+      .lb-mode-card.tourney{ border-color:#ffd700aa; color:#ffd700; }
+      .lb-mode-card.tourney:hover{ box-shadow:0 0 18px #ffd70044; border-color:#ffd700; }
+
+      /* ── Currency picker ── */
+      .lb-curr-btn {
+        display:flex; align-items:center; gap:14px;
+        width:100%; padding:14px 16px; margin-bottom:10px; border-radius:12px;
+        cursor:pointer; border:1px solid; background:transparent; text-align:left;
+        font-family:'Orbitron',sans-serif; transition:box-shadow .12s, border-color .12s;
+      }
+      .lb-curr-btn.monet { border-color:#a855ff66; color:#fff; }
+      .lb-curr-btn.monet:not(:disabled):hover { border-color:#a855ff; box-shadow:0 0 16px #a855ff44; }
+      .lb-curr-btn.sol   { border-color:#3b82f666; color:#fff; }
+      .lb-curr-btn.sol:not(:disabled):hover   { border-color:#3b82f6; box-shadow:0 0 16px #3b82f644; }
+      .lb-curr-btn:disabled { opacity:0.38; cursor:not-allowed; }
+      .lb-curr-icon { font-size:22px; flex-shrink:0; }
+
+      /* ── Wager selector ── */
       .lb-wager-label { font-size:10px; color:#888; margin:0 0 8px; letter-spacing:1px; }
-      .lb-wager-row { display:flex; gap:8px; justify-content:center; margin-bottom:16px; flex-wrap:wrap; }
+      .lb-wager-row { display:flex; gap:8px; justify-content:center; margin-bottom:14px; flex-wrap:wrap; }
       .lb-wager-btn {
         padding:8px 14px; border-radius:10px; border:1px solid #a855ff44;
         background:rgba(168,85,255,0.07); color:#a855ff;
@@ -55,22 +82,10 @@
         transition:background .12s, box-shadow .12s;
       }
       .lb-wager-btn:hover, .lb-wager-btn.selected {
-        background:rgba(168,85,255,0.22); box-shadow:0 0 12px #a855ff44;
-        border-color:#a855ff;
+        background:rgba(168,85,255,0.22); box-shadow:0 0 12px #a855ff44; border-color:#a855ff;
       }
 
-      .lb-h2h-options { display:flex; gap:10px; margin-bottom:14px; }
-      .lb-h2h-opt {
-        flex:1; padding:12px 8px; border-radius:12px; cursor:pointer;
-        font-family:'Orbitron',sans-serif; font-size:10px; font-weight:800;
-        border:1px solid; transition:box-shadow .12s; background:transparent;
-      }
-      .lb-h2h-opt.create { border-color:#a855ff44; color:#a855ff; }
-      .lb-h2h-opt.create:hover { box-shadow:0 0 16px #a855ff44; border-color:#a855ff; }
-      .lb-h2h-opt.join   { border-color:#00f0ff44; color:#00f0ff; }
-      .lb-h2h-opt.join:hover   { box-shadow:0 0 16px #00f0ff44; border-color:#00f0ff; }
-      .lb-h2h-icon { font-size:20px; display:block; margin-bottom:3px; }
-
+      /* ── Code box & waiting ── */
       #lb-code-box {
         background:rgba(168,85,255,0.08); border:1px solid #a855ff44;
         border-radius:12px; padding:14px; margin-bottom:14px;
@@ -86,7 +101,6 @@
         font-family:'Orbitron',sans-serif; font-size:10px; cursor:pointer; margin-top:8px;
       }
       .lb-copy-btn:hover { background:rgba(168,85,255,0.2); }
-
       #lb-join-input {
         width:100%; box-sizing:border-box; padding:10px 14px;
         background:#0a0f1a; border:1px solid #333; border-radius:10px;
@@ -94,7 +108,31 @@
         letter-spacing:3px; text-align:center; margin-bottom:10px; text-transform:uppercase;
       }
       #lb-join-input:focus { outline:none; border-color:#00f0ff44; }
+      #lb-wait-status { color:#888; font-size:11px; margin:10px 0; line-height:1.6; }
+      #lb-wait-dots   { color:#a855ff; }
 
+      /* ── Live challenges list ── */
+      .lb-live-list { max-height:180px; overflow-y:auto; margin-bottom:10px; }
+      .lb-live-item {
+        display:flex; justify-content:space-between; align-items:center;
+        padding:9px 12px; border-radius:10px; margin-bottom:6px;
+        border:1px solid #00f0ff22; background:rgba(0,240,255,0.05); cursor:pointer;
+        transition:border-color .12s; font-size:11px;
+      }
+      .lb-live-item:hover { border-color:#00f0ff44; }
+      .lb-live-badge { font-size:9px; color:#00ff9d; border:1px solid #00ff9d44; padding:2px 6px; border-radius:20px; }
+
+      /* ── Tournament list ── */
+      .lb-tourney-list { max-height:180px; overflow-y:auto; margin-bottom:10px; }
+      .lb-tourney-item {
+        display:flex; justify-content:space-between; align-items:center;
+        padding:9px 12px; border-radius:10px; margin-bottom:6px;
+        border:1px solid #ffd70022; background:rgba(255,215,0,0.04); cursor:pointer;
+        transition:border-color .12s; font-size:11px;
+      }
+      .lb-tourney-item:hover { border-color:#ffd70044; }
+
+      /* ── Shared UI ── */
       .lb-action-btn {
         width:100%; padding:13px; border-radius:12px; border:none; cursor:pointer;
         font-family:'Orbitron',sans-serif; font-size:13px; font-weight:800;
@@ -109,16 +147,16 @@
         background:linear-gradient(135deg,#00f0ff22,#00f0ff11);
         color:#00f0ff; border:1px solid #00f0ff44;
       }
-
-      #lb-wait-status {
-        color:#888; font-size:11px; margin:10px 0; line-height:1.6;
+      .lb-action-btn.gold {
+        background:linear-gradient(135deg,#ffd70022,#ffd70011);
+        color:#ffd700; border:1px solid #ffd70044;
       }
-      #lb-wait-dots { color:#a855ff; }
-
       .lb-err { color:#ff4488; font-size:11px; margin-top:8px; min-height:16px; }
-      #lb-back { color:#555; font-size:10px; cursor:pointer; background:none; border:none; font-family:inherit; margin-top:10px; }
+      #lb-back {
+        color:#555; font-size:10px; cursor:pointer; background:none;
+        border:none; font-family:inherit; margin-top:10px;
+      }
       #lb-back:hover { color:#ff4488; }
-
       @keyframes lb-spin { to { transform:rotate(360deg); } }
       .lb-spinner-row {
         display:flex; flex-direction:column; align-items:center; gap:10px; margin:14px 0;
@@ -129,77 +167,137 @@
         animation:lb-spin 0.75s linear infinite;
       }
       .lb-spinner-lbl { font-size:10px; color:#a855ff; letter-spacing:1px; }
-      .lb-progress {
-        display:flex; gap:5px; margin-top:4px; width:100%; max-width:180px;
-      }
+      .lb-progress { display:flex; gap:5px; margin-top:4px; width:100%; max-width:180px; }
       .lb-progress-seg {
-        flex:1; height:4px; border-radius:2px;
-        background:rgba(168,85,255,0.18);
+        flex:1; height:4px; border-radius:2px; background:rgba(168,85,255,0.18);
         transition:background 0.3s, box-shadow 0.3s;
       }
       .lb-progress-seg.active {
-        background:#a855ff;
-        box-shadow:0 0 7px #a855ff, 0 0 14px #a855ff88;
+        background:#a855ff; box-shadow:0 0 7px #a855ff, 0 0 14px #a855ff88;
       }
       .lb-pot-info {
         font-size:10px; color:#ffd700; margin-bottom:10px;
         background:rgba(255,215,0,0.07); border:1px solid #ffd70022;
         border-radius:8px; padding:6px 10px;
       }
+      .lb-divider {
+        border:none; border-top:1px solid #ffffff0d; margin:12px 0;
+      }
     `;
     document.head.appendChild(s);
   }
 
-  let _overlay = null;
-  let _pollTimer = null;
-  let _dotTimer  = null;
-  let _dotCount  = 0;
+  // ─── State ───────────────────────────────────────────────────────────────────
+  let _overlay       = null;
+  let _pollTimer     = null;
+  let _dotTimer      = null;
+  let _dotCount      = 0;
   let _selectedWager = 5;
-  let _gameName  = null;
-  let _onStart   = null;
+  let _gameName      = null;
+  let _onStart       = null;
+  let _paymentType   = 'monet'; // 'monet' | 'sol'
+  let _pendingCurrencyOnMonet = null;
+  let _pendingCurrencyOnSol   = null;
 
   function _clearPolling() {
     if (_pollTimer) { clearInterval(_pollTimer); _pollTimer = null; }
     if (_dotTimer)  { clearInterval(_dotTimer);  _dotTimer  = null; }
   }
-
   function _remove() {
     _clearPolling();
     if (_overlay) { _overlay.remove(); _overlay = null; }
   }
+  function _body()    { return document.getElementById('lb-body'); }
+  function _errEl()   { return document.getElementById('lb-err'); }
+  function _setErr(msg) { const el = _errEl(); if (el) el.textContent = msg || ''; }
+  function _setHtml(h)  { const b = _body(); if (b) b.innerHTML = h; }
 
-  function _errEl() {
-    return document.getElementById('lb-err');
-  }
-  function _setErr(msg) {
-    const el = _errEl();
-    if (el) el.textContent = msg || '';
-  }
-
-  // ─── SCREEN: Mode select ───────────────────────────────────────────────────
+  // ─── SCREEN: 5-mode select ──────────────────────────────────────────────────
   function _screenMode() {
-    document.getElementById('lb-body').innerHTML = `
-      <div class="lb-mode-row">
-        <button class="lb-mode-btn solo" onclick="window._lbSolo()">
-          <span class="lb-mode-icon">🎮</span>
-          SOLO
-          <div class="lb-mode-sub">Practice · No wager<br>Free to try</div>
+    _setHtml(`
+      <div class="lb-mode-grid">
+        <button class="lb-mode-card free" onclick="window._lbSolo()">
+          <span class="lb-mc-icon">🎮</span>
+          <div class="lb-mc-name">PRACTICE</div>
+          <div class="lb-mc-sub">Free · No entry fee<br>No prize pool</div>
         </button>
-        <button class="lb-mode-btn h2h" onclick="window._lbH2H()">
-          <span class="lb-mode-icon">⚔</span>
-          HEAD-TO-HEAD
-          <div class="lb-mode-sub">Wager MONET<br>Winner takes pot</div>
+        <button class="lb-mode-card cpu" onclick="window._lbCpuExpert()">
+          <span class="lb-mc-icon">🤖</span>
+          <div class="lb-mc-name">CPU EXPERT</div>
+          <div class="lb-mc-sub">5 MONET or ~$0.25 SOL<br>Win ${CPU_WIN_PAYOUT} MONET</div>
+        </button>
+        <button class="lb-mode-card live" onclick="window._lbJoinLive()">
+          <span class="lb-mc-icon">⚡</span>
+          <div class="lb-mc-name">JOIN LIVE</div>
+          <div class="lb-mc-sub">Browse open H2H<br>80/20 pot split</div>
+        </button>
+        <button class="lb-mode-card create" onclick="window._lbCreate()">
+          <span class="lb-mc-icon">⚔</span>
+          <div class="lb-mc-name">CREATE H2H</div>
+          <div class="lb-mc-sub">Challenge a friend<br>80/20 pot split</div>
         </button>
       </div>
+      <button class="lb-mode-card tourney full-row" style="width:100%;display:block" onclick="window._lbTournament()">
+        <span class="lb-mc-icon">🏆</span>
+        <div class="lb-mc-name">TOURNAMENT</div>
+        <div class="lb-mc-sub">Multi-player pool · Top 3 paid out automatically in MONET</div>
+      </button>
       <div class="lb-err" id="lb-err"></div>
       <button id="lb-back" onclick="location.href='arcade.html'">← Back to Arcade</button>
-    `;
+    `);
   }
 
-  // ─── SCREEN: H2H wager + options ──────────────────────────────────────────
-  function _screenH2H() {
-    document.getElementById('lb-body').innerHTML = `
-      <div class="lb-wager-label">SELECT WAGER AMOUNT</div>
+  // ─── SCREEN: Currency picker ────────────────────────────────────────────────
+  function _screenCurrency(modeLabel, modeIcon, onMonet, onSol) {
+    _pendingCurrencyOnMonet = onMonet;
+    _pendingCurrencyOnSol   = onSol;
+    const monet    = WalletState?.monetBalance || 0;
+    const sol      = WalletState?.solBalance   || 0;
+    const hasMonet = monet >= _selectedWager;
+    const hasSol   = sol  >= 0.003;
+    _setHtml(`
+      <div style="text-align:center;margin-bottom:14px">
+        <div style="font-size:28px">${modeIcon}</div>
+        <div style="font-size:12px;color:#a855ff;font-weight:800;margin-top:4px">${modeLabel}</div>
+      </div>
+      <div class="lb-wager-label">SELECT PAYMENT METHOD</div>
+      <button class="lb-curr-btn monet" ${hasMonet ? '' : 'disabled'} onclick="window._lbPickMonet()">
+        <div class="lb-curr-icon">💎</div>
+        <div>
+          <div style="font-size:12px;font-weight:800">PAY ${_selectedWager} MONET</div>
+          <div style="font-size:9px;color:${hasMonet?'#00ff9d':'#ff4488'};margin-top:2px">
+            ${hasMonet ? `Balance: ${monet.toFixed(2)} MONET ✓` : `Need ${_selectedWager} MONET — have ${monet.toFixed(2)}`}
+          </div>
+        </div>
+      </button>
+      <button class="lb-curr-btn sol" ${hasSol ? '' : 'disabled'} onclick="window._lbPickSol()">
+        <div class="lb-curr-icon">◎</div>
+        <div>
+          <div style="font-size:12px;font-weight:800">PAY ~$0.25 IN SOL</div>
+          <div style="font-size:9px;color:${hasSol?'#00ff9d':'#ff4488'};margin-top:2px">
+            ${hasSol ? `Balance: ${sol.toFixed(4)} SOL ✓` : `Need ~0.003 SOL — have ${sol.toFixed(4)}`}
+          </div>
+        </div>
+      </button>
+      ${!hasMonet && !hasSol ? `
+        <div style="margin-top:8px;font-size:10px;color:#888">
+          <a href="exchange.html" style="color:#a855ff">Get MONET →</a>
+          &nbsp;·&nbsp; Add SOL from any exchange
+        </div>
+      ` : ''}
+      <div class="lb-err" id="lb-err"></div>
+      <button id="lb-back" onclick="window._lbScreenMode()">← Back</button>
+    `);
+  }
+
+  // ─── SCREEN: Wager amount (for H2H modes) ───────────────────────────────────
+  function _screenWager(modeLabel, modeIcon, onPick) {
+    _setHtml(`
+      <div style="text-align:center;margin-bottom:12px">
+        <div style="font-size:24px">${modeIcon}</div>
+        <div style="font-size:12px;color:#a855ff;font-weight:800;margin-top:4px">${modeLabel}</div>
+      </div>
+      <div class="lb-wager-label">SELECT WAGER PER PLAYER</div>
       <div class="lb-wager-row" id="lb-wager-row">
         ${WAGER_PRESETS.map(v => `
           <button class="lb-wager-btn${v === _selectedWager ? ' selected' : ''}"
@@ -207,35 +305,27 @@
         `).join('')}
       </div>
       <div class="lb-pot-info" id="lb-pot-info"></div>
-      <div class="lb-h2h-options">
-        <button class="lb-h2h-opt create" onclick="window._lbCreate()">
-          <span class="lb-h2h-icon">➕</span>
-          CREATE<br>CHALLENGE
-        </button>
-        <button class="lb-h2h-opt join" onclick="window._lbShowJoin()">
-          <span class="lb-h2h-icon">🔗</span>
-          JOIN WITH<br>CODE
-        </button>
-      </div>
       <div class="lb-err" id="lb-err"></div>
-      <button id="lb-back" onclick="window._lbScreenMode()">← Back</button>
-    `;
+      <button class="lb-action-btn primary" onclick="window._lbWagerNext()" style="margin-top:10px">CONTINUE →</button>
+      <br><button id="lb-back" onclick="window._lbScreenMode()">← Back</button>
+    `);
+    window._lbWagerNext = onPick;
     _updatePotInfo();
   }
 
   function _updatePotInfo() {
     const el = document.getElementById('lb-pot-info');
     if (!el) return;
-    const pot = (_selectedWager * 2 * 0.9).toFixed(1);
-    el.textContent = `Wager ${_selectedWager} MONET each · Winner gets ${pot} MONET · 10% house rake`;
+    const pot = (_selectedWager * 2 * (1 - HOUSE_RAKE)).toFixed(1);
+    el.textContent = `${_selectedWager} MONET each · Winner gets ${pot} MONET · 20% house rake`;
   }
 
-  // ─── SCREEN: Create challenge ─────────────────────────────────────────────
+  // ─── SCREEN: Spinners ────────────────────────────────────────────────────────
   function _screenCreating() {
-    document.getElementById('lb-body').innerHTML = `
+    _setHtml(`
       <div class="lb-spinner-row">
         <div class="lb-spinner"></div>
-        <div class="lb-spinner-lbl" id="lb-spin-lbl">PREPARING CHALLENGE...</div>
+        <div class="lb-spinner-lbl" id="lb-spin-lbl">PREPARING...</div>
         <div class="lb-progress">
           <div class="lb-progress-seg" id="lb-seg-1"></div>
           <div class="lb-progress-seg" id="lb-seg-2"></div>
@@ -243,47 +333,11 @@
         </div>
       </div>
       <div class="lb-err" id="lb-err"></div>
-    `;
+    `);
   }
 
-  function _screenWaiting(code, pot) {
-    document.getElementById('lb-body').innerHTML = `
-      <div id="lb-code-box">
-        <div style="font-size:10px;color:#888;margin-bottom:4px;letter-spacing:1px">CHALLENGE CODE</div>
-        <div id="lb-code-val">${code}</div>
-        <div id="lb-code-hint">Share this code with your opponent</div>
-        <button class="lb-copy-btn" onclick="window._lbCopyCode('${code}')">📋 COPY CODE</button>
-      </div>
-      <div class="lb-pot-info">Pot: ${pot} MONET when opponent joins · 10% rake</div>
-      <div id="lb-wait-status">Waiting for opponent<span id="lb-wait-dots">...</span></div>
-      <div class="lb-err" id="lb-err"></div>
-      <button id="lb-back" onclick="window._lbCancelWait()">✕ Cancel</button>
-    `;
-    _dotCount = 0;
-    _dotTimer = setInterval(() => {
-      _dotCount = (_dotCount + 1) % 4;
-      const el = document.getElementById('lb-wait-dots');
-      if (el) el.textContent = '.'.repeat(_dotCount + 1);
-    }, 600);
-  }
-
-  // ─── SCREEN: Join challenge ───────────────────────────────────────────────
-  function _screenJoin() {
-    const prefill = new URLSearchParams(location.search).get('challenge') || '';
-    document.getElementById('lb-body').innerHTML = `
-      <div style="font-size:10px;color:#888;margin-bottom:8px;letter-spacing:1px">ENTER CHALLENGE CODE</div>
-      <input id="lb-join-input" maxlength="8" placeholder="XXXXXX" value="${prefill}">
-      <button class="lb-action-btn cyan" onclick="window._lbJoin()">🔗 JOIN CHALLENGE</button>
-      <div class="lb-err" id="lb-err"></div>
-      <button id="lb-back" onclick="window._lbScreenH2H()">← Back</button>
-    `;
-    const inp = document.getElementById('lb-join-input');
-    if (inp) inp.focus();
-  }
-
-  // ─── SCREEN: Paying ───────────────────────────────────────────────────────
   function _screenPaying(label) {
-    document.getElementById('lb-body').innerHTML = `
+    _setHtml(`
       <div class="lb-spinner-row">
         <div class="lb-spinner"></div>
         <div class="lb-spinner-lbl" id="lb-spin-lbl">${label || 'PROCESSING...'}</div>
@@ -294,182 +348,242 @@
         </div>
       </div>
       <div class="lb-err" id="lb-err"></div>
-    `;
+    `);
   }
 
-  function _setSpinLabel(txt) {
-    const el = document.getElementById('lb-spin-lbl');
-    if (el) el.textContent = txt;
+  function _setSpinLabel(txt) { const el = document.getElementById('lb-spin-lbl'); if (el) el.textContent = txt; }
+  function _setSpinStep(n)    { for (let i=1;i<=3;i++){const s=document.getElementById('lb-seg-'+i);if(s)s.classList.toggle('active',i<=n);} }
+
+  // ─── SCREEN: Waiting for opponent ───────────────────────────────────────────
+  function _screenWaiting(code, pot) {
+    _setHtml(`
+      <div id="lb-code-box">
+        <div style="font-size:10px;color:#888;margin-bottom:4px;letter-spacing:1px">CHALLENGE CODE</div>
+        <div id="lb-code-val">${code}</div>
+        <div id="lb-code-hint">Share this code with your opponent</div>
+        <button class="lb-copy-btn" onclick="window._lbCopyCode('${code}')">📋 COPY CODE</button>
+      </div>
+      <div class="lb-pot-info">Pot: ${pot} MONET when opponent joins · 20% rake</div>
+      <div id="lb-wait-status">Waiting for opponent<span id="lb-wait-dots">...</span></div>
+      <div class="lb-err" id="lb-err"></div>
+      <button id="lb-back" onclick="window._lbCancelWait()">✕ Cancel</button>
+    `);
+    _dotCount = 0;
+    _dotTimer = setInterval(() => {
+      _dotCount = (_dotCount + 1) % 4;
+      const el = document.getElementById('lb-wait-dots');
+      if (el) el.textContent = '.'.repeat(_dotCount + 1);
+    }, 600);
   }
 
-  function _setSpinStep(n) {
-    for (let i = 1; i <= 3; i++) {
-      const seg = document.getElementById('lb-seg-' + i);
-      if (seg) seg.classList.toggle('active', i <= n);
+  // ─── SCREEN: Join with code ──────────────────────────────────────────────────
+  function _screenJoin() {
+    const prefill = new URLSearchParams(location.search).get('challenge') || '';
+    _setHtml(`
+      <div style="font-size:10px;color:#888;margin-bottom:8px;letter-spacing:1px">ENTER CHALLENGE CODE</div>
+      <input id="lb-join-input" maxlength="8" placeholder="XXXXXX" value="${prefill}">
+      <div class="lb-err" id="lb-err"></div>
+      <button class="lb-action-btn cyan" onclick="window._lbLookupAndJoin()">🔗 LOOK UP CHALLENGE</button>
+      <br><button id="lb-back" onclick="window._lbScreenMode()">← Back</button>
+    `);
+    const inp = document.getElementById('lb-join-input');
+    if (inp) inp.focus();
+  }
+
+  // ─── SCREEN: Join Live — list open challenges ───────────────────────────────
+  async function _screenJoinLive() {
+    _setHtml(`
+      <div style="font-size:10px;color:#00f0ff;margin-bottom:10px;letter-spacing:1px">⚡ LIVE CHALLENGES</div>
+      <div class="lb-live-list" id="lb-live-list">
+        <div style="color:#888;font-size:11px;padding:14px">Loading...</div>
+      </div>
+      <hr class="lb-divider">
+      <div style="font-size:10px;color:#888;margin-bottom:6px">Or enter a code directly:</div>
+      <input id="lb-join-input" maxlength="8" placeholder="XXXXXX">
+      <div class="lb-err" id="lb-err"></div>
+      <button class="lb-action-btn cyan" onclick="window._lbLookupAndJoin()" style="margin-top:6px">🔗 JOIN WITH CODE</button>
+      <br><button id="lb-back" onclick="window._lbScreenMode()">← Back</button>
+    `);
+
+    try {
+      const r = await api(`/api/challenges`);
+      const open = (r.challenges || []).filter(c => c.status === 'open' && c.game === _gameName);
+      const listEl = document.getElementById('lb-live-list');
+      if (!listEl) return;
+      if (!open.length) {
+        listEl.innerHTML = `<div style="color:#888;font-size:11px;padding:14px">No open challenges right now.<br><span style="color:#00f0ff">Be the first — Create H2H!</span></div>`;
+      } else {
+        listEl.innerHTML = open.map(c => {
+          const short = c.player1?.wallet?.slice(0,6) + '…' || 'unknown';
+          const pot   = (c.entryFee * 2 * (1 - HOUSE_RAKE)).toFixed(1);
+          return `<div class="lb-live-item" onclick="window._lbJoinChallenge('${c.code}')">
+            <div>
+              <div style="color:#fff;font-weight:800">${c.code}</div>
+              <div style="color:#888;font-size:9px;margin-top:2px">${short} · ${c.entryFee} MONET each</div>
+            </div>
+            <div style="text-align:right">
+              <div style="color:#ffd700;font-weight:800;font-size:12px">${pot} MONET</div>
+              <span class="lb-live-badge">OPEN</span>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    } catch(e) {
+      const listEl = document.getElementById('lb-live-list');
+      if (listEl) listEl.innerHTML = `<div style="color:#ff4488;font-size:11px;padding:8px">${e.message}</div>`;
     }
   }
 
-  // ─── Actions ──────────────────────────────────────────────────────────────
+  // ─── SCREEN: Tournament list ─────────────────────────────────────────────────
+  async function _screenTournament() {
+    _setHtml(`
+      <div style="font-size:10px;color:#ffd700;margin-bottom:10px;letter-spacing:1px">🏆 TOURNAMENTS</div>
+      <div class="lb-tourney-list" id="lb-tourney-list">
+        <div style="color:#888;font-size:11px;padding:14px">Loading...</div>
+      </div>
+      <div class="lb-err" id="lb-err"></div>
+      <button class="lb-action-btn gold" onclick="window._lbCreateTournament()" style="margin-top:4px">+ CREATE TOURNAMENT</button>
+      <br><button id="lb-back" onclick="window._lbScreenMode()">← Back</button>
+    `);
+
+    try {
+      const r       = await api('/api/tournament/list');
+      const tourneys = (r.tournaments || []).filter(t =>
+        (t.game === _gameName || !t.game) && t.status === 'registration'
+      );
+      const listEl  = document.getElementById('lb-tourney-list');
+      if (!listEl) return;
+      if (!tourneys.length) {
+        listEl.innerHTML = `<div style="color:#888;font-size:11px;padding:14px">No open tournaments.<br><span style="color:#ffd700">Create one below!</span></div>`;
+      } else {
+        listEl.innerHTML = tourneys.map(t => {
+          const spots = t.maxPlayers - t.players.length;
+          return `<div class="lb-tourney-item" onclick="window._lbJoinTournament('${t.id}', ${t.entryFee})">
+            <div>
+              <div style="color:#fff;font-weight:800;font-size:11px">${t.title}</div>
+              <div style="color:#888;font-size:9px;margin-top:2px">${t.players.length}/${t.maxPlayers} players · ${t.entryFee} MONET entry</div>
+            </div>
+            <div style="text-align:right">
+              <div style="color:#ffd700;font-weight:800;font-size:11px">${t.prizePool.toFixed(1)} POT</div>
+              <div style="color:#888;font-size:9px">${spots} spot${spots!==1?'s':''} left</div>
+            </div>
+          </div>`;
+        }).join('');
+      }
+    } catch(e) {
+      const listEl = document.getElementById('lb-tourney-list');
+      if (listEl) listEl.innerHTML = `<div style="color:#ff4488;font-size:11px;padding:8px">${e.message}</div>`;
+    }
+  }
+
+  // ─── Helpers ─────────────────────────────────────────────────────────────────
   async function _ensureWallet() {
     if (!WalletState.connected) {
-      try {
-        await connectWallet();
-      } catch (e) {
-        throw new Error('Connect your wallet first');
-      }
+      await connectWallet();
+    }
+    await refreshBalances().catch(() => {});
+  }
+
+  const STEP_LABELS = { checking:'CHECKING WALLET...', signing:'SIGN IN YOUR WALLET...', confirming:'CONFIRMING ON-CHAIN...' };
+  const STEP_NUM    = { checking:1, signing:2, confirming:3 };
+  function _onStep(step) {
+    _setSpinLabel(STEP_LABELS[step] || 'PROCESSING...');
+    _setSpinStep(STEP_NUM[step] || 0);
+  }
+
+  async function _pay(wager) {
+    if (_paymentType === 'sol') {
+      return await payEntryFeeSOL(_gameName, _onStep);
+    } else {
+      return await payEntryFee(_gameName, _onStep, wager);
     }
   }
 
+  // ─── Actions ─────────────────────────────────────────────────────────────────
+
+  // PRACTICE — free, skip payment
   async function _doSolo() {
-    try {
-      await _ensureWallet();
-    } catch (e) {
-      _setErr(e.message);
-      return;
-    }
-    // Clear any stale H2H session so solo scores don't go to old challenge
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
     sessionStorage.removeItem('challenge_session');
     _remove();
     if (_onStart) _onStart({ mode: 'solo' });
   }
 
-  async function _doCreate() {
-    try {
-      await _ensureWallet();
-    } catch (e) {
-      _setErr(e.message);
-      return;
-    }
-    if (WalletState.monetBalance < _selectedWager) {
-      _setErr(`Insufficient MONET — need ${_selectedWager}, have ${WalletState.monetBalance.toFixed(2)}`);
-      return;
-    }
-
-    _screenCreating();
-
-    const STEP = {
-      checking:   'CHECKING WALLET...',
-      signing:    'SIGN IN YOUR WALLET...',
-      confirming: 'CONFIRMING ON-CHAIN...',
-    };
-    const STEP_NUM = { checking: 1, signing: 2, confirming: 3 };
-
-    let txId;
-    try {
-      txId = await payEntryFee(_gameName, step => {
-        _setSpinLabel(STEP[step] || 'PROCESSING...');
-        _setSpinStep(STEP_NUM[step] || 0);
-      }, _selectedWager);
-    } catch (e) {
-      _screenH2H();
-      _setErr(e.message);
-      return;
-    }
-
-    _setSpinLabel('CREATING CHALLENGE...');
-    let res;
-    try {
-      res = await api('/api/challenge/create', 'POST', {
-        wallet: WalletState.address, txId, game: _gameName, entryFee: _selectedWager,
-      });
-    } catch (e) {
-      _screenH2H();
-      _setErr('Challenge creation failed: ' + e.message);
-      return;
-    }
-
-    sessionStorage.setItem('challenge_session', JSON.stringify({
-      challengeId: res.challengeId, code: res.code, txId, entryFee: _selectedWager, game: _gameName,
-    }));
-
-    const pot = (_selectedWager * 2 * 0.9).toFixed(1);
-    _screenWaiting(res.code, pot);
-
-    // Poll for opponent
-    _pollTimer = setInterval(async () => {
-      try {
-        const r = await api(`/api/challenge/${res.code}`);
-        if (r.challenge.status === 'active') {
-          _clearPolling();
-          _remove();
-          if (_onStart) _onStart({ mode: 'h2h', challengeId: res.challengeId, code: res.code });
-          if (window.startH2HWatch) startH2HWatch(res.code);
-        }
-      } catch (e) { /* ignore transient poll errors */ }
-    }, POLL_INTERVAL);
+  // CPU EXPERT — currency picker then pay → launch via showPayGate
+  function _doCpuExpert() {
+    _screenCurrency('CPU EXPERT', '🤖',
+      () => { _paymentType = 'monet'; _doPayAndLaunchCpu(); },
+      () => { _paymentType = 'sol';   _doPayAndLaunchCpu(); }
+    );
   }
 
-  async function _doJoin() {
-    const inp  = document.getElementById('lb-join-input');
-    const code = inp ? inp.value.trim().toUpperCase() : '';
-    if (!code || code.length < 4) {
-      _setErr('Enter a valid challenge code');
-      return;
-    }
-    try {
-      await _ensureWallet();
-    } catch (e) {
-      _setErr(e.message);
-      return;
-    }
+  async function _doPayAndLaunchCpu() {
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
+    _screenPaying('CHECKING WALLET...');
+    _setSpinStep(1);
+    let txId;
+    try { txId = await _pay(_selectedWager); }
+    catch(e) { _doCpuExpert(); _setErr(e.message); return; }
 
-    // Look up the challenge first
+    _setSpinLabel('LAUNCHING CPU GAME...');
+    try {
+      const wallet = WalletState.address;
+      const res = await api('/api/cpu/start', 'POST', {
+        wallet, txId, game: _gameName, paymentType: _paymentType,
+      });
+      sessionStorage.setItem('cpu_session', JSON.stringify({
+        cpuGameId: res.cpuGameId, cpuScore: res.cpuScore,
+        difficulty: 'expert', game: _gameName, txId,
+      }));
+      _remove();
+      if (_onStart) _onStart({ mode: 'cpu', cpuGameId: res.cpuGameId, cpuScore: res.cpuScore });
+      if (typeof showCpuTarget === 'function') setTimeout(() => showCpuTarget(res.cpuScore, 'expert'), 300);
+    } catch(e) {
+      _doCpuExpert();
+      _setErr('Failed to start CPU game: ' + e.message);
+    }
+  }
+
+  // JOIN LIVE — browse then currency pick → pay → join
+  function _doJoinLive() { _screenJoinLive(); }
+
+  async function _doJoinChallenge(code) {
     let ch;
     try {
       const r = await api(`/api/challenge/${code}`);
       ch = r.challenge;
-    } catch (e) {
-      _setErr('Challenge not found: ' + code);
-      return;
-    }
+    } catch(e) { _setErr('Challenge not found: ' + code); return; }
 
-    if (ch.status !== 'open') {
-      _setErr(`Challenge is ${ch.status}`);
-      return;
-    }
-    if (ch.player1.wallet === WalletState.address) {
-      _setErr('Cannot join your own challenge — share the code with an opponent');
-      return;
-    }
+    if (ch.status !== 'open')                      { _setErr(`Challenge is ${ch.status}`); return; }
+    if (ch.player1.wallet === WalletState.address) { _setErr('Cannot join your own challenge'); return; }
 
     const wager = ch.entryFee || 5;
-    if (WalletState.monetBalance < wager) {
-      _setErr(`Insufficient MONET — need ${wager}, have ${WalletState.monetBalance.toFixed(2)}`);
-      return;
-    }
+    _selectedWager = wager;
 
+    _screenCurrency(`JOIN: ${code}`, '⚡',
+      () => { _paymentType = 'monet'; _doPayAndJoin(code, wager); },
+      () => { _paymentType = 'sol';   _doPayAndJoin(code, wager); }
+    );
+  }
+
+  async function _doPayAndJoin(code, wager) {
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
     _screenPaying('CHECKING WALLET...');
     _setSpinStep(1);
-
-    const STEP = {
-      checking:   'CHECKING WALLET...',
-      signing:    'SIGN IN YOUR WALLET...',
-      confirming: 'CONFIRMING ON-CHAIN...',
-    };
-    const STEP_NUM = { checking: 1, signing: 2, confirming: 3 };
-
     let txId;
-    try {
-      txId = await payEntryFee(_gameName, step => {
-        _setSpinLabel(STEP[step] || 'PROCESSING...');
-        _setSpinStep(STEP_NUM[step] || 0);
-      }, wager);
-    } catch (e) {
-      _screenJoin();
-      _setErr(e.message);
-      return;
-    }
+    try { txId = await _pay(wager); }
+    catch(e) { _screenJoinLive(); _setErr(e.message); return; }
 
     _setSpinLabel('JOINING CHALLENGE...');
     try {
       const r = await api('/api/challenge/join', 'POST', {
-        code, wallet: WalletState.address, txId,
+        code, wallet: WalletState.address, txId, paymentType: _paymentType,
       });
       sessionStorage.setItem('challenge_session', JSON.stringify({
         challengeId: r.challenge.id, code, txId, entryFee: wager, game: _gameName,
       }));
-    } catch (e) {
-      _screenJoin();
+    } catch(e) {
+      _screenJoinLive();
       _setErr(e.message);
       return;
     }
@@ -480,10 +594,122 @@
     if (window.startH2HWatch) startH2HWatch(code);
   }
 
-  function _cancelWait() {
-    _clearPolling();
-    _screenMode();
+  // JOIN with typed code
+  async function _doLookupAndJoin() {
+    const inp  = document.getElementById('lb-join-input');
+    const code = inp ? inp.value.trim().toUpperCase() : '';
+    if (!code || code.length < 4) { _setErr('Enter a valid challenge code'); return; }
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
+    await _doJoinChallenge(code);
   }
+
+  // CREATE H2H — wager picker → currency picker → pay → create → wait
+  function _doCreate() {
+    _screenWager('CREATE H2H', '⚔', () => {
+      _screenCurrency(`CREATE: ${_selectedWager} MONET`, '⚔',
+        () => { _paymentType = 'monet'; _doPayAndCreate(); },
+        () => { _paymentType = 'sol';   _doPayAndCreate(); }
+      );
+    });
+  }
+
+  async function _doPayAndCreate() {
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
+    if (_paymentType === 'monet' && WalletState.monetBalance < _selectedWager) {
+      _setErr(`Insufficient MONET — need ${_selectedWager}, have ${WalletState.monetBalance.toFixed(2)}`);
+      return;
+    }
+    _screenCreating();
+    _setSpinLabel('CHECKING WALLET...');
+    _setSpinStep(1);
+    let txId;
+    try { txId = await _pay(_selectedWager); }
+    catch(e) { _doCreate(); _setErr(e.message); return; }
+
+    _setSpinLabel('CREATING CHALLENGE...');
+    let res;
+    try {
+      res = await api('/api/challenge/create', 'POST', {
+        wallet: WalletState.address, txId, game: _gameName,
+        entryFee: _selectedWager, paymentType: _paymentType,
+      });
+    } catch(e) {
+      _doCreate();
+      _setErr('Challenge creation failed: ' + e.message);
+      return;
+    }
+
+    sessionStorage.setItem('challenge_session', JSON.stringify({
+      challengeId: res.challengeId, code: res.code, txId,
+      entryFee: _selectedWager, game: _gameName,
+    }));
+
+    const pot = (_selectedWager * 2 * (1 - HOUSE_RAKE)).toFixed(1);
+    _screenWaiting(res.code, pot);
+
+    _pollTimer = setInterval(async () => {
+      try {
+        const r = await api(`/api/challenge/${res.code}`);
+        if (r.challenge.status === 'active') {
+          _clearPolling();
+          _remove();
+          if (_onStart) _onStart({ mode: 'h2h', challengeId: res.challengeId, code: res.code });
+          if (window.startH2HWatch) startH2HWatch(res.code);
+        }
+      } catch(_) {}
+    }, POLL_INTERVAL);
+  }
+
+  // TOURNAMENT — list → join or create
+  function _doTournament() { _screenTournament(); }
+
+  async function _doJoinTournament(tournamentId, entryFee) {
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
+    const fee = entryFee || 5;
+    _selectedWager = fee;
+    _screenCurrency('TOURNAMENT ENTRY', '🏆',
+      () => { _paymentType = 'monet'; _doPayAndRegisterTourney(tournamentId, fee); },
+      () => { _paymentType = 'sol';   _doPayAndRegisterTourney(tournamentId, fee); }
+    );
+  }
+
+  async function _doPayAndRegisterTourney(tournamentId, fee) {
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
+    _screenPaying('CHECKING WALLET...');
+    _setSpinStep(1);
+    let txId;
+    try { txId = await _pay(fee); }
+    catch(e) { _screenTournament(); _setErr(e.message); return; }
+
+    _setSpinLabel('REGISTERING...');
+    try {
+      await api('/api/tournament/register', 'POST', {
+        tournamentId, wallet: WalletState.address, txId, paymentType: _paymentType,
+      });
+      sessionStorage.setItem('tournament_session', JSON.stringify({ tournamentId, txId, game: _gameName }));
+    } catch(e) {
+      _screenTournament();
+      _setErr(e.message);
+      return;
+    }
+
+    _remove();
+    if (_onStart) _onStart({ mode: 'tournament', tournamentId });
+  }
+
+  async function _doCreateTournament() {
+    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
+    _screenPaying('CREATING TOURNAMENT...');
+    try {
+      const res = await api('/api/tournament/create', 'POST', { game: _gameName });
+      await _doJoinTournament(res.tournament.id, res.tournament.entryFee);
+    } catch(e) {
+      _screenTournament();
+      _setErr('Failed to create tournament: ' + e.message);
+    }
+  }
+
+  function _cancelWait() { _clearPolling(); _screenMode(); }
 
   function _copyCode(code) {
     navigator.clipboard.writeText(code).catch(() => {});
@@ -499,23 +725,30 @@
     _updatePotInfo();
   }
 
-  // Expose on window for inline onclick
-  window._lbSolo        = _doSolo;
-  window._lbH2H         = _screenH2H;
-  window._lbCreate      = _doCreate;
-  window._lbShowJoin    = _screenJoin;
-  window._lbJoin        = _doJoin;
-  window._lbCancelWait  = _cancelWait;
-  window._lbCopyCode    = _copyCode;
-  window._lbSelectWager = _selectWager;
-  window._lbScreenMode  = _screenMode;
-  window._lbScreenH2H   = _screenH2H;
+  // ─── Expose on window ────────────────────────────────────────────────────────
+  window._lbSolo            = _doSolo;
+  window._lbCpuExpert       = _doCpuExpert;
+  window._lbJoinLive        = _doJoinLive;
+  window._lbCreate          = _doCreate;
+  window._lbTournament      = _doTournament;
+  window._lbJoinChallenge   = _doJoinChallenge;
+  window._lbJoinTournament  = _doJoinTournament;
+  window._lbCreateTournament= _doCreateTournament;
+  window._lbLookupAndJoin   = _doLookupAndJoin;
+  window._lbCancelWait      = _cancelWait;
+  window._lbCopyCode        = _copyCode;
+  window._lbSelectWager     = _selectWager;
+  window._lbScreenMode      = _screenMode;
+  window._lbScreenH2H       = _doCreate;
+  window._lbPickMonet       = () => { if (_pendingCurrencyOnMonet) _pendingCurrencyOnMonet(); };
+  window._lbPickSol         = () => { if (_pendingCurrencyOnSol)   _pendingCurrencyOnSol(); };
 
-  // ─── Public API ───────────────────────────────────────────────────────────
+  // ─── Public API ───────────────────────────────────────────────────────────────
   function showGameLobby(gameName, onStart) {
-    _gameName  = gameName;
-    _onStart   = onStart;
+    _gameName      = gameName;
+    _onStart       = onStart;
     _selectedWager = 5;
+    _paymentType   = 'monet';
 
     _injectStyles();
 
@@ -532,13 +765,9 @@
     `;
     document.body.appendChild(_overlay);
 
-    // Check for challenge code in URL → skip to join screen
     const urlCode = new URLSearchParams(location.search).get('challenge');
-    if (urlCode) {
-      _screenJoin();
-    } else {
-      _screenMode();
-    }
+    if (urlCode) { _screenJoin(); }
+    else         { _screenMode(); }
   }
 
   window.showGameLobby = showGameLobby;

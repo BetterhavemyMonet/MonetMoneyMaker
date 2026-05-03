@@ -23,8 +23,10 @@ const TREASURY_ADDR   = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
 const ENTRY_FEE       = 5;
 const ALLOWED_ENTRY_FEES = new Set([5, 10, 25, 50]);
 const DECIMALS        = 6;
-const HOUSE_RAKE      = 0.10;
-const PRIZE_CUTS      = [0.50, 0.30, 0.10];
+const HOUSE_RAKE      = 0.20;
+const CPU_PAYOUT_MAX  = 6;
+const SOL_ENTRY_LAMPORTS = 1_500_000;   // ~0.0015 SOL ≈ $0.25 at ~$167/SOL
+const PRIZE_CUTS      = [0.50, 0.30, 0.20];
 const CHALLENGE_TTL   = 24 * 60 * 60 * 1000;
 const TOURNEY_WINDOW  = 60 * 60 * 1000;
 const MIN_PLAYERS     = 2;
@@ -246,11 +248,42 @@ async function verifyEntryFee(txId, expectedFee = ENTRY_FEE) {
   return { ok: true, senderWallet, amount: treasuryCredit };
 }
 
+// Verify a SOL (lamport) payment to treasury — for the SOL entry-fee option.
+async function verifySOLPayment(txId, expectedLamports = SOL_ENTRY_LAMPORTS) {
+  let tx;
+  try {
+    tx = await withRpc(async conn =>
+      conn.getParsedTransaction(txId, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' })
+    , 14000);
+  } catch(e) {
+    console.warn(`[VERIFY-SOL] RPC error ${txId.slice(0,12)}…: ${e.message} — allowing through`);
+    return { ok: true, rpcFailed: true };
+  }
+  if (!tx) {
+    console.warn(`[VERIFY-SOL] tx ${txId.slice(0,12)}… not found — allowing through`);
+    return { ok: true, rpcFailed: true };
+  }
+  if (tx.meta?.err) throw new Error(`Transaction ${txId.slice(0,12)}… failed on-chain`);
+
+  // Find treasury account index and check SOL balance delta
+  const keys = tx.transaction.message.accountKeys || [];
+  const tIdx = keys.findIndex(a => (typeof a === 'string' ? a : a.pubkey?.toString()) === TREASURY_ADDR);
+  if (tIdx === -1) throw new Error(`Transaction ${txId.slice(0,12)}… did not involve treasury`);
+
+  const delta = (tx.meta.postBalances[tIdx] ?? 0) - (tx.meta.preBalances[tIdx] ?? 0);
+  if (delta < expectedLamports) {
+    throw new Error(`SOL payment too small: got ${delta} lamports, expected ${expectedLamports}`);
+  }
+  console.log(`[VERIFY-SOL] ✓ tx ${txId.slice(0,12)}… verified: ${delta} lamports → treasury`);
+  return { ok: true, delta };
+}
+
 // ─── CPU score ranges per game/difficulty ─────────────────────────────────────
 const CPU_RANGES = {
   easy:   { frogger:[100,350],    snake:[6,16],   pacman:[1000,3500],   pong:[2,4], dino:[300,900],   mario:[100,300]   },
   medium: { frogger:[500,1100],   snake:[22,50],  pacman:[5000,11000],  pong:[5,7], dino:[1200,3000], mario:[300,800]   },
   hard:   { frogger:[1800,4000],  snake:[80,140], pacman:[20000,40000], pong:[7,9], dino:[5000,12000], mario:[800,1500] },
+  expert: { frogger:[5000,9000],  snake:[200,400],pacman:[60000,99000], pong:[9,10],dino:[15000,30000],mario:[2000,4000]},
 };
 
 // ─── Balance cache (stale-while-revalidate) ───────────────────────────────────
@@ -408,7 +441,7 @@ app.get('/api/status', async (req, res) => {
 
 // ─── Routes: challenges ───────────────────────────────────────────────────────
 app.post('/api/challenge/create', async (req, res) => {
-  const { wallet, txId, game, entryFee: reqFee } = req.body;
+  const { wallet, txId, game, entryFee: reqFee, paymentType } = req.body;
   if (!wallet || !txId || !game) return res.status(400).json({ error: 'wallet, txId, game required' });
 
   const challenges = dbRead('challenges');
@@ -424,9 +457,11 @@ app.post('/api/challenge/create', async (req, res) => {
     return res.status(400).json({ error: 'Transaction ID already used' });
   }
 
-  // Verify payment on-chain
-  try { await verifyEntryFee(txId, fee); }
-  catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
+  // Verify payment on-chain — MONET or SOL
+  try {
+    if (paymentType === 'sol') { await verifySOLPayment(txId); }
+    else { await verifyEntryFee(txId, fee); }
+  } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
   const code      = genCode();
   const pot       = calcPot(2, fee);
@@ -434,7 +469,7 @@ app.post('/api/challenge/create', async (req, res) => {
     id:        genId(),
     code,
     game,
-    player1:   { wallet, txId, score: null, submittedAt: null },
+    player1:   { wallet, txId, paymentType: paymentType || 'monet', score: null, submittedAt: null },
     player2:   null,
     entryFee:  fee,
     pot:       pot.net,
@@ -465,7 +500,7 @@ app.get('/api/challenges', (req, res) => {
 });
 
 app.post('/api/challenge/join', async (req, res) => {
-  const { code, wallet, txId } = req.body;
+  const { code, wallet, txId, paymentType } = req.body;
   if (!code || !wallet || !txId) return res.status(400).json({ error: 'code, wallet, txId required' });
 
   const challenges = dbRead('challenges');
@@ -481,11 +516,13 @@ app.post('/api/challenge/join', async (req, res) => {
     return res.status(400).json({ error: 'Transaction ID already used' });
   }
 
-  // Verify payment on-chain
-  try { await verifyEntryFee(txId, c.entryFee || ENTRY_FEE); }
-  catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
+  // Verify payment on-chain — MONET or SOL
+  try {
+    if (paymentType === 'sol') { await verifySOLPayment(txId); }
+    else { await verifyEntryFee(txId, c.entryFee || ENTRY_FEE); }
+  } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
-  c.player2 = { wallet, txId, score: null, submittedAt: null };
+  c.player2 = { wallet, txId, paymentType: paymentType || 'monet', score: null, submittedAt: null };
   c.status  = 'active';
   dbWrite('challenges', challenges);
   res.json({ ok: true, challenge: c });
@@ -569,7 +606,7 @@ app.get('/api/tournament/:id', (req, res) => {
 });
 
 app.post('/api/tournament/register', async (req, res) => {
-  const { tournamentId, wallet, txId } = req.body;
+  const { tournamentId, wallet, txId, paymentType } = req.body;
   if (!tournamentId || !wallet || !txId) return res.status(400).json({ error: 'tournamentId, wallet, txId required' });
 
   const tourneys = dbRead('tournaments');
@@ -581,11 +618,13 @@ app.post('/api/tournament/register', async (req, res) => {
   if (t.players.find(p => p.wallet === wallet)) return res.status(409).json({ error: 'Already registered' });
   if (t.players.length >= t.maxPlayers)  return res.status(409).json({ error: 'Tournament is full' });
 
-  // Verify payment on-chain
-  try { await verifyEntryFee(txId, t.entryFee || ENTRY_FEE); }
-  catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
+  // Verify payment on-chain — MONET or SOL
+  try {
+    if (paymentType === 'sol') { await verifySOLPayment(txId); }
+    else { await verifyEntryFee(txId, t.entryFee || ENTRY_FEE); }
+  } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
-  t.players.push({ wallet, txId, score: null, submittedAt: null, rank: null });
+  t.players.push({ wallet, txId, paymentType: paymentType || 'monet', score: null, submittedAt: null, rank: null });
   const pot = calcPot(t.players.length);
   t.prizePool = pot.net;
   t.rake      = pot.rake;
@@ -731,15 +770,18 @@ app.get('/api/leaderboard/:game', (req, res) => {
 
 // ─── Routes: CPU challenges ───────────────────────────────────────────────────
 app.post('/api/cpu/start', async (req, res) => {
-  const { wallet, txId, game, difficulty } = req.body;
+  const { wallet, txId, game, paymentType } = req.body;
   if (!wallet || !txId || !game) return res.status(400).json({ error: 'wallet, txId, game required' });
 
-  // Verify payment on-chain
-  try { await verifyEntryFee(txId, ENTRY_FEE); }
-  catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
+  // Verify payment — MONET or SOL
+  try {
+    if (paymentType === 'sol') { await verifySOLPayment(txId); }
+    else { await verifyEntryFee(txId, ENTRY_FEE); }
+  } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
-  const diff   = ['easy','medium','hard'].includes(difficulty) ? difficulty : 'medium';
-  const range  = CPU_RANGES[diff]?.[game] || [100, 500];
+  // CPU is always expert
+  const diff   = 'expert';
+  const range  = CPU_RANGES[diff]?.[game] || [2000, 4000];
   const cpuScore = Math.floor(range[0] + Math.random() * (range[1] - range[0]));
 
   const cpuGames = dbRead('cpu_games');
@@ -758,8 +800,7 @@ app.post('/api/cpu/submit', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
 
   const g = cpuGames[idx];
-  const CPU_PAYOUTS = { easy: 9, medium: 9, hard: 9 };
-  const CPU_PAYOUT = CPU_PAYOUTS[g.difficulty] ?? 9;
+  const CPU_PAYOUT = Math.min(ENTRY_FEE * (1 - HOUSE_RAKE), CPU_PAYOUT_MAX); // 5 * 0.8 = 4, capped at 6
   if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
 
   g.playerScore = playerScore;
@@ -812,6 +853,11 @@ async function retryPendingClaims() {
 setInterval(retryPendingClaims, 90_000);
 // Also run once 15 s after boot so fresh deploys pick up any queued claims fast
 setTimeout(retryPendingClaims, 15_000);
+
+// ─── SOL entry fee info ───────────────────────────────────────────────────────
+app.get('/api/sol-entry-fee', (_req, res) => {
+  res.json({ ok: true, lamports: SOL_ENTRY_LAMPORTS, sol: SOL_ENTRY_LAMPORTS / 1e9, approxUsd: 0.25 });
+});
 
 // ─── Terms acceptance log ─────────────────────────────────────────────────────
 app.post('/api/terms/accept', (req, res) => {

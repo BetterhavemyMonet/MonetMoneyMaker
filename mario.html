@@ -1185,7 +1185,7 @@ function drawTitle(){
   }
   ctx.fillStyle='#555'; ctx.fillText('← → MOVE   ↑ JUMP   SPRINT=AUTO-RUN',GW/2,GH/2+56);
   ctx.fillStyle='#4ade80'; ctx.font='9px "Press Start 2P",monospace';
-  ctx.fillText('ENTRY: 5 MONET  ★  PRIZE: 9 MONET',GW/2,GH/2+80);
+  ctx.fillText('ENTRY: 5 MONET  ★  PRIZE: 4 MONET',GW/2,GH/2+80);
   ctx.textAlign='left';
 }
 
@@ -1197,7 +1197,7 @@ function drawWon(){
   ctx.fillStyle='#ffd700'; ctx.fillText('LEVEL CLEAR!',GW/2,GH/2-60);
   ctx.shadowBlur=0;
   ctx.font='10px "Press Start 2P",monospace';
-  ctx.fillStyle='#00ff9d'; ctx.fillText('★ 9 MONET EARNED! ★',GW/2,GH/2-24);
+  ctx.fillStyle='#00ff9d'; ctx.fillText('★ 4 MONET EARNED! ★',GW/2,GH/2-24);
   ctx.fillStyle='#fff'; ctx.fillText('Score: '+String(score).padStart(6,'0'),GW/2,GH/2+10);
   ctx.fillText('Coins: '+coinCt,GW/2,GH/2+32);
   ctx.fillStyle='#888'; ctx.font='8px "Press Start 2P",monospace';
@@ -1311,13 +1311,13 @@ function triggerPayGate(){
     try{
       const res=await fetch('/api/cpu/start',{
         method:'POST',headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({wallet:playerWallet,txId,game:'mario',difficulty:'easy'})
+        body:JSON.stringify({wallet:playerWallet,txId,game:'mario'})
       }).then(r=>r.json());
       cpuGameId=res.cpuGameId;
     }catch(e){console.warn('[MARIO] cpu/start:',e.message);}
     document.getElementById('color-picker').classList.add('hidden');
     resetGame(); state='playing';
-  },{pot:'9 MONET',rake:'10%'});
+  },{pot:'4 MONET',rake:'20%'});
 }
 
 // ─── Keyboard input ────────────────────────────────────────────────────────────
