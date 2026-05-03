@@ -30,8 +30,24 @@ body::before {
 .monet-info .label { font-family:'Orbitron',sans-serif; font-size:11px; color:#a855ff; }
 .monet-info .value { font-size:20px; font-weight:bold; color:#fff; }
 .monet-info .sub { font-size:11px; color:#888; }
-#jupiter-terminal-wrap { max-width:500px; margin:0 auto; background:rgba(0,0,0,0.5); border-radius:16px; border:1px solid #a855ff44; overflow:hidden; min-height:500px; }
+#jupiter-terminal-wrap {
+  max-width:500px; margin:0 auto;
+  background:rgba(0,0,0,0.5);
+  border-radius:16px; border:1px solid #a855ff44;
+  overflow:hidden; min-height:480px;
+  position:relative;
+}
 .loading-msg { color:#888; font-size:13px; padding:40px; }
+.rpc-badge {
+  text-align:center; font-size:10px; color:#666;
+  padding:6px; font-family:monospace;
+}
+.swap-hint {
+  max-width:500px; margin:0 auto 10px;
+  font-size:11px; color:#a78bfa;
+  text-align:center; font-family:'Orbitron',sans-serif;
+  letter-spacing:.5px;
+}
 </style>
 </head>
 <body>
@@ -56,10 +72,13 @@ body::before {
     <a class="nav-btn" href="index.html">&#8592; Home</a>
   </div>
 
+  <p class="swap-hint">Swap SOL &#8646; MONET or any Solana token</p>
+
   <div id="jupiter-terminal-wrap">
     <p class="loading-msg" id="jupLoad">Loading swap widget…</p>
     <div id="integrated-terminal"></div>
   </div>
+  <p class="rpc-badge" id="rpcBadge"></p>
 </div>
 
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
@@ -68,46 +87,85 @@ body::before {
 <script>
 renderWalletBar('walletBar');
 
+const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
+const SOL_MINT   = 'So11111111111111111111111111111111111111112';
+
+// RPC endpoints in priority order — fall through on failure
+const RPC_ENDPOINTS = [
+  'https://solana-rpc.publicnode.com',   // free, no key, reliable
+  'https://api.mainnet-beta.solana.com', // official fallback
+];
+
 document.addEventListener('balanceUpdated', () => {
-  document.getElementById('monetBal').textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
+  const el = document.getElementById('monetBal');
+  if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
 });
 document.addEventListener('walletConnected', () => {
-  document.getElementById('monetBal').textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
+  const el = document.getElementById('monetBal');
+  if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
 });
 
-function initJupiter() {
-  if (window.Jupiter) {
-    document.getElementById('jupLoad').style.display = 'none';
-    window.Jupiter.init({
-      displayMode: 'integrated',
-      integratedTargetId: 'integrated-terminal',
-      endpoint: 'https://api.mainnet-beta.solana.com',
-      defaultExplorer: 'SolanaFM',
-      formProps: {
-        initialOutputMint: '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
-      },
+// Test an RPC endpoint quickly
+async function testRpc(url) {
+  try {
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'getHealth' }),
+      signal: AbortSignal.timeout(3000),
     });
-  } else {
-    setTimeout(initJupiter, 500);
+    const json = await res.json();
+    return json && (json.result === 'ok' || json.result);
+  } catch { return false; }
+}
+
+// Pick the fastest healthy RPC
+async function pickRpc() {
+  for (const url of RPC_ENDPOINTS) {
+    const ok = await testRpc(url);
+    if (ok) return url;
+  }
+  return RPC_ENDPOINTS[0]; // fallback
+}
+
+let _jupInited = false;
+
+async function initJupiter(passThroughWallet) {
+  if (!window.Jupiter) { setTimeout(() => initJupiter(passThroughWallet), 400); return; }
+
+  const endpoint = await pickRpc();
+  document.getElementById('rpcBadge').textContent = 'RPC: ' + new URL(endpoint).hostname;
+  document.getElementById('jupLoad').style.display = 'none';
+
+  const config = {
+    displayMode: 'integrated',
+    integratedTargetId: 'integrated-terminal',
+    endpoint,
+    defaultExplorer: 'SolanaFM',
+    strictTokenList: false,
+    formProps: {
+      initialInputMint:  SOL_MINT,
+      initialOutputMint: MONET_MINT,
+      swapMode: 'ExactIn',
+    },
+  };
+
+  if (passThroughWallet) config.passThroughWallet = passThroughWallet;
+
+  try {
+    window.Jupiter.init(config);
+    _jupInited = true;
+  } catch (e) {
+    console.warn('[Exchange] Jupiter init error:', e);
   }
 }
-initJupiter();
 
-// Pass connected wallet to Jupiter if available
+// Init on load
+initJupiter(null);
+
+// Re-init when wallet connects so Jupiter uses the connected wallet
 document.addEventListener('walletConnected', () => {
-  if (window.Jupiter && window.solana) {
-    try {
-      window.Jupiter.init({
-        displayMode: 'integrated',
-        integratedTargetId: 'integrated-terminal',
-        endpoint: 'https://api.mainnet-beta.solana.com',
-        passThroughWallet: window.solana,
-        formProps: {
-          initialOutputMint: '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
-        },
-      });
-    } catch(e) {}
-  }
+  if (window.solana) initJupiter(window.solana);
 });
 </script>
 </body>
