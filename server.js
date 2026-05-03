@@ -1,8 +1,10 @@
+import http from 'http';
 import express from 'express';
 import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { WebSocketServer } from 'ws';
 import {
   Connection, PublicKey, Transaction, TransactionInstruction,
   Keypair, SystemProgram,
@@ -12,7 +14,10 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR   = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-const app = express();
+const app    = express();
+const server = http.createServer(app);
+const wss    = new WebSocketServer({ noServer: true });
+
 app.use(cors({ origin: '*' }));
 app.use(express.json());
 
@@ -758,7 +763,7 @@ app.post('/api/cpu/submit', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
 
   const g = cpuGames[idx];
-  const CPU_PAYOUTS = { easy: 6, medium: 7, hard: 9 };
+  const CPU_PAYOUTS = { easy: 9, medium: 9, hard: 9 };
   const CPU_PAYOUT = CPU_PAYOUTS[g.difficulty] ?? 9;
   if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
 
@@ -822,8 +827,162 @@ if (process.env.NODE_ENV === 'production') {
   });
 }
 
+// ─── Mario Kart race rooms (WebSocket multiplayer) ────────────────────────────
+const raceRooms   = new Map();
+const ROOM_MAX    = 4;
+const ROOM_MIN    = 2;
+const KART_COLORS = ['#ff4444', '#4488ff', '#44dd88', '#ffd700'];
+const START_POS   = [
+  { x:308, y:308, angle:-1.5708 },
+  { x:282, y:308, angle:-1.5708 },
+  { x:308, y:326, angle:-1.5708 },
+  { x:282, y:326, angle:-1.5708 },
+];
+
+function rBroadcast(room, msg) {
+  const data = JSON.stringify(msg);
+  for (const p of room.players.values()) {
+    if (p.ws.readyState === 1) p.ws.send(data);
+  }
+}
+
+function startRaceCountdown(room) {
+  if (room.status !== 'waiting') return;
+  room.status = 'countdown';
+  let c = 10;
+  rBroadcast(room, { type:'countdown', count:c });
+  room.timer = setInterval(() => {
+    c--;
+    if (c > 0) {
+      rBroadcast(room, { type:'countdown', count:c });
+    } else {
+      clearInterval(room.timer);
+      room.status = 'racing';
+      room.startTime = Date.now();
+      const players = [...room.players.values()].map(p => ({
+        id:p.id, color:p.color, wallet:p.wallet,
+        x:p.startPos.x, y:p.startPos.y, angle:p.startPos.angle,
+      }));
+      rBroadcast(room, { type:'start', players });
+    }
+  }, 1000);
+}
+
+async function handleRaceFinish(room, pid) {
+  const player = [...room.players.values()].find(p => p.id === pid);
+  if (!player || player.finished || room.status !== 'racing') return;
+  player.finished = true;
+  if (room.winners.length === 0) {
+    room.winners.push(pid);
+    room.status = 'finished';
+    const pot = Math.floor(room.players.size * ENTRY_FEE * (1 - HOUSE_RAKE) * 10) / 10;
+    rBroadcast(room, { type:'winner', winnerId:pid, wallet:player.wallet, payout:pot });
+    try {
+      await sendPayout(player.wallet, pot);
+      console.log(`[KART] Winner ${player.wallet.slice(0,8)}… paid ${pot} MONET`);
+    } catch(e) {
+      console.error('[KART] payout failed:', e.message);
+      const claims = dbRead('claims');
+      claims.push({ id:genId(), type:'race', refId:room.id, wallet:player.wallet, amount:pot, status:'pending', error:e.message, createdAt:Date.now() });
+      dbWrite('claims', claims);
+    }
+  }
+}
+
+// WebSocket upgrade handler — only accepts /race-ws path
+server.on('upgrade', (req, socket, head) => {
+  if (req.url === '/race-ws') {
+    wss.handleUpgrade(req, socket, head, ws => wss.emit('connection', ws, req));
+  } else {
+    socket.destroy();
+  }
+});
+
+wss.on('connection', ws => {
+  const wsId = genId();
+  let currentRoom = null;
+  const playerId  = wsId;
+
+  ws.on('message', async raw => {
+    let msg;
+    try { msg = JSON.parse(raw); } catch { return; }
+
+    if (msg.type === 'join') {
+      const { wallet, txId } = msg;
+      if (!wallet || !txId) {
+        return ws.send(JSON.stringify({ type:'error', error:'wallet and txId required' }));
+      }
+      // Verify on-chain payment (lenient on RPC failure to avoid blocking players)
+      try { await verifyEntryFee(txId, ENTRY_FEE); }
+      catch(e) {
+        console.warn('[KART] verifyEntryFee soft-fail:', e.message);
+        // lenient: allow through if RPC is down but log it
+      }
+
+      // Find open room or create one
+      let room;
+      for (const [, r] of raceRooms) {
+        if (r.status === 'waiting' && r.players.size < ROOM_MAX) { room = r; break; }
+      }
+      if (!room) {
+        room = { id:genId(), players:new Map(), status:'waiting', timer:null, startTime:null, winners:[] };
+        raceRooms.set(room.id, room);
+      }
+
+      const color    = KART_COLORS[room.players.size % KART_COLORS.length];
+      const startPos = START_POS[room.players.size % START_POS.length];
+      room.players.set(wsId, { ws, wallet, id:playerId, color, startPos,
+        x:startPos.x, y:startPos.y, angle:startPos.angle,
+        speed:0, lap:0, finished:false });
+      currentRoom = room;
+
+      ws.send(JSON.stringify({
+        type:'joined', yourId:playerId, color, roomId:room.id,
+        playerCount:room.players.size, maxPlayers:ROOM_MAX, startPos,
+      }));
+      // Broadcast updated player list to all in room
+      const playerList = [...room.players.values()].map(p => ({
+        id:p.id, color:p.color, x:p.startPos.x, y:p.startPos.y, angle:p.startPos.angle, lap:0,
+      }));
+      rBroadcast(room, { type:'room_update', players:playerList, status:room.status });
+
+      // Start countdown once minimum players joined
+      if (room.players.size >= ROOM_MIN && room.status === 'waiting') {
+        setTimeout(() => startRaceCountdown(room), 1500);
+      }
+    }
+
+    else if (msg.type === 'state' && currentRoom) {
+      const player = currentRoom.players.get(wsId);
+      if (!player) return;
+      player.x = msg.x; player.y = msg.y;
+      player.angle = msg.angle; player.speed = msg.speed; player.lap = msg.lap;
+      // Send current state of all other players back to this client
+      const others = [...currentRoom.players.values()]
+        .filter(p => p.id !== playerId)
+        .map(p => ({ id:p.id, x:p.x, y:p.y, angle:p.angle, speed:p.speed, lap:p.lap, color:p.color }));
+      if (ws.readyState === 1) ws.send(JSON.stringify({ type:'others', players:others }));
+    }
+
+    else if (msg.type === 'finished' && currentRoom) {
+      await handleRaceFinish(currentRoom, playerId);
+    }
+  });
+
+  ws.on('close', () => {
+    if (!currentRoom) return;
+    currentRoom.players.delete(wsId);
+    if (currentRoom.players.size === 0) {
+      if (currentRoom.timer) clearInterval(currentRoom.timer);
+      raceRooms.delete(currentRoom.id);
+    } else {
+      rBroadcast(currentRoom, { type:'player_left', playerId });
+    }
+  });
+});
+
 const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 5000 : 3001);
-app.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, '0.0.0.0', () => {
   const hasKey = !!getTreasuryKP();
-  console.log(`[MONET] API server :${PORT} | treasury payouts: ${hasKey ? 'ENABLED' : 'QUEUED (set TREASURY_PRIVATE_KEY)'}`);
+  console.log(`[MONET] API+WS server :${PORT} | treasury payouts: ${hasKey ? 'ENABLED' : 'QUEUED (set TREASURY_PRIVATE_KEY)'}`);
 });

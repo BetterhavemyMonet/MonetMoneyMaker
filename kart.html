@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Monet Kart | Monet Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<style>
+#k-hud {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 5px 14px; background: rgba(0,0,0,0.7); flex-shrink: 0;
+  font-family: 'Orbitron', sans-serif; font-size: 11px; color: #fff;
+  border-bottom: 1px solid rgba(168,85,255,0.3);
+}
+#k-hud span { display: flex; align-items: center; gap: 5px; }
+#k-item-icon {
+  display: inline-block; min-width: 22px; text-align: center;
+  background: rgba(168,85,255,0.3); border: 1px solid #a855ff55;
+  border-radius: 6px; padding: 1px 5px; font-size: 13px;
+}
+#k-overlay {
+  position: absolute; inset: 0; background: rgba(2,4,10,0.88); z-index: 100;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif; text-align: center;
+}
+#k-overlay-box {
+  padding: 30px 26px; background: #0b0f1a; border: 2px solid #a855ff;
+  border-radius: 20px; width: min(320px, 90vw); box-shadow: 0 0 48px #a855ff44;
+}
+#k-overlay-title { font-size: 18px; font-weight: 800; color: #a855ff; margin-bottom: 8px; }
+#k-overlay-body  { font-size: 12px; color: #bbb; line-height: 1.6; }
+#k-countdown-num { font-size: 72px; font-weight: 800; color: #ffd700; text-shadow: 0 0 32px #ffd70099; line-height:1; margin: 8px 0; }
+#k-result {
+  position: fixed; inset: 0; background: rgba(2,4,10,0.97); z-index: 9999;
+  display: flex; align-items: center; justify-content: center;
+  font-family: 'Orbitron', sans-serif;
+}
+</style>
+</head>
+<body class="game-page">
+
+<div class="wallet-bar" id="wbar" style="flex-shrink:0"></div>
+
+<div class="game-wrap" style="flex:1;display:flex;flex-direction:column;min-height:0;overflow:hidden;position:relative">
+  <div id="k-hud">
+    <span>🏁 <span id="k-lap">Lap 1/3</span></span>
+    <span>📍 <span id="k-pos">Pos —</span></span>
+    <span>⏱ <span id="k-time">0:00</span></span>
+    <span>Item: <span id="k-item-icon">—</span></span>
+  </div>
+
+  <div class="canvas-wrap" id="cvwrap"
+       style="flex:1;min-height:0;position:relative;overflow:hidden;display:flex;align-items:center;justify-content:center">
+    <canvas id="kc"></canvas>
+    <div id="k-overlay">
+      <div id="k-overlay-box">
+        <div id="k-overlay-title">MONET KART</div>
+        <div id="k-overlay-body">Pay to enter and race for MONET!</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Controller -->
+<div class="ctrl-area">
+  <div class="ctrl-body">
+    <div class="ctrl-dpad">
+      <div class="ctrl-dpad-center"></div>
+      <button class="dpad-up"
+        ontouchstart="inp.up=true;event.preventDefault()"
+        ontouchend="inp.up=false"
+        onmousedown="inp.up=true" onmouseup="inp.up=false">▲</button>
+      <button class="dpad-down"
+        ontouchstart="inp.down=true;event.preventDefault()"
+        ontouchend="inp.down=false"
+        onmousedown="inp.down=true" onmouseup="inp.down=false">▼</button>
+      <button class="dpad-left"
+        ontouchstart="inp.left=true;event.preventDefault()"
+        ontouchend="inp.left=false"
+        onmousedown="inp.left=true" onmouseup="inp.left=false">◀</button>
+      <button class="dpad-right"
+        ontouchstart="inp.right=true;event.preventDefault()"
+        ontouchend="inp.right=false"
+        onmousedown="inp.right=true" onmouseup="inp.right=false">▶</button>
+    </div>
+    <div class="ctrl-mid">
+      <a class="ctrl-home" href="arcade.html">⌂</a>
+    </div>
+    <div class="ctrl-ab">
+      <button class="ctrl-btn-a"
+        ontouchstart="inp.up=true;event.preventDefault()"
+        ontouchend="inp.up=false"
+        onmousedown="inp.up=true" onmouseup="inp.up=false">GAS</button>
+      <button class="ctrl-btn-b"
+        ontouchstart="useItem();event.preventDefault()"
+        onmousedown="useItem()">ITEM</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Canvas setup ─────────────────────────────────────────────────────────────
+const canvas = document.getElementById('kc');
+const ctx    = canvas.getContext('2d');
+const GW = 600, GH = 360;
+canvas.width  = GW;
+canvas.height = GH;
+
+function resizeCanvas() {
+  const wrap  = document.getElementById('cvwrap');
+  const scale = Math.min(wrap.clientWidth / GW, wrap.clientHeight / GH);
+  canvas.style.width  = Math.floor(GW * scale) + 'px';
+  canvas.style.height = Math.floor(GH * scale) + 'px';
+}
+window.addEventListener('resize', resizeCanvas);
+
+// ─── Track geometry ───────────────────────────────────────────────────────────
+const CX = 300, CY = 172;       // track center
+const ORX = 255, ORY = 138;     // outer ellipse radii
+const IRX = 168, IRY = 68;      // inner ellipse radii
+
+// Kart starting positions (bottom of oval, facing up)
+const START_POS = [
+  { x:308, y:308, angle:-Math.PI/2 },
+  { x:282, y:308, angle:-Math.PI/2 },
+  { x:308, y:326, angle:-Math.PI/2 },
+  { x:282, y:326, angle:-Math.PI/2 },
+];
+
+function onTrack(x, y) {
+  const dx = x - CX, dy = y - CY;
+  const outer = (dx*dx)/(ORX*ORX) + (dy*dy)/(ORY*ORY);
+  const inner = (dx*dx)/(IRX*IRX) + (dy*dy)/(IRY*IRY);
+  return outer <= 1.04 && inner >= 0.96;
+}
+
+// Item box positions (on track: top, right, bottom-left, left)
+const ITEM_BOXES = [
+  { x:300, y:47,  active:true, respawnAt:0 },
+  { x:540, y:172, active:true, respawnAt:0 },
+  { x:180, y:290, active:true, respawnAt:0 },
+  { x:60,  y:172, active:true, respawnAt:0 },
+];
+const ITEM_RESPAWN_MS = 12000;
+
+// ─── Physics constants ────────────────────────────────────────────────────────
+const MAX_SPD  = 4.6;
+const ACCEL    = 0.14;
+const BRAKE_F  = 0.24;
+const FRIC     = 0.924;
+const TURN_R   = 0.054;
+const BOOST_DUR = 120; // frames
+
+// ─── Game state ───────────────────────────────────────────────────────────────
+let inp = { up:false, down:false, left:false, right:false };
+let gamePhase = 'idle'; // idle | waiting | countdown | racing | finishing | finished
+let myId = null, myColor = null;
+let myKart  = null;
+let others  = [];
+let ws      = null;
+let raceStartTime = 0;
+let sendTick = 0;
+let totalPlayers = 1;
+
+// ─── Kart factory ─────────────────────────────────────────────────────────────
+function makeKart(sp, color, id) {
+  return {
+    x: sp.x, y: sp.y, angle: sp.angle, speed: 0,
+    color, id,
+    lap: 0, finished: false,
+    passedR: false, passedT: false, passedL: false,
+    item: null, boostTimer: 0, spinTimer: 0,
+  };
+}
+
+// ─── Physics update ───────────────────────────────────────────────────────────
+function updateMyKart() {
+  if (!myKart || gamePhase !== 'racing') return;
+
+  const onRoad   = onTrack(myKart.x, myKart.y);
+  const speedCap = onRoad ? MAX_SPD : MAX_SPD * 0.55;
+  const fric     = onRoad ? FRIC    : 0.87;
+
+  if (myKart.spinTimer > 0) {
+    myKart.spinTimer--;
+    myKart.angle += 0.24;
+    myKart.speed *= 0.82;
+  } else {
+    if (myKart.boostTimer > 0) {
+      myKart.boostTimer--;
+      myKart.speed = Math.min(myKart.speed + ACCEL * 1.6, speedCap * 1.5);
+    } else if (inp.up) {
+      myKart.speed = Math.min(myKart.speed + ACCEL, speedCap);
+    } else if (inp.down) {
+      myKart.speed = Math.max(myKart.speed - BRAKE_F, -speedCap * 0.35);
+    } else {
+      myKart.speed *= fric;
+    }
+    if (Math.abs(myKart.speed) > 0.05) {
+      const tm  = Math.min(Math.abs(myKart.speed) / MAX_SPD, 1);
+      const dir = myKart.speed >= 0 ? 1 : -1;
+      if (inp.left)  myKart.angle -= TURN_R * tm * dir;
+      if (inp.right) myKart.angle += TURN_R * tm * dir;
+    }
+  }
+
+  const nx = myKart.x + Math.cos(myKart.angle) * myKart.speed;
+  const ny = myKart.y + Math.sin(myKart.angle) * myKart.speed;
+
+  if      (onTrack(nx, ny))         { myKart.x = nx; myKart.y = ny; }
+  else if (onTrack(nx, myKart.y))   { myKart.x = nx; myKart.speed *= 0.5; }
+  else if (onTrack(myKart.x, ny))   { myKart.y = ny; myKart.speed *= 0.5; }
+  else                               { myKart.speed *= -0.35; }
+
+  checkLap();
+  checkItemPickup();
+  updateHUD();
+}
+
+// ─── Lap counting (clockwise: right → top → left → finish) ───────────────────
+function checkLap() {
+  if (!myKart || myKart.finished) return;
+  const { x, y } = myKart;
+
+  if (x > 492)                              myKart.passedR = true;
+  if (y < 53  && myKart.passedR)            myKart.passedT = true;
+  if (x < 112 && myKart.passedT)            myKart.passedL = true;
+
+  // Finish line: bottom straight, x ∈ [265,335], y > 292
+  if (y > 292 && x > 265 && x < 335 && myKart.passedL) {
+    myKart.lap++;
+    myKart.passedR = myKart.passedT = myKart.passedL = false;
+    if (myKart.lap >= 3) {
+      myKart.finished = true;
+      gamePhase = 'finishing';
+      if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type:'finished' }));
+    }
+  }
+}
+
+// ─── Item pickup ──────────────────────────────────────────────────────────────
+function checkItemPickup() {
+  if (!myKart || myKart.item) return;
+  const now = Date.now();
+  for (const box of ITEM_BOXES) {
+    if (!box.active) {
+      if (now >= box.respawnAt) box.active = true;
+      continue;
+    }
+    const dx = myKart.x - box.x, dy = myKart.y - box.y;
+    if (dx*dx + dy*dy < 22*22) {
+      box.active = false;
+      box.respawnAt = now + ITEM_RESPAWN_MS;
+      myKart.item = 'boost';
+      document.getElementById('k-item-icon').textContent = '⭐';
+    }
+  }
+}
+
+function useItem() {
+  if (!myKart || !myKart.item || gamePhase !== 'racing') return;
+  if (myKart.item === 'boost') {
+    myKart.boostTimer = BOOST_DUR;
+    myKart.item = null;
+    document.getElementById('k-item-icon').textContent = '—';
+  }
+}
+window.useItem = useItem;
+
+// ─── HUD update ───────────────────────────────────────────────────────────────
+function updateHUD() {
+  if (!myKart) return;
+  const lapNum = Math.min(myKart.lap + 1, 3);
+  document.getElementById('k-lap').textContent = `Lap ${lapNum}/3`;
+
+  const myLap  = myKart.lap;
+  const allLaps = [myLap, ...others.map(o => o.lap ?? 0)];
+  const pos     = allLaps.filter(l => l > myLap).length + 1;
+  const n       = allLaps.length;
+  const ordinal = ['1st','2nd','3rd','4th'][pos-1] ?? `${pos}th`;
+  document.getElementById('k-pos').textContent = `${ordinal} of ${n}`;
+
+  if (raceStartTime > 0) {
+    const s = Math.floor((Date.now() - raceStartTime) / 1000);
+    document.getElementById('k-time').textContent = `${Math.floor(s/60)}:${(s%60).toString().padStart(2,'0')}`;
+  }
+}
+
+// ─── Rendering ────────────────────────────────────────────────────────────────
+function drawTrack() {
+  // Grass background
+  ctx.fillStyle = '#1e6b1e';
+  ctx.fillRect(0, 0, GW, GH);
+
+  // Track surface
+  ctx.fillStyle = '#4d4d55';
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, ORX, ORY, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Outer border
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, ORX, ORY, 0, 0, Math.PI*2);
+  ctx.stroke();
+
+  // Infield grass
+  ctx.fillStyle = '#1e6b1e';
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, IRX - 2, IRY - 2, 0, 0, Math.PI*2);
+  ctx.fill();
+
+  // Inner border
+  ctx.strokeStyle = '#e0e0e0';
+  ctx.lineWidth = 3;
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, IRX, IRY, 0, 0, Math.PI*2);
+  ctx.stroke();
+
+  // Dashed center line
+  ctx.setLineDash([18, 14]);
+  ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.ellipse(CX, CY, (ORX+IRX)/2, (ORY+IRY)/2, 0, 0, Math.PI*2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // Start/finish line (checkered)
+  const tiles = 5, tw = 12, th = 20;
+  for (let i = 0; i < tiles; i++) {
+    ctx.fillStyle = i % 2 === 0 ? '#fff' : '#111';
+    ctx.fillRect(268 + i * tw, 292, tw, th);
+  }
+
+  // Direction arrows on infield
+  ctx.fillStyle = 'rgba(255,255,255,0.15)';
+  ctx.font = 'bold 16px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('→', 549, 172);
+  ctx.fillText('←', 51,  172);
+  ctx.fillText('↑', 300, 44);
+  ctx.fillText('↓', 300, 302);
+  ctx.textBaseline = 'alphabetic';
+}
+
+function drawItemBoxes() {
+  for (const box of ITEM_BOXES) {
+    if (!box.active) continue;
+    const s = 14;
+    ctx.fillStyle = '#ffd700';
+    ctx.strokeStyle = '#fff';
+    ctx.lineWidth = 1.5;
+    ctx.fillRect(box.x - s/2, box.y - s/2, s, s);
+    ctx.strokeRect(box.x - s/2, box.y - s/2, s, s);
+    ctx.fillStyle = '#000';
+    ctx.font = 'bold 11px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('?', box.x, box.y);
+    ctx.textBaseline = 'alphabetic';
+  }
+}
+
+function drawKart(x, y, angle, color, label, boosting) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.rotate(angle + Math.PI / 2);
+
+  const KW = 14, KH = 22;
+
+  // Shadow
+  ctx.fillStyle = 'rgba(0,0,0,0.28)';
+  ctx.fillRect(-KW/2 + 2, -KH/2 + 2, KW, KH);
+
+  // Body
+  if (boosting) {
+    ctx.shadowColor = '#ffd700';
+    ctx.shadowBlur  = 14;
+  }
+  ctx.fillStyle = color;
+  ctx.fillRect(-KW/2, -KH/2, KW, KH);
+  ctx.shadowBlur = 0;
+
+  // Windshield
+  ctx.fillStyle = 'rgba(180,220,255,0.7)';
+  ctx.fillRect(-KW/2 + 2, -KH/2 + 2, KW - 4, KH / 3);
+
+  // Wheels (4 corners)
+  ctx.fillStyle = '#111';
+  [[-KW/2 - 3, -KH/2 + 3], [KW/2 - 1, -KH/2 + 3],
+   [-KW/2 - 3,  KH/2 - 8], [KW/2 - 1,  KH/2 - 8]].forEach(([wx, wy]) => {
+    ctx.fillRect(wx, wy, 4, 6);
+  });
+
+  ctx.restore();
+
+  // Name label above kart
+  ctx.save();
+  ctx.font = '7px Orbitron, sans-serif';
+  ctx.textAlign = 'center';
+  const tw  = ctx.measureText(label).width + 8;
+  const lx  = x - tw / 2;
+  const ly  = y - 24;
+  ctx.fillStyle   = label === 'YOU' ? '#a855ff' : 'rgba(0,0,0,0.72)';
+  ctx.strokeStyle = label === 'YOU' ? '#d080ff' : '#444';
+  ctx.lineWidth   = 1;
+  ctx.beginPath();
+  ctx.roundRect(lx, ly, tw, 11, 3);
+  ctx.fill();
+  ctx.stroke();
+  ctx.fillStyle = '#fff';
+  ctx.fillText(label, x, ly + 8.5);
+  ctx.restore();
+}
+
+// ─── Main render loop ─────────────────────────────────────────────────────────
+function loop() {
+  requestAnimationFrame(loop);
+  updateMyKart();
+
+  drawTrack();
+  drawItemBoxes();
+
+  for (const o of others) {
+    drawKart(o.x, o.y, o.angle, o.color, o.name || '???', false);
+  }
+  if (myKart) {
+    drawKart(myKart.x, myKart.y, myKart.angle, myKart.color, 'YOU', myKart.boostTimer > 0);
+  }
+
+  // Network: send state ~15×/sec
+  if (ws && ws.readyState === 1 && myKart && gamePhase === 'racing') {
+    sendTick++;
+    if (sendTick % 4 === 0) {
+      ws.send(JSON.stringify({
+        type: 'state',
+        x:     Math.round(myKart.x     * 10) / 10,
+        y:     Math.round(myKart.y     * 10) / 10,
+        angle: Math.round(myKart.angle * 1000) / 1000,
+        speed: Math.round(myKart.speed * 100)  / 100,
+        lap:   myKart.lap,
+      }));
+    }
+  }
+}
+
+// ─── Overlay helpers ─────────────────────────────────────────────────────────
+function showOvl(title, html) {
+  const ol = document.getElementById('k-overlay');
+  if (!ol) return;
+  ol.style.display = 'flex';
+  document.getElementById('k-overlay-title').textContent = title;
+  document.getElementById('k-overlay-body').innerHTML    = html;
+}
+function hideOvl() {
+  const ol = document.getElementById('k-overlay');
+  if (ol) ol.style.display = 'none';
+}
+
+function showResult(won, payout, winnerName) {
+  const box = document.createElement('div');
+  box.id = 'k-result';
+  box.innerHTML = `
+    <div style="background:#0b0f1a;border:2px solid ${won?'#ffd700':'#a855ff'};
+         border-radius:20px;padding:30px 24px;width:min(340px,92vw);text-align:center">
+      <div style="font-size:40px;margin-bottom:8px">${won ? '🏆' : '🏎'}</div>
+      <div style="font-size:20px;font-weight:800;color:${won?'#ffd700':'#a855ff'};margin-bottom:6px">
+        ${won ? 'YOU WIN!' : `${winnerName} WINS!`}
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:18px">
+        ${totalPlayers}-player race · 3 laps
+      </div>
+      ${won ? `
+        <div style="display:flex;justify-content:space-between;padding:10px 0;
+             border-bottom:1px solid #ffffff12;font-size:13px;margin-bottom:14px">
+          <span style="color:#888">Payout</span>
+          <span style="color:#ffd700;font-weight:800">+${Number(payout).toFixed(1)} MONET</span>
+        </div>` : `
+        <div style="padding:8px 0;font-size:11px;color:#888;margin-bottom:14px">
+          Better luck next time!
+        </div>`}
+      <button onclick="location.href='arcade.html'"
+        style="width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+               background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;
+               font-family:Orbitron,sans-serif;font-size:12px;font-weight:800;margin-bottom:8px">
+        ← BACK TO ARCADE
+      </button>
+      <button onclick="location.reload()"
+        style="width:100%;padding:11px;border-radius:12px;border:1px solid #333;
+               cursor:pointer;background:transparent;color:#888;
+               font-family:Orbitron,sans-serif;font-size:10px">
+        RACE AGAIN
+      </button>
+    </div>`;
+  document.body.appendChild(box);
+}
+
+// ─── WebSocket client ─────────────────────────────────────────────────────────
+function connectWS(wallet, txId) {
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const wsUrl = `${proto}//${location.host}/race-ws`;
+  ws = new WebSocket(wsUrl);
+
+  ws.onopen = () => {
+    ws.send(JSON.stringify({ type:'join', wallet, txId }));
+    showOvl('FINDING RACE', 'Connecting to race server…');
+  };
+
+  ws.onmessage = e => {
+    let msg; try { msg = JSON.parse(e.data); } catch { return; }
+
+    if (msg.type === 'joined') {
+      myId    = msg.yourId;
+      myColor = msg.color;
+      totalPlayers = msg.playerCount;
+      const sp = msg.startPos || START_POS[0];
+      myKart = makeKart(sp, myColor, myId);
+      gamePhase = 'waiting';
+      showOvl('WAITING FOR RACERS',
+        `${msg.playerCount} / 4 players joined<br>
+         <small style="color:#666">Race starts when 2+ players are ready</small>`);
+    }
+
+    else if (msg.type === 'room_update') {
+      totalPlayers = msg.players.length;
+      others = msg.players.filter(p => p.id !== myId)
+                          .map(p => ({ ...p, name: shortenWallet(p.wallet) }));
+      if (gamePhase === 'waiting') {
+        showOvl('WAITING FOR RACERS',
+          `${msg.players.length} / 4 players joined<br>
+           <small style="color:#666">Race starts when 2+ players are ready</small>`);
+      }
+    }
+
+    else if (msg.type === 'countdown') {
+      gamePhase = 'countdown';
+      showOvl('GET READY!',
+        `<div id="k-countdown-num">${msg.count}</div>`);
+    }
+
+    else if (msg.type === 'start') {
+      others = (msg.players || [])
+        .filter(p => p.id !== myId)
+        .map(p => ({ ...p, name: shortenWallet(p.wallet) }));
+      hideOvl();
+      gamePhase     = 'racing';
+      raceStartTime = Date.now();
+    }
+
+    else if (msg.type === 'others') {
+      if (!msg.players) return;
+      others = msg.players.map(p => ({
+        ...p,
+        name: others.find(o => o.id === p.id)?.name || shortenWallet(p.wallet),
+      }));
+    }
+
+    else if (msg.type === 'player_left') {
+      others = others.filter(o => o.id !== msg.playerId);
+      totalPlayers = 1 + others.length;
+    }
+
+    else if (msg.type === 'winner') {
+      const iWon = msg.winnerId === myId;
+      const winnerO = others.find(o => o.id === msg.winnerId);
+      const winnerName = iWon ? 'YOU' : (winnerO?.name || 'Opponent');
+      gamePhase = 'finished';
+      showResult(iWon, msg.payout, winnerName);
+    }
+
+    else if (msg.type === 'error') {
+      showOvl('ERROR', `${msg.error}<br><br>
+        <a href="arcade.html" style="color:#a855ff">← Back to Arcade</a>`);
+    }
+  };
+
+  ws.onclose = () => {
+    if (gamePhase !== 'finished' && gamePhase !== 'finishing') {
+      showOvl('DISCONNECTED',
+        'Connection lost.<br><br>' +
+        '<a href="kart.html" style="color:#a855ff">Rejoin</a> &nbsp;|&nbsp; ' +
+        '<a href="arcade.html" style="color:#888">← Arcade</a>');
+    }
+  };
+}
+
+function shortenWallet(w) {
+  if (!w) return '???';
+  return w.slice(0,4) + '…' + w.slice(-3);
+}
+
+// ─── Keyboard ─────────────────────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === 'ArrowUp'    || e.key === 'w') { inp.up    = true; e.preventDefault(); }
+  if (e.key === 'ArrowDown'  || e.key === 's') { inp.down  = true; e.preventDefault(); }
+  if (e.key === 'ArrowLeft'  || e.key === 'a') { inp.left  = true; e.preventDefault(); }
+  if (e.key === 'ArrowRight' || e.key === 'd') { inp.right = true; e.preventDefault(); }
+  if (e.key === ' ' || e.key === 'e') { useItem(); e.preventDefault(); }
+});
+document.addEventListener('keyup', e => {
+  if (e.key === 'ArrowUp'    || e.key === 'w') inp.up    = false;
+  if (e.key === 'ArrowDown'  || e.key === 's') inp.down  = false;
+  if (e.key === 'ArrowLeft'  || e.key === 'a') inp.left  = false;
+  if (e.key === 'ArrowRight' || e.key === 'd') inp.right = false;
+});
+
+// ─── Init ─────────────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  renderWalletBar('wbar');
+  resizeCanvas();
+  loop();
+
+  showPayGate('kart', txId => {
+    const wallet = WalletState.address;
+    if (!txId || !wallet) {
+      showOvl('ERROR',
+        'Session lost.<br><a href="arcade.html" style="color:#a855ff">← Arcade</a>');
+      return;
+    }
+    connectWS(wallet, txId);
+  }, { pot: 'UP TO 18 MONET', rake: '10%' });
+});
+</script>
+</body>
+</html>

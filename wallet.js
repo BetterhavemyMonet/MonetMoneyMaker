@@ -433,14 +433,12 @@ async function refreshBalances() {
     const res  = await fetch(`/api/balance/${WalletState.address}`);
     if (res.ok) {
       const data = await res.json();
-      // Only overwrite balance if the server returned a real value.
-      // If the server served stale cache that's fine — still correct.
-      // Never reset to 0 when RPC fails; keep last known value instead.
-      if (data.monet > 0 || !WalletState.hasMonetAta) {
-        WalletState.monetBalance = data.monet ?? WalletState.monetBalance;
-      }
-      WalletState.solBalance  = data.sol    ?? WalletState.solBalance;
-      WalletState.hasMonetAta = data.hasAta ?? WalletState.hasMonetAta;
+      // Always trust a 200 OK response — avoids stale display if the player
+      // spends all their MONET. The 503 (all RPCs down) case is handled
+      // separately by keeping the last known value.
+      WalletState.monetBalance = data.monet ?? WalletState.monetBalance;
+      WalletState.solBalance   = data.sol   ?? WalletState.solBalance;
+      WalletState.hasMonetAta  = data.hasAta ?? WalletState.hasMonetAta;
       updated = true;
     }
     // 503 = all RPCs down with no cache — keep whatever balance we already have
@@ -849,7 +847,7 @@ window._pgOnSuccess  = null;
 window._pgGameName   = null;
 window._pgRenderGate = null;
 
-async function showPayGate(gameName, onSuccess) {
+async function showPayGate(gameName, onSuccess, opts = {}) {
   if (hasValidSession(gameName)) { if (onSuccess) onSuccess(); return; }
 
   // Bypass for players who already paid via challenge.html
@@ -888,8 +886,9 @@ async function showPayGate(gameName, onSuccess) {
     const bal      = WalletState.monetBalance;
     const hasEnough = bal >= MONET_CONFIG.ENTRY_FEE;
     const short    = conn ? WalletState.address.slice(0,4)+'...'+WalletState.address.slice(-4) : '';
-    const potAmt   = challengeCode ? (MONET_CONFIG.ENTRY_FEE * 2 * (1 - 0.10)).toFixed(1)
-                   : tournamentId  ? 'Pool grows with players'
+    const potAmt   = opts.pot        ? opts.pot
+                   : challengeCode  ? (MONET_CONFIG.ENTRY_FEE * 2 * (1 - 0.10)).toFixed(1) + ' MONET'
+                   : tournamentId   ? 'Pool grows with players'
                    : (MONET_CONFIG.ENTRY_FEE * MONET_CONFIG.PAYOUT_RATE).toFixed(1) + ' MONET';
 
     overlay.innerHTML = `
@@ -911,7 +910,7 @@ async function showPayGate(gameName, onSuccess) {
         </div>
         <div class="pg-row">
           <span class="pg-label">House Rake</span>
-          <span class="pg-val" style="color:#888">${challengeCode || tournamentId ? '10%' : Math.round((1 - MONET_CONFIG.PAYOUT_RATE) * 100) + '%'}</span>
+          <span class="pg-val" style="color:#888">${opts.rake !== undefined ? opts.rake : (challengeCode || tournamentId ? '10%' : Math.round((1 - MONET_CONFIG.PAYOUT_RATE) * 100) + '%')}</span>
         </div>
 
         ${conn ? `
@@ -1026,7 +1025,7 @@ async function pgPay() {
     }
 
     document.getElementById('pg-overlay')?.remove();
-    if (window._pgOnSuccess) window._pgOnSuccess();
+    if (window._pgOnSuccess) window._pgOnSuccess(txId);
     // If this was an H2H game launched via ?challenge= URL, start live score watch
     if (challengeCode && window.startH2HWatch) startH2HWatch(challengeCode);
   } catch(e) {
