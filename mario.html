@@ -11,22 +11,37 @@
 <script src="/gamepad.js"></script>
 <style>
 #color-picker {
-  display:flex; flex-direction:column; align-items:center; gap:6px;
+  display:flex; flex-direction:column; align-items:center; gap:4px;
   padding:4px 0; flex-shrink:0;
 }
 #color-picker.hidden { display:none; }
 #cp-label {
   font-family:'Press Start 2P',monospace; font-size:7px; color:#ffd700; letter-spacing:1px;
 }
-#cp-swatches { display:flex; gap:8px; flex-wrap:wrap; justify-content:center; padding:0 8px; }
+#cp-row { display:flex; align-items:center; gap:10px; justify-content:center; flex-wrap:wrap; padding:0 8px; }
+#color-preview {
+  border-radius:6px; border:1px solid #444; background:#111;
+  image-rendering:pixelated; flex-shrink:0;
+}
+#cp-swatches { display:flex; gap:7px; flex-wrap:wrap; justify-content:center; }
 .cswatch {
-  width:28px; height:28px; border-radius:50%; cursor:pointer;
+  width:26px; height:26px; border-radius:50%; cursor:pointer;
   border:3px solid transparent; transition:border-color .15s, transform .1s;
   -webkit-tap-highlight-color:transparent;
 }
-.cswatch.sel { border-color:#fff; transform:scale(1.25); }
+.cswatch.sel { border-color:#fff; transform:scale(1.2); }
 .cswatch:hover { border-color:rgba(255,255,255,.5); }
 .canvas-wrap canvas { border:2px solid #7c3aed; box-shadow:0 0 28px #7c3aed55; background:#000; }
+
+/* ── Scale controller to fit small screens ── */
+@media (max-width: 479px) {
+  .ctrl-body { transform:scale(0.65); transform-origin:center top; }
+  .ctrl-area { height:188px !important; }
+}
+@media (min-width:480px) and (max-width:559px) {
+  .ctrl-body { transform:scale(0.82); transform-origin:center top; }
+  .ctrl-area { height:226px !important; }
+}
 </style>
 </head>
 <body class="game-page">
@@ -41,7 +56,10 @@
 
   <div id="color-picker">
     <div id="cp-label">PICK YOUR DINO</div>
-    <div id="cp-swatches"></div>
+    <div id="cp-row">
+      <canvas id="color-preview" width="44" height="44"></canvas>
+      <div id="cp-swatches"></div>
+    </div>
   </div>
 
   <div class="canvas-wrap">
@@ -77,8 +95,9 @@ const ctx=canvas.getContext('2d');
 canvas.width=GW; canvas.height=GH;
 
 // ─── Sprite / tinting ─────────────────────────────────────────────────────────
-const charImg=new Image(); charImg.src='/dino-sprite.png';
+const charImg=new Image();
 let tintCanvas=null;
+let charImgReady=false;
 
 const DINO_COLORS=[
   {name:'Green',   hex:null},
@@ -92,38 +111,62 @@ const DINO_COLORS=[
   {name:'White',   hex:'#e5e7eb'},
   {name:'Teal',    hex:'#0f766e'},
 ];
-let colorIdx=+(localStorage.getItem('mbrDinoColor')||0);
+let colorIdx=Math.max(0,Math.min(9,+(localStorage.getItem('mbrDinoColor')||0)));
 
 function buildTint(){
-  if(!charImg.complete||!charImg.naturalWidth){charImg.onload=buildTint;return;}
-  const w=charImg.naturalWidth,h=charImg.naturalHeight;
+  if(!charImgReady||!charImg.naturalWidth||!charImg.naturalHeight) return;
+  const w=charImg.naturalWidth, h=charImg.naturalHeight;
   const tmp=document.createElement('canvas'); tmp.width=w; tmp.height=h;
   const tc=tmp.getContext('2d');
+  tc.clearRect(0,0,w,h);
   tc.drawImage(charImg,0,0);
-  const col=DINO_COLORS[colorIdx].hex;
+  const col=(DINO_COLORS[colorIdx]||DINO_COLORS[0]).hex;
   if(col){
     tc.globalCompositeOperation='source-atop';
-    tc.fillStyle=col; tc.globalAlpha=0.62;
+    tc.fillStyle=col;
+    tc.globalAlpha=0.62;
     tc.fillRect(0,0,w,h);
+    tc.globalAlpha=1;
+    tc.globalCompositeOperation='source-over';
   }
   tintCanvas=tmp;
+  updateColorPreview();
 }
-charImg.onload=buildTint;
+
+function updateColorPreview(){
+  const prev=document.getElementById('color-preview');
+  if(!prev||!tintCanvas) return;
+  const pc=prev.getContext('2d');
+  pc.clearRect(0,0,prev.width,prev.height);
+  // Draw scaled sprite centred in the preview canvas
+  const scale=Math.min(prev.width/tintCanvas.width, prev.height/tintCanvas.height);
+  const dw=tintCanvas.width*scale, dh=tintCanvas.height*scale;
+  pc.drawImage(tintCanvas,(prev.width-dw)/2,(prev.height-dh)/2,dw,dh);
+}
+
+charImg.onload=()=>{ charImgReady=true; buildTint(); };
+charImg.onerror=()=>{ charImgReady=false; console.warn('[MARIO] dino-sprite.png failed'); };
+charImg.src='/dino-sprite.png';
 
 function buildColorPicker(){
-  const sw=document.getElementById('cp-swatches'); sw.innerHTML='';
+  const sw=document.getElementById('cp-swatches');
+  if(!sw) return;
+  sw.innerHTML='';
   DINO_COLORS.forEach((c,i)=>{
     const d=document.createElement('div');
     d.className='cswatch'+(i===colorIdx?' sel':'');
     d.style.background=c.hex||'#22c55e';
     d.title=c.name;
-    d.onclick=()=>{
-      colorIdx=i; localStorage.setItem('mbrDinoColor',i);
+    d.addEventListener('click',()=>{
+      colorIdx=i;
+      localStorage.setItem('mbrDinoColor',i);
       document.querySelectorAll('.cswatch').forEach((s,j)=>s.classList.toggle('sel',j===i));
       buildTint();
-    };
+    });
     sw.appendChild(d);
   });
+  // Draw preview once picker is built
+  if(tintCanvas) updateColorPreview();
 }
 
 // ─── Audio ────────────────────────────────────────────────────────────────────
@@ -799,9 +842,11 @@ function drawPlayer(){
   const sx=player.x-cam.x, sy=player.y;
   if(player.invFrames>0&&Math.floor(player.invFrames/3)%2===1) return;
 
-  const img=tintCanvas||charImg;
-  if(img&&(img instanceof HTMLCanvasElement||img.complete)){
-    ctx.save();
+  // Pick the best available image source; fall back to a coloured rectangle
+  const img=tintCanvas||(charImgReady?charImg:null);
+
+  ctx.save();
+  try{
     // Wings glow
     if(player.powerup==='wings'){
       ctx.shadowColor='#a78bfa'; ctx.shadowBlur=12;
@@ -821,15 +866,27 @@ function drawPlayer(){
     if(player.powerup==='fire'){
       ctx.shadowColor='#ff6600'; ctx.shadowBlur=8;
     }
-    if(player.facing===-1){
-      ctx.translate(sx+player.w,sy);
-      ctx.scale(-1,1);
-      ctx.drawImage(img,0,0,player.w,player.h);
+    ctx.shadowBlur=0;
+
+    if(img){
+      if(player.facing===-1){
+        ctx.translate(sx+player.w,sy);
+        ctx.scale(-1,1);
+        ctx.drawImage(img,0,0,player.w,player.h);
+      } else {
+        ctx.drawImage(img,sx,sy,player.w,player.h);
+      }
     } else {
-      ctx.drawImage(img,sx,sy,player.w,player.h);
+      // Sprite not ready — draw a simple green rectangle placeholder
+      ctx.fillStyle=(DINO_COLORS[colorIdx]||DINO_COLORS[0]).hex||'#22c55e';
+      ctx.fillRect(sx,sy,player.w,player.h);
+      ctx.fillStyle='rgba(0,0,0,0.3)';
+      ctx.fillRect(sx,sy,player.w,player.h*0.4);
     }
-    ctx.restore();
+  }catch(e){
+    // drawImage can throw if the image is in a broken state — swallow silently
   }
+  ctx.restore();
 }
 
 function drawFlag(){
@@ -935,37 +992,40 @@ function drawGameOver(){
 function loop(){
   requestAnimationFrame(loop);
   tick++;
+  try{
+    if(state==='title'){drawTitle();return;}
 
-  if(state==='title'){drawTitle();return;}
+    drawNightSky();
+    drawTiles();
+    drawCoins();
+    drawPowerupItems();
+    drawFireballs();
+    drawFlag();
+    goombas.forEach(drawGoomba);
+    drawPlayer();
+    drawParticles();
+    drawPopups();
 
-  drawNightSky();
-  drawTiles();
-  drawCoins();
-  drawPowerupItems();
-  drawFireballs();
-  drawFlag();
-  goombas.forEach(drawGoomba);
-  drawPlayer();
-  drawParticles();
-  drawPopups();
+    if(state==='won')      drawWon();
+    if(state==='gameover') drawGameOver();
 
-  if(state==='won')      drawWon();
-  if(state==='gameover') drawGameOver();
-
-  if(state==='playing'){
-    updatePlayer();
-    updateGoombas();
-    updatePowerups();
-    updateFireballs();
-    updateCoins();
-    updateParticles();
-    updatePopups();
-    if(wonTimer>=0&&state==='won') wonTimer++;
-  } else if(state==='dead'||state==='gameover'){
-    if(player){player.vy=Math.min(player.vy+GRAV,MAXFALL);player.y+=player.vy;}
-    updateParticles();updatePopups();
-  } else {
-    updateParticles();updatePopups();
+    if(state==='playing'){
+      updatePlayer();
+      updateGoombas();
+      updatePowerups();
+      updateFireballs();
+      updateCoins();
+      updateParticles();
+      updatePopups();
+      if(wonTimer>=0&&state==='won') wonTimer++;
+    } else if(state==='gameover'){
+      if(player){player.vy=Math.min(player.vy+GRAV,MAXFALL);player.y+=player.vy;}
+      updateParticles();updatePopups();
+    } else {
+      updateParticles();updatePopups();
+    }
+  }catch(err){
+    console.error('[MARIO] loop error:',err.message);
   }
 }
 
@@ -988,8 +1048,12 @@ function shootFireball(){
 
 // ─── Pay gate ─────────────────────────────────────────────────────────────────
 function triggerPayGate(){
+  if(typeof showPayGate!=='function'){
+    console.warn('[MARIO] showPayGate not available'); return;
+  }
   showPayGate('mario',async(txId)=>{
-    sessionActive=true; playerWallet=WalletState.address;
+    sessionActive=true;
+    playerWallet=(typeof WalletState!=='undefined')?WalletState.address:null;
     try{
       const res=await fetch('/api/cpu/start',{
         method:'POST',headers:{'Content-Type':'application/json'},
@@ -1037,9 +1101,10 @@ GamepadMgr.on('hold_right', ()=>{ tRight=true; });
 
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded',()=>{
-  renderWalletBar('wbar');
+  if(typeof renderWalletBar==='function') renderWalletBar('wbar');
   buildColorPicker();
-  buildTint();
+  // charImg.onload calls buildTint; if already cached, trigger it now
+  if(charImg.complete&&charImg.naturalWidth) { charImgReady=true; buildTint(); }
   loop();
 });
 </script>
