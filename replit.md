@@ -18,15 +18,17 @@ A Web3 Solana arcade with MONET token payment gating. Players pay 5 MONET to ent
 ## Game Roster
 
 Active games (arcade.html displays in this order):
-1. **Pac-Man** (`pacman.html`) — Maze dot-eating
-2. **Runner** (`dino.html`) — Endless runner + level creator
-3. **Frogger** (`frogger.html`) — Cross traffic/river
-4. **Snake** (`snake.html`) — Classic snake
-5. **Space Invaders** (`invaders.html`) — Alien wave shooter
-6. **Pong** (`pong.html`) — vs CPU paddle game
-7. **Level Builder** (links to `dino.html` create tab) — Custom level designer
+1. **Monet Bros** (`mario.html`) — Super Mario-style platformer; 5 MONET entry, 9 MONET prize on level clear
+2. **Pac-Man** (`pacman.html`) — Maze dot-eating
+3. **Runner** (`dino.html`) — Endless runner + level creator
+4. **Frogger** (`frogger.html`) — Cross traffic/river
+5. **Snake** (`snake.html`) — Classic snake
+6. **Space Invaders** (`invaders.html`) — Alien wave shooter
+7. **Pong** (`pong.html`) — vs CPU paddle game
+8. **Level Builder** (links to `dino.html` create tab) — Custom level designer
 
-All games use `showGameLobby()` (lobby.js) which presents Solo or H2H modes before play.
+**Monet Bros** uses the direct pay-gate pattern (`showPayGate` → `/api/cpu/start` → play → `/api/cpu/submit`).  
+All other games use `showGameLobby()` (lobby.js) which presents Solo or H2H modes before play.
 
 ## Project Structure
 
@@ -45,7 +47,8 @@ All games use `showGameLobby()` (lobby.js) which presents Solo or H2H modes befo
 ├── snake.html          # Snake (lobby + gamepad)
 ├── pong.html           # Pong (lobby + gamepad)
 ├── dino.html           # Runner + Level Builder (lobby + gamepad)
-├── invaders.html       # Space Invaders (lobby + gamepad) — NEW
+├── mario.html          # Monet Bros — Mario-style platformer (pay-gate, CPU challenge)
+├── invaders.html       # Space Invaders (lobby + gamepad)
 ├── lobby.js            # Shared game lobby: Solo vs H2H, wager picker, challenge flow
 ├── gamepad.js          # Shared gamepad module: Gamepad API polling, standard action map
 ├── server.js           # Express API (challenges, tournaments, treasury, claims)
