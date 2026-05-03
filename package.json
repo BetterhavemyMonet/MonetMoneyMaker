@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node server.js",
-    "build": "mkdir -p dist && cp *.html styles.css script.js wallet.js dist/ 2>/dev/null; cp *.jpg *.png dist/ 2>/dev/null; cp -r public/* dist/ 2>/dev/null; echo 'Build complete'",
+    "build": "mkdir -p dist && cp *.html styles.css script.js wallet.js gamepad.js dist/ 2>/dev/null; cp *.jpg *.png *.svg dist/ 2>/dev/null; echo 'Build complete'",
     "preview": "vite preview"
   },
   "devDependencies": {
