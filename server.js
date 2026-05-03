@@ -924,10 +924,14 @@ wss.on('connection', ws => {
       for (const [, r] of raceRooms) {
         if (r.status === 'waiting' && r.players.size < ROOM_MAX) { room = r; break; }
       }
+      const isNewRoom = !room;
       if (!room) {
-        room = { id:genId(), players:new Map(), status:'waiting', timer:null, startTime:null, winners:[] };
+        room = { id:genId(), players:new Map(), status:'waiting', timer:null, cpuTimeout:null, startTime:null, winners:[], isCpuRace:false };
         raceRooms.set(room.id, room);
       }
+
+      // Cancel CPU fallback if a real second player just joined
+      if (room.cpuTimeout) { clearTimeout(room.cpuTimeout); room.cpuTimeout = null; }
 
       const color    = KART_COLORS[room.players.size % KART_COLORS.length];
       const startPos = START_POS[room.players.size % START_POS.length];
@@ -946,9 +950,21 @@ wss.on('connection', ws => {
       }));
       rBroadcast(room, { type:'room_update', players:playerList, status:room.status });
 
-      // Start countdown once minimum players joined
+      // Start countdown once minimum real players joined
       if (room.players.size >= ROOM_MIN && room.status === 'waiting') {
         setTimeout(() => startRaceCountdown(room), 1500);
+      }
+
+      // If this is a brand-new single-player room, start 30s CPU fallback timer
+      if (isNewRoom) {
+        room.cpuTimeout = setTimeout(() => {
+          if (room.status !== 'waiting' || room.players.size >= ROOM_MIN) return;
+          room.isCpuRace = true;
+          room.status    = 'racing';
+          room.startTime = Date.now();
+          console.log(`[KART] Room ${room.id} — no opponent after 30s, starting CPU race`);
+          rBroadcast(room, { type:'cpu_start' });
+        }, 30_000);
       }
     }
 
@@ -957,15 +973,42 @@ wss.on('connection', ws => {
       if (!player) return;
       player.x = msg.x; player.y = msg.y;
       player.angle = msg.angle; player.speed = msg.speed; player.lap = msg.lap;
-      // Send current state of all other players back to this client
-      const others = [...currentRoom.players.values()]
-        .filter(p => p.id !== playerId)
-        .map(p => ({ id:p.id, x:p.x, y:p.y, angle:p.angle, speed:p.speed, lap:p.lap, color:p.color }));
-      if (ws.readyState === 1) ws.send(JSON.stringify({ type:'others', players:others }));
+      // In CPU race there are no real opponents — skip broadcasting others
+      if (!currentRoom.isCpuRace) {
+        const others = [...currentRoom.players.values()]
+          .filter(p => p.id !== playerId)
+          .map(p => ({ id:p.id, x:p.x, y:p.y, angle:p.angle, speed:p.speed, lap:p.lap, color:p.color }));
+        if (ws.readyState === 1) ws.send(JSON.stringify({ type:'others', players:others }));
+      }
     }
 
     else if (msg.type === 'finished' && currentRoom) {
-      await handleRaceFinish(currentRoom, playerId);
+      if (currentRoom.isCpuRace) {
+        // Human beat the CPU — pay out 9 MONET from treasury
+        const player = currentRoom.players.get(wsId);
+        if (!player || currentRoom.winners.length > 0) return;
+        currentRoom.winners.push(playerId);
+        currentRoom.status = 'finished';
+        const payout = 9;
+        ws.send(JSON.stringify({ type:'winner', winnerId:playerId, wallet:player.wallet, payout }));
+        try {
+          await sendPayout(player.wallet, payout);
+          console.log(`[KART-CPU] ${player.wallet.slice(0,8)}… beat CPU — paid ${payout} MONET`);
+        } catch(e) {
+          console.error('[KART-CPU] payout failed:', e.message);
+          const claims = dbRead('claims');
+          claims.push({ id:genId(), type:'race_cpu', refId:currentRoom.id, wallet:player.wallet, amount:payout, status:'pending', error:e.message, createdAt:Date.now() });
+          dbWrite('claims', claims);
+        }
+      } else {
+        await handleRaceFinish(currentRoom, playerId);
+      }
+    }
+
+    else if (msg.type === 'cpu_won' && currentRoom && currentRoom.isCpuRace) {
+      // CPU beat the human — no payout, just close out the room
+      currentRoom.status = 'finished';
+      console.log(`[KART-CPU] CPU won vs ${currentRoom.players.get(wsId)?.wallet?.slice(0,8)}…`);
     }
   });
 

@@ -165,6 +165,15 @@ let raceStartTime = 0;
 let sendTick = 0;
 let totalPlayers = 1;
 
+// ─── CPU kart (solo vs CPU race) ──────────────────────────────────────────────
+// CPU follows the center of the oval at a fixed angular rate.
+// 16 s/lap = medium difficulty — a player at full throttle laps in ~7 s.
+const CPU_MID_RX   = (ORX + IRX) / 2;           // 211.5 px
+const CPU_MID_RY   = (ORY + IRY) / 2;           // 103 px
+const CPU_LAP_SECS = 16;                          // adjust to taste
+const CPU_RATE     = (2 * Math.PI) / (CPU_LAP_SECS * 60); // rad / frame
+let cpuKart = null; // null = multiplayer race
+
 // ─── Kart factory ─────────────────────────────────────────────────────────────
 function makeKart(sp, color, id) {
   return {
@@ -218,6 +227,35 @@ function updateMyKart() {
   checkLap();
   checkItemPickup();
   updateHUD();
+}
+
+// ─── CPU kart update (called every frame while racing) ────────────────────────
+function updateCpuKart() {
+  if (!cpuKart || gamePhase !== 'racing' || cpuKart.finished) return;
+
+  // Advance angle clockwise (decreasing)
+  cpuKart.angle    -= CPU_RATE;
+  cpuKart.traveled += CPU_RATE;
+
+  // Position: center of track oval
+  cpuKart.x      = CX + Math.cos(cpuKart.angle) * CPU_MID_RX;
+  cpuKart.y      = CY + Math.sin(cpuKart.angle) * CPU_MID_RY;
+  // Facing: tangent to ellipse going clockwise
+  cpuKart.facing = Math.atan2(-CPU_MID_RY * Math.cos(cpuKart.angle),
+                               CPU_MID_RX * Math.sin(cpuKart.angle));
+
+  // Lap counting: each full 2π of travel = one lap
+  if (cpuKart.traveled >= Math.PI * 2 * (cpuKart.lap + 1)) {
+    cpuKart.lap++;
+    if (cpuKart.lap >= 3) {
+      cpuKart.finished = true;
+      if (gamePhase === 'racing') {
+        gamePhase = 'finished';
+        if (ws && ws.readyState === 1) ws.send(JSON.stringify({ type: 'cpu_won' }));
+        showResult(false, 0, 'CPU');
+      }
+    }
+  }
 }
 
 // ─── Lap counting (clockwise: right → top → left → finish) ───────────────────
@@ -277,7 +315,8 @@ function updateHUD() {
   document.getElementById('k-lap').textContent = `Lap ${lapNum}/3`;
 
   const myLap  = myKart.lap;
-  const allLaps = [myLap, ...others.map(o => o.lap ?? 0)];
+  const cpuLaps = cpuKart ? [cpuKart.lap] : [];
+  const allLaps = [myLap, ...others.map(o => o.lap ?? 0), ...cpuLaps];
   const pos     = allLaps.filter(l => l > myLap).length + 1;
   const n       = allLaps.length;
   const ordinal = ['1st','2nd','3rd','4th'][pos-1] ?? `${pos}th`;
@@ -423,12 +462,16 @@ function drawKart(x, y, angle, color, label, boosting) {
 function loop() {
   requestAnimationFrame(loop);
   updateMyKart();
+  updateCpuKart();
 
   drawTrack();
   drawItemBoxes();
 
   for (const o of others) {
     drawKart(o.x, o.y, o.angle, o.color, o.name || '???', false);
+  }
+  if (cpuKart) {
+    drawKart(cpuKart.x, cpuKart.y, cpuKart.facing, '#888888', 'CPU', false);
   }
   if (myKart) {
     drawKart(myKart.x, myKart.y, myKart.angle, myKart.color, 'YOU', myKart.boostTimer > 0);
@@ -474,7 +517,7 @@ function showResult(won, payout, winnerName) {
         ${won ? 'YOU WIN!' : `${winnerName} WINS!`}
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:18px">
-        ${totalPlayers}-player race · 3 laps
+        ${cpuKart ? 'vs CPU' : `${totalPlayers}-player race`} · 3 laps
       </div>
       ${won ? `
         <div style="display:flex;justify-content:space-between;padding:10px 0;
@@ -522,9 +565,22 @@ function connectWS(wallet, txId) {
       const sp = msg.startPos || START_POS[0];
       myKart = makeKart(sp, myColor, myId);
       gamePhase = 'waiting';
-      showOvl('WAITING FOR RACERS',
-        `${msg.playerCount} / 4 players joined<br>
-         <small style="color:#666">Race starts when 2+ players are ready</small>`);
+      // Start a 30-second countdown matching the server-side CPU fallback timer
+      let secsLeft = 30;
+      function updateWaitOvl(count) {
+        showOvl('WAITING FOR RACERS',
+          `${totalPlayers} / 4 players joined<br>
+           <small style="color:#666">Race starts when 2+ players are ready</small><br>
+           <small style="color:#555">CPU joins in <b id="k-cpu-timer">${count}</b>s if no one arrives</small>`);
+      }
+      updateWaitOvl(secsLeft);
+      const cpuWaitInterval = setInterval(() => {
+        if (gamePhase !== 'waiting') { clearInterval(cpuWaitInterval); return; }
+        secsLeft--;
+        if (secsLeft <= 0) { clearInterval(cpuWaitInterval); return; }
+        const el = document.getElementById('k-cpu-timer');
+        if (el) el.textContent = secsLeft;
+      }, 1000);
     }
 
     else if (msg.type === 'room_update') {
@@ -532,9 +588,16 @@ function connectWS(wallet, txId) {
       others = msg.players.filter(p => p.id !== myId)
                           .map(p => ({ ...p, name: shortenWallet(p.wallet) }));
       if (gamePhase === 'waiting') {
-        showOvl('WAITING FOR RACERS',
-          `${msg.players.length} / 4 players joined<br>
-           <small style="color:#666">Race starts when 2+ players are ready</small>`);
+        // Update only the player count line; leave CPU timer intact
+        const el = document.querySelector('#k-overlay-body');
+        if (el) {
+          const timerEl = document.getElementById('k-cpu-timer');
+          const secsLeft = timerEl ? timerEl.textContent : '…';
+          el.innerHTML =
+            `${msg.players.length} / 4 players joined<br>
+             <small style="color:#666">Race starts when 2+ players are ready</small><br>
+             <small style="color:#555">CPU joins in <b id="k-cpu-timer">${secsLeft}</b>s if no one arrives</small>`;
+        }
       }
     }
 
@@ -551,6 +614,37 @@ function connectWS(wallet, txId) {
       hideOvl();
       gamePhase     = 'racing';
       raceStartTime = Date.now();
+    }
+
+    else if (msg.type === 'cpu_start') {
+      // No opponent found — spawn a CPU kart and do a 3-2-1 countdown locally
+      totalPlayers = 2;
+      // CPU starts at the bottom of the oval (angle = π/2), going clockwise
+      cpuKart = {
+        angle:    Math.PI / 2,
+        traveled: 0,
+        lap:      0,
+        finished: false,
+        x:        CX,
+        y:        CY + CPU_MID_RY,
+        facing:   0,
+      };
+      let c = 3;
+      showOvl('VS CPU!',
+        `<div id="k-countdown-num">${c}</div>
+         <div style="color:#888;font-size:11px;margin-top:10px">No opponent — racing the CPU!</div>`);
+      const cdInt = setInterval(() => {
+        c--;
+        if (c > 0) {
+          const el = document.getElementById('k-countdown-num');
+          if (el) el.textContent = c;
+        } else {
+          clearInterval(cdInt);
+          hideOvl();
+          gamePhase     = 'racing';
+          raceStartTime = Date.now();
+        }
+      }, 1000);
     }
 
     else if (msg.type === 'others') {
