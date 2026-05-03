@@ -1,1 +1,22 @@
-[]
+[
+  {
+    "id": "moqc92kyjbsp",
+    "code": "W23XTH",
+    "game": "mario",
+    "player1": {
+      "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
+      "txId": "3B5fgWZUJhRYEx4rFVs4ZbAXVuEQVPgc1Pj9bQaDUAVphaPoFEef1iQz4Q2TWToV4jpbBC8onc1W4d7m42phXtGZ",
+      "score": null,
+      "submittedAt": null
+    },
+    "player2": null,
+    "entryFee": 5,
+    "pot": 9,
+    "rake": 1,
+    "status": "open",
+    "winner": null,
+    "payoutTxId": null,
+    "createdAt": 1777847085394,
+    "expiresAt": 1777933485395
+  }
+]

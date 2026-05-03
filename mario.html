@@ -649,8 +649,8 @@ function drawStar4(cx,cy,sz,col){
 function drawNightSky(){
   // Rich dark-blue / midnight gradient
   const g=ctx.createLinearGradient(0,0,0,GH);
-  g.addColorStop(0,'#04060f'); g.addColorStop(0.45,'#08122a');
-  g.addColorStop(0.75,'#081e1a'); g.addColorStop(1,'#060e06');
+  g.addColorStop(0,'#010208'); g.addColorStop(0.45,'#030d20');
+  g.addColorStop(0.75,'#020c18'); g.addColorStop(1,'#010208');
   ctx.fillStyle=g; ctx.fillRect(0,0,GW,GH);
 
   // Small pixel stars
@@ -801,22 +801,23 @@ function drawTile(c,r){
     ctx.fillStyle='rgba(0,0,0,0.25)'; ctx.fillRect(sx+T-2,sy,2,T);
   }
   else if(t===BRICK){
-    // Warm orange-brown bricks
+    // Classic Mario orange-red bricks
     const bg=ctx.createLinearGradient(sx,sy,sx,sy+T);
-    bg.addColorStop(0,'#c85c1a'); bg.addColorStop(1,'#6a2808');
+    bg.addColorStop(0,'#d44010'); bg.addColorStop(0.5,'#b83008'); bg.addColorStop(1,'#7a1c04');
     ctx.fillStyle=bg; ctx.fillRect(sx,sy,T,T);
-    // Mortar grid
-    ctx.strokeStyle='#3e1606'; ctx.lineWidth=2; ctx.strokeRect(sx+1,sy+1,T-2,T-2);
-    ctx.strokeStyle='#2e1206'; ctx.lineWidth=1.5;
-    ctx.beginPath();
-    ctx.moveTo(sx,sy+T/2); ctx.lineTo(sx+T,sy+T/2);
-    ctx.moveTo(sx+T/2,sy); ctx.lineTo(sx+T/2,sy+T/2);
-    ctx.moveTo(sx+T/4,sy+T/2); ctx.lineTo(sx+T/4,sy+T);
-    ctx.moveTo(sx+3*T/4,sy+T/2); ctx.lineTo(sx+3*T/4,sy+T);
-    ctx.stroke();
+    // Thick mortar lines (dark brown)
+    ctx.fillStyle='#2a0c02';
+    // Horizontal mortar
+    ctx.fillRect(sx,sy+T/2-1,T,3);
+    ctx.fillRect(sx,sy,T,2);
+    ctx.fillRect(sx,sy+T-2,T,2);
+    // Vertical mortar — offset per row
+    const rowOff = (Math.floor(r)%2===0)?0:T/2;
+    ctx.fillRect(sx+rowOff%(T)+T/2-1,sy,3,T/2-1);
+    ctx.fillRect(sx+(rowOff+T/2)%(T)-1,sy+T/2+2,3,T/2-2);
     // Brick highlight top-left
-    ctx.fillStyle='rgba(255,200,120,0.22)'; ctx.fillRect(sx,sy,T,3);
-    ctx.fillStyle='rgba(255,200,120,0.12)'; ctx.fillRect(sx,sy,3,T);
+    ctx.fillStyle='rgba(255,160,80,0.28)'; ctx.fillRect(sx+2,sy+2,T-4,3);
+    ctx.fillStyle='rgba(255,160,80,0.15)'; ctx.fillRect(sx+2,sy+2,3,T/2-3);
     ctx.fillStyle='rgba(0,0,0,0.45)'; ctx.fillRect(sx,sy+T-3,T,3);
     ctx.fillStyle='rgba(0,0,0,0.28)'; ctx.fillRect(sx+T-3,sy,3,T);
   }
@@ -1157,8 +1158,8 @@ function drawTitle(){
   for(let r=0;r<LH;r++) for(let c=c1;c<c2;c++) drawTile(c,r);
   drawCoins();
 
-  // Dark overlay
-  ctx.fillStyle='rgba(0,0,10,0.80)'; ctx.fillRect(0,0,GW,GH);
+  // Dark overlay — lighter so stars/sky bleed through
+  ctx.fillStyle='rgba(0,0,8,0.58)'; ctx.fillRect(0,0,GW,GH);
 
   // Logo — green gradient "MONET MONEY"
   ctx.textAlign='center';
