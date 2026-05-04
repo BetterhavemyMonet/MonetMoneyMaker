@@ -225,14 +225,14 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
       <div class="game-opts" id="h2h-game-opts">
-        <div class="game-opt active" data-game="pacman"  onclick="selectGame(this,'h2h')">&#128049; Pac-Man</div>
+        <div class="game-opt active" data-game="pacman"  onclick="selectGame(this,'h2h')">&#128049; Rawr-man</div>
         <div class="game-opt" data-game="dino"     onclick="selectGame(this,'h2h')">&#9889; Runner</div>
-        <div class="game-opt" data-game="frogger"  onclick="selectGame(this,'h2h')">&#128056; Frogger</div>
-        <div class="game-opt" data-game="snake"    onclick="selectGame(this,'h2h')">&#128013; Snake</div>
+        <div class="game-opt" data-game="frogger"  onclick="selectGame(this,'h2h')">&#128056; Feelin' Froggy</div>
+        <div class="game-opt" data-game="snake"    onclick="selectGame(this,'h2h')">&#128013; Slithering Serpent</div>
         <div class="game-opt" data-game="invaders" onclick="selectGame(this,'h2h')">&#128125; Invaders</div>
         <div class="game-opt" data-game="pong"     onclick="selectGame(this,'h2h')">&#127934; Pong</div>
         <div class="game-opt" data-game="mario"    onclick="selectGame(this,'h2h')">&#127812; Bros</div>
-        <div class="game-opt" data-game="fighter"  onclick="selectGame(this,'h2h')">&#129354; Fighter</div>
+        <div class="game-opt" data-game="fighter"  onclick="selectGame(this,'h2h')">&#129354; Ready. Set. Fight.</div>
       </div>
       <div style="margin:10px 0 6px">
         <div style="font-size:11px;color:#888;margin-bottom:6px">Wager amount:</div>
@@ -263,14 +263,14 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
       <div class="game-opts" id="cpu-game-opts">
-        <div class="game-opt active" data-game="frogger"  onclick="selectGame(this,'cpu')">&#128056; Frogger</div>
-        <div class="game-opt" data-game="snake"    onclick="selectGame(this,'cpu')">&#128013; Snake</div>
-        <div class="game-opt" data-game="pacman"   onclick="selectGame(this,'cpu')">&#128049; Pac-Man</div>
+        <div class="game-opt active" data-game="frogger"  onclick="selectGame(this,'cpu')">&#128056; Feelin' Froggy</div>
+        <div class="game-opt" data-game="snake"    onclick="selectGame(this,'cpu')">&#128013; Slithering Serpent</div>
+        <div class="game-opt" data-game="pacman"   onclick="selectGame(this,'cpu')">&#128049; Rawr-man</div>
         <div class="game-opt" data-game="pong"     onclick="selectGame(this,'cpu')">&#127934; Pong</div>
         <div class="game-opt" data-game="dino"     onclick="selectGame(this,'cpu')">&#9889; Runner</div>
         <div class="game-opt" data-game="invaders" onclick="selectGame(this,'cpu')">&#128125; Invaders</div>
         <div class="game-opt" data-game="mario"    onclick="selectGame(this,'cpu')">&#127812; Bros</div>
-        <div class="game-opt" data-game="fighter"  onclick="selectGame(this,'cpu')">&#129354; Fighter</div>
+        <div class="game-opt" data-game="fighter"  onclick="selectGame(this,'cpu')">&#129354; Ready. Set. Fight.</div>
       </div>
       <div style="font-size:11px;color:#888;margin:10px 0 6px">CPU difficulty:</div>
       <div class="diff-opts">
@@ -298,14 +298,14 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 
       <div class="game-filter-row" id="lobby-filters">
         <button class="gf-btn active" data-game="all"      onclick="setLobbyFilter(this)">ALL GAMES</button>
-        <button class="gf-btn" data-game="pacman"   onclick="setLobbyFilter(this)">&#128049; PAC-MAN</button>
+        <button class="gf-btn" data-game="pacman"   onclick="setLobbyFilter(this)">&#128049; RAWR-MAN</button>
         <button class="gf-btn" data-game="dino"     onclick="setLobbyFilter(this)">&#9889; RUNNER</button>
-        <button class="gf-btn" data-game="frogger"  onclick="setLobbyFilter(this)">&#128056; FROGGER</button>
-        <button class="gf-btn" data-game="snake"    onclick="setLobbyFilter(this)">&#128013; SNAKE</button>
+        <button class="gf-btn" data-game="frogger"  onclick="setLobbyFilter(this)">&#128056; FEELIN' FROGGY</button>
+        <button class="gf-btn" data-game="snake"    onclick="setLobbyFilter(this)">&#128013; SLITHERING SERPENT</button>
         <button class="gf-btn" data-game="pong"     onclick="setLobbyFilter(this)">&#127934; PONG</button>
         <button class="gf-btn" data-game="invaders" onclick="setLobbyFilter(this)">&#128125; INVADERS</button>
         <button class="gf-btn" data-game="mario"    onclick="setLobbyFilter(this)">&#127812; BROS</button>
-        <button class="gf-btn" data-game="fighter"  onclick="setLobbyFilter(this)">&#129354; FIGHTER</button>
+        <button class="gf-btn" data-game="fighter"  onclick="setLobbyFilter(this)">&#129354; READY. SET. FIGHT.</button>
       </div>
 
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
@@ -334,7 +334,7 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
 </div>
 
 <script>
-const GAME_LABELS = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner', invaders:'Space Invaders', mario:'Monet Bros', fighter:'Fighter' };
+const GAME_LABELS = { frogger:"Feelin' Froggy", snake:'Slithering Serpent', pacman:'Rawr-man', pong:'Pong', dino:'Runner', invaders:'Space Invaders', mario:'Monet Bros', fighter:'Ready. Set. Fight.' };
 
 let selectedH2HGame  = 'pacman';
 let selectedH2HWager = 5;

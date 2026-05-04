@@ -94,14 +94,14 @@ select:focus, input:focus { outline:none; border-color:#a855ff; }
     <div class="card-title">&#9998; CREATE TOURNAMENT</div>
     <div class="create-row">
       <select id="t-game">
-        <option value="frogger">&#128056; Frogger</option>
-        <option value="snake">&#128013; Snake</option>
-        <option value="pacman">&#128049; Pac-Man</option>
+        <option value="frogger">&#128056; Feelin' Froggy</option>
+        <option value="snake">&#128013; Slithering Serpent</option>
+        <option value="pacman">&#128049; Rawr-man</option>
         <option value="pong">&#127934; Pong</option>
         <option value="dino">&#9889; Runner</option>
         <option value="invaders">&#128125; Space Invaders</option>
         <option value="mario">&#127812; Monet Bros</option>
-        <option value="fighter">&#129354; Fighter</option>
+        <option value="fighter">&#129354; Ready. Set. Fight.</option>
       </select>
       <select id="t-size">
         <option value="4">4 players</option>
@@ -155,7 +155,7 @@ function renderTourneyCard(t) {
   const pct       = t.players.length / t.maxPlayers;
   const isIn      = WalletState.connected && t.players.find(p => p.wallet === WalletState.address);
   const timeLeft  = t.endTime ? Math.max(0, Math.floor((t.endTime - Date.now()) / 60000)) : null;
-  const gameLabel = { frogger:'Frogger', snake:'Snake', pacman:'Pac-Man', pong:'Pong', dino:'Runner' }[t.game] || t.game;
+  const gameLabel = { frogger:"Feelin' Froggy", snake:'Slithering Serpent', pacman:'Rawr-man', pong:'Pong', dino:'Runner', fighter:'Ready. Set. Fight.' }[t.game] || t.game;
 
   let winners = '';
   if (t.status === 'complete' && t.winners.length) {
