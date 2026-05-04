@@ -18,5 +18,26 @@
     "payoutTxId": null,
     "createdAt": 1777847085394,
     "expiresAt": 1777933485395
+  },
+  {
+    "id": "morr54j9ti6g",
+    "code": "H77BJE",
+    "game": "mario",
+    "player1": {
+      "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
+      "txId": "4mbgxrgjCji132868TC8ppyeMJSZP7vQUGSbFZsbyRtT8NFSPiUwGixLQWDsmLy8ruJtV4oFy8pPBmXfCTu7Xjeg",
+      "paymentType": "monet",
+      "score": null,
+      "submittedAt": null
+    },
+    "player2": null,
+    "entryFee": 5,
+    "pot": 8,
+    "rake": 2,
+    "status": "open",
+    "winner": null,
+    "payoutTxId": null,
+    "createdAt": 1777932561717,
+    "expiresAt": 1778018961717
   }
 ]

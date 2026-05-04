@@ -1278,7 +1278,12 @@ async function arcadeSubmitScore(gameName, score) {
   const urlParams     = new URLSearchParams(location.search);
   const challengeCode = urlParams.get('challenge');
   const tournamentId  = urlParams.get('tournament');
-  const cpuGameId     = urlParams.get('cpuGameId');
+
+  // CPU game ID: prefer URL param (legacy redirect path), fall back to sessionStorage
+  // The lobby stores cpu_session after payment so the ID survives without a URL change.
+  const cpuSession = JSON.parse(sessionStorage.getItem('cpu_session') || 'null');
+  const cpuGameId  = urlParams.get('cpuGameId')
+    || (cpuSession && (!cpuSession.game || cpuSession.game === gameName) ? cpuSession.cpuGameId : null);
 
   // Check sessionStorage for an active challenge session scoped to this game
   const cs = JSON.parse(sessionStorage.getItem('challenge_session') || 'null');
@@ -1287,6 +1292,7 @@ async function arcadeSubmitScore(gameName, score) {
   if (cpuGameId) {
     try {
       const result = await api('/api/cpu/submit', 'POST', { cpuGameId, wallet: WalletState.address, playerScore: score });
+      sessionStorage.removeItem('cpu_session');
       _showCpuResult(result, score);
     } catch(e) { console.warn('[ARCADE] CPU submit error:', e.message); }
   } else if (challengeCode || csActive) {

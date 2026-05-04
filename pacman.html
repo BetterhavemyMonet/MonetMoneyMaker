@@ -105,8 +105,8 @@ function startGame(){
 }
 
 function resetPositions(){
-  player={col:10,row:16,x:10*CELL+CELL/2,y:16*CELL+CELL/2,dx:0,dy:0,mouthAngle:0.25,mouthDir:1,powered:false,powerTimer:0,dead:false};
-  nextDir={dx:0,dy:0};
+  player={col:10,row:16,x:10*CELL+CELL/2,y:16*CELL+CELL/2,dx:1,dy:0,mouthAngle:0.25,mouthDir:1,powered:false,powerTimer:0,dead:false};
+  nextDir={dx:1,dy:0};
   ghosts=GHOST_STARTS.map((s,i)=>({
     col:s[0],row:s[1],x:s[0]*CELL+CELL/2,y:s[1]*CELL+CELL/2,
     dx:0,dy:i%2?1:-1,color:GHOST_COLORS[i],

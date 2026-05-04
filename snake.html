@@ -195,7 +195,7 @@ GamepadMgr.on('start', () => startGame());
 document.addEventListener('DOMContentLoaded', () => {
   const isCpu = new URLSearchParams(location.search).get('cpu');
   if (!isCpu) {
-    showGameLobby('snake', () => {});
+    showGameLobby('snake', () => startGame());
   }
 });
 </script>
