@@ -905,6 +905,9 @@ async function buyItem(itemId, paymentType){
       txId = await payShopItem(item.monetPrice, itemId);
     }
     if(spinEl) spinEl.innerHTML = `<div class="shop-spin">⏳ CONFIRMING...</div>`;
+    // Clear game session so shop payment doesn't contaminate an active game entry
+    sessionStorage.removeItem('game_session');
+
     const r = await fetch('/api/shop/purchase', {
       method:'POST',
       headers:{'Content-Type':'application/json'},

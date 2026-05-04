@@ -892,13 +892,13 @@ app.post('/api/shop/purchase', async (req, res) => {
   if (purchases.some(p => p.wallet === wallet && p.itemId === itemId)) return res.json({ ok: true, alreadyOwned: true });
 
   try {
-    if (paymentType === 'sol') { await verifySOLPayment(txId); }
+    if (paymentType === 'sol') { await verifySOLPayment(txId, item.lamports); }
     else { await verifyEntryFee(txId, item.monetPrice); }
   } catch (e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
   purchases.push({ wallet, txId, itemId, paymentType: paymentType || 'monet', purchasedAt: Date.now() });
   dbWrite('shop_purchases', purchases);
-  console.log(`[SHOP] ${wallet.slice(0,8)} purchased ${itemId} via ${paymentType || 'monet'}`);
+  console.log(`[SHOP] ${wallet.slice(0,8)} purchased ${itemId} via ${paymentType || 'monet'} (${paymentType === 'sol' ? item.lamports + ' lam' : item.monetPrice + ' MONET'})`);
   res.json({ ok: true, item });
 });
 
