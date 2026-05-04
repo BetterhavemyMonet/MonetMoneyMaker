@@ -80,6 +80,48 @@
 
 .dpad-left  { opacity: 0.3; pointer-events: none; }
 .dpad-right { opacity: 0.3; pointer-events: none; }
+
+/* ── Shop tab ── */
+#sec-shop { overflow-y: auto; align-items: center; padding: 8px 12px; gap: 8px; }
+.shop-title { font-family:'Orbitron',sans-serif; font-size:13px; font-weight:800;
+  background:linear-gradient(90deg,#a855ff,#ffd700); -webkit-background-clip:text;
+  -webkit-text-fill-color:transparent; margin:4px 0 2px; }
+.shop-sub { color:#888; font-size:10px; margin-bottom:6px; }
+.shop-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; width:100%; max-width:520px; }
+.shop-card {
+  background:rgba(255,255,255,0.04); border:1px solid #333; border-radius:12px;
+  padding:10px 10px 8px; display:flex; flex-direction:column; gap:4px;
+  transition:border-color .2s;
+}
+.shop-card.owned { border-color:#00ff9d55; background:rgba(0,255,157,0.04); }
+.shop-card-icon { font-size:22px; line-height:1; }
+.shop-card-name { font-family:'Orbitron',sans-serif; font-size:10px; font-weight:800; color:#fff; }
+.shop-card-desc { font-size:9px; color:#888; line-height:1.4; flex:1; }
+.shop-card-prices { display:flex; flex-direction:column; gap:3px; margin-top:4px; }
+.shop-btn {
+  border:none; border-radius:7px; cursor:pointer; font-family:'Orbitron',sans-serif;
+  font-size:8px; font-weight:800; padding:5px 6px; transition:filter .15s;
+}
+.shop-btn:hover:not(:disabled) { filter:brightness(1.25); }
+.shop-btn:disabled { opacity:0.4; cursor:default; }
+.shop-btn-monet { background:linear-gradient(135deg,#a855ff,#7c3aed); color:#fff; }
+.shop-btn-sol   { background:linear-gradient(135deg,#00f0ff22,#00f0ff11); color:#00f0ff;
+                  border:1px solid #00f0ff55; }
+.shop-owned-badge { text-align:center; padding:5px; font-family:'Orbitron',sans-serif;
+  font-size:9px; color:#00ff9d; background:rgba(0,255,157,0.1); border-radius:7px; }
+.shop-spin { font-size:9px; color:#a855ff; font-family:'Orbitron',sans-serif; text-align:center; }
+.shop-wallet-note { color:#888; font-size:10px; text-align:center; margin:4px 0; }
+
+/* Premium grid rows */
+.premium-section { margin-top:8px; width:100%; max-width:580px; }
+.premium-label { font-family:'Orbitron',sans-serif; font-size:8px; color:#a855ff;
+  margin:4px 0 2px; text-align:left; display:flex; align-items:center; gap:4px; }
+.gc.premium-0 { background:#111; }
+.gc.premium-0.on { background:#ff3333; box-shadow:0 0 6px #ff3333; }
+.gc.premium-1.on { background:#ffd700; box-shadow:0 0 6px #ffd700; }
+.gc.premium-2.on { background:#00ffff; box-shadow:0 0 8px #00ffff88; }
+.gc.premium-3.on { background:#ff8800; box-shadow:0 0 6px #ff8800; }
+.gc.premium-4.on { background:#ff00ff; box-shadow:0 0 8px #ff00ff88; }
 </style>
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
@@ -92,6 +134,7 @@
     <button class="tab active" onclick="switchTab('play')">PLAY</button>
     <button class="tab" onclick="switchTab('create')">CREATE</button>
     <button class="tab" onclick="switchTab('challenge')">CHALLENGE</button>
+    <button class="tab" onclick="switchTab('shop')">SHOP</button>
   </div>
 
   <!-- PLAY TAB -->
@@ -110,13 +153,28 @@
   <!-- CREATE TAB -->
   <div class="section" id="sec-create">
     <p>Place obstacles across 40 slots. Share your code!</p>
-    <div class="legend">
+    <div class="legend" id="freeLegend">
       <span><span class="leg-dot" style="background:#00ff9d"></span>Short</span>
       <span><span class="leg-dot" style="background:#a855ff"></span>Tall</span>
       <span><span class="leg-dot" style="background:#00f0ff"></span>Bird</span>
     </div>
-    <div class="row-label" style="max-width:580px;margin:0 auto;padding-left:4px">Row 1: Bird &nbsp; Row 2: Tall &nbsp; Row 3: Short</div>
-    <div class="creator-grid-wrap"><div id="creatorGrid"></div></div>
+    <div class="creator-grid-wrap" id="freeGridWrap">
+      <div style="font-size:8px;color:#888;text-align:left;margin-bottom:2px;font-family:Orbitron,sans-serif">FREE ITEMS</div>
+      <div id="creatorGrid"></div>
+    </div>
+
+    <!-- Premium item rows (shown per purchased item) -->
+    <div class="premium-section" id="premiumGridWrap" style="display:none">
+      <div class="premium-label">🔒 PREMIUM ITEMS <span style="color:#888;font-weight:400">(purchased)</span></div>
+      <div class="creator-grid-wrap"><div id="premiumGrid"></div></div>
+    </div>
+
+    <!-- Holder item rows (shown when 100+ MONET held) -->
+    <div class="premium-section" id="holderGridWrap" style="display:none">
+      <div class="premium-label">👑 HOLDER EXCLUSIVES <span style="color:#888;font-weight:400">(100+ MONET)</span></div>
+      <div class="creator-grid-wrap"><div id="holderGrid"></div></div>
+    </div>
+
     <div>
       <button class="sec-btn" onclick="clearGrid()">CLEAR</button>
       <button class="sec-btn" onclick="testLevel()">TEST LEVEL</button>
@@ -145,6 +203,29 @@
       </div>
     </div>
     <button class="sec-btn" onclick="location.href='arcade.html'">&#8592; Arcade</button>
+  </div>
+
+  <!-- SHOP TAB -->
+  <div class="section" id="sec-shop">
+    <div class="shop-title">MONET MAKER SHOP</div>
+    <div class="shop-sub">Unlock premium obstacles for your levels · payments go to Treasury</div>
+
+    <div style="background:rgba(255,215,0,0.07);border:1px solid #ffd70033;border-radius:10px;padding:8px 12px;max-width:520px;width:100%;text-align:center;font-size:10px;color:#ffd700;font-family:Orbitron,sans-serif" id="holderBanner" style="display:none">
+      👑 HOLDER EXCLUSIVES — You hold 100+ MONET. Exclusive items unlocked in CREATE tab!
+    </div>
+
+    <div style="color:#a855ff;font-family:Orbitron,sans-serif;font-size:10px;font-weight:800;margin:6px 0 2px;align-self:flex-start;max-width:520px;width:100%">PURCHASABLE ITEMS</div>
+    <div class="shop-grid" id="shopGrid">
+      <div style="color:#888;font-size:10px;font-family:Orbitron,sans-serif">Loading...</div>
+    </div>
+
+    <div style="color:#ffd700;font-family:Orbitron,sans-serif;font-size:10px;font-weight:800;margin:10px 0 2px;align-self:flex-start;max-width:520px;width:100%">👑 HOLDER EXCLUSIVES — FREE WITH 100+ MONET</div>
+    <div class="shop-grid" id="holderShopGrid">
+      <div style="color:#888;font-size:10px;font-family:Orbitron,sans-serif">Loading...</div>
+    </div>
+
+    <div id="shopWalletNote" class="shop-wallet-note" style="display:none">Connect wallet to purchase items or check holder status</div>
+    <button class="sec-btn" onclick="location.href='arcade.html'" style="margin-top:8px">&#8592; Arcade</button>
   </div>
 </div>
 
@@ -189,13 +270,13 @@ const W=canvas.width, H=canvas.height;
 
 function switchTab(t) {
   document.querySelectorAll('.tab').forEach((b,i)=>{
-    b.classList.toggle('active',['play','create','challenge'][i]===t);
+    b.classList.toggle('active',['play','create','challenge','shop'][i]===t);
   });
   document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));
   document.getElementById('sec-'+t).classList.add('active');
-  // Show controller only in play tab
   document.getElementById('ctrlArea').classList.toggle('hidden', t!=='play');
-  if(t==='create') buildGrid();
+  if(t==='create') buildAllGrids();
+  if(t==='shop')   renderShop();
 }
 
 let player, obstacles, coins, portals, score, speed, frameCount, gameRunning, animId, groundX=0, totalCoins=0;
@@ -446,29 +527,136 @@ obstacles=[];coins=[];portals=[];
 })();
 
 // ─── LEVEL CREATOR ────────────────────────────────────────────────────────────
-const SLOTS=40,ROWS_C=3;
-let grid=Array.from({length:ROWS_C},()=>new Array(SLOTS).fill(false));
-let lastGenCode='';
+const SLOTS=40, MAX_ROWS=11;
+// Rows 0-2: free  |  3-7: premium (purchased)  |  8-10: holder (100+ MONET)
+const FREE_ROWS    = 3;
+const PREMIUM_ROWS = [3,4,5,6,7]; // row index → item id mapping below
+const HOLDER_ROWS  = [8,9,10];
 
-function buildGrid(){
+const PREMIUM_DEFS = [
+  { id:'spike_wall',   row:3, label:'🔺 Spike Wall',   color:'#ff3333' },
+  { id:'mega_bird',    row:4, label:'🦅 Mega Bird',    color:'#ffd700' },
+  { id:'speed_burst',  row:5, label:'⚡ Speed Burst',  color:'#00ffff' },
+  { id:'double_stack', row:6, label:'📦 Double Stack', color:'#ff8800' },
+  { id:'boss_block',   row:7, label:'💀 Boss Block',   color:'#ff00ff' },
+];
+const HOLDER_DEFS = [
+  { row:8,  label:'💎 Crystal',    color:'#88ffee' },
+  { row:9,  label:'🌙 Moon Rock',  color:'#ccddff' },
+  { row:10, label:'🔴 Laser Gate', color:'#ff2244' },
+];
+
+let grid=Array.from({length:MAX_ROWS},()=>new Array(SLOTS).fill(false));
+let lastGenCode='';
+let _ownedItems=[];   // item ids from server
+let _isHolder=false;  // true if wallet has 100+ MONET
+
+function buildFreeGrid(){
   const g=document.getElementById('creatorGrid');g.innerHTML='';
-  for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++){
+  for(let r=0;r<FREE_ROWS;r++) for(let s=0;s<SLOTS;s++){
     const cell=document.createElement('div');
-    cell.className='gc';cell.dataset.r=r;cell.dataset.s=s;cell.dataset.t=r;
-    if(grid[r][s]) cell.classList.add('on');
-    cell.addEventListener('click',()=>{grid[r][s]=!grid[r][s];cell.classList.toggle('on',grid[r][s]);});
+    const colors=['#00ff9d','#a855ff','#00f0ff'];
+    cell.className='gc';cell.dataset.r=r;cell.dataset.s=s;
+    if(grid[r][s]){ cell.classList.add('on'); cell.style.background=colors[r]; cell.style.boxShadow=`0 0 4px ${colors[r]}`; }
+    cell.addEventListener('click',()=>{
+      grid[r][s]=!grid[r][s];
+      cell.classList.toggle('on',grid[r][s]);
+      cell.style.background=grid[r][s]?colors[r]:'';
+      cell.style.boxShadow=grid[r][s]?`0 0 4px ${colors[r]}`:'';
+    });
     g.appendChild(cell);
   }
 }
-function clearGrid(){grid=Array.from({length:ROWS_C},()=>new Array(SLOTS).fill(false));buildGrid();document.getElementById('codeOut').style.display='none';}
-function encodeLevel(g){let pairs=[];for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++) if(g[r][s]) pairs.push([s,r]);return btoa(JSON.stringify(pairs));}
+
+function buildPremiumGrid(){
+  const wrap=document.getElementById('premiumGridWrap');
+  const g=document.getElementById('premiumGrid');g.innerHTML='';
+  const owned=PREMIUM_DEFS.filter(d=>_ownedItems.includes(d.id));
+  wrap.style.display=owned.length?'block':'none';
+  owned.forEach(def=>{
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-size:8px;color:#a855ff;font-family:Orbitron,sans-serif;margin:4px 0 2px;text-align:left';
+    lbl.textContent=def.label;
+    g.appendChild(lbl);
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:2px;margin-bottom:2px;overflow-x:auto';
+    for(let s=0;s<SLOTS;s++){
+      const cell=document.createElement('div');
+      cell.className='gc';cell.dataset.r=def.row;cell.dataset.s=s;
+      if(grid[def.row][s]){ cell.classList.add('on'); cell.style.background=def.color; cell.style.boxShadow=`0 0 5px ${def.color}`; }
+      cell.addEventListener('click',()=>{
+        grid[def.row][s]=!grid[def.row][s];
+        cell.classList.toggle('on',grid[def.row][s]);
+        cell.style.background=grid[def.row][s]?def.color:'';
+        cell.style.boxShadow=grid[def.row][s]?`0 0 5px ${def.color}`:'';
+      });
+      row.appendChild(cell);
+    }
+    g.appendChild(row);
+  });
+}
+
+function buildHolderGrid(){
+  const wrap=document.getElementById('holderGridWrap');
+  const g=document.getElementById('holderGrid');g.innerHTML='';
+  wrap.style.display=_isHolder?'block':'none';
+  if(!_isHolder) return;
+  HOLDER_DEFS.forEach(def=>{
+    const lbl=document.createElement('div');
+    lbl.style.cssText='font-size:8px;color:#ffd700;font-family:Orbitron,sans-serif;margin:4px 0 2px;text-align:left';
+    lbl.textContent=def.label;
+    g.appendChild(lbl);
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;gap:2px;margin-bottom:2px;overflow-x:auto';
+    for(let s=0;s<SLOTS;s++){
+      const cell=document.createElement('div');
+      cell.className='gc';cell.dataset.r=def.row;cell.dataset.s=s;
+      if(grid[def.row][s]){ cell.classList.add('on'); cell.style.background=def.color; cell.style.boxShadow=`0 0 5px ${def.color}`; }
+      cell.addEventListener('click',()=>{
+        grid[def.row][s]=!grid[def.row][s];
+        cell.classList.toggle('on',grid[def.row][s]);
+        cell.style.background=grid[def.row][s]?def.color:'';
+        cell.style.boxShadow=grid[def.row][s]?`0 0 5px ${def.color}`:'';
+      });
+      row.appendChild(cell);
+    }
+    g.appendChild(row);
+  });
+}
+
+async function buildAllGrids(){
+  // Refresh owned items and holder status from wallet
+  if(window.WalletState && WalletState.connected && WalletState.address){
+    _isHolder = (WalletState.monetBalance || 0) >= 100;
+    try {
+      const r=await fetch(`/api/shop/owned/${WalletState.address}`);
+      if(r.ok){ const d=await r.json(); _ownedItems=d.owned||[]; }
+    } catch(_){}
+  } else {
+    _isHolder=false; _ownedItems=[];
+  }
+  buildFreeGrid();
+  buildPremiumGrid();
+  buildHolderGrid();
+}
+
+function clearGrid(){
+  grid=Array.from({length:MAX_ROWS},()=>new Array(SLOTS).fill(false));
+  buildAllGrids();
+  document.getElementById('codeOut').style.display='none';
+}
+function encodeLevel(g){
+  let pairs=[];
+  for(let r=0;r<MAX_ROWS;r++) for(let s=0;s<SLOTS;s++) if(g[r][s]) pairs.push([s,r]);
+  return btoa(JSON.stringify(pairs));
+}
 function decodeLevel(code){try{return JSON.parse(atob(code));}catch(e){return null;}}
 function generateCode(){lastGenCode=encodeLevel(grid);document.getElementById('levelCode').value=lastGenCode;document.getElementById('codeOut').style.display='block';}
 function copyCode(){navigator.clipboard.writeText(document.getElementById('levelCode').value);alert('Level code copied!');}
 function testLevel(){
-  const pairs=[];
-  for(let r=0;r<ROWS_C;r++) for(let s=0;s<SLOTS;s++) if(grid[r][s]) pairs.push([s,r]);
-  if(pairs.length===0){alert('Add some obstacles first!');return;}
+  let hasSomething=false;
+  for(let r=0;r<MAX_ROWS;r++) for(let s=0;s<SLOTS;s++) if(grid[r][s]){hasSomething=true;break;}
+  if(!hasSomething){alert('Add some obstacles first!');return;}
   lastGenCode=encodeLevel(grid);
   switchTab('play');
   if(animId) cancelAnimationFrame(animId);
@@ -479,15 +667,27 @@ function testLevel(){
   playCustomLevel(lastGenCode,ctx,canvas,'msg','score');
 }
 
+// ─── All obstacle type definitions (free + premium + holder) ──────────────────
 function obsFromPair(pair,canvasW){
   const[slot,type]=pair;
-  const defs=[
-    {w:18,h:38,dy:-38,color:'#00ff9d',bird:false},
-    {w:22,h:52,dy:-52,color:'#a855ff',bird:false},
-    {w:30,h:20,dy:-80,color:'#00f0ff',bird:true},
-  ];
+  const defs={
+    // FREE
+    0:{w:18,h:38,dy:-38,color:'#00ff9d',bird:false,special:null},
+    1:{w:22,h:52,dy:-52,color:'#a855ff',bird:false,special:null},
+    2:{w:30,h:20,dy:-80,color:'#00f0ff',bird:true, special:null},
+    // PREMIUM
+    3:{w:12,h:65,dy:-65,color:'#ff3333',bird:false,special:'spike'},
+    4:{w:52,h:34,dy:-108,color:'#ffd700',bird:true, special:'mega'},
+    5:{w:28,h:80,dy:-80,color:'#00eeff',bird:false,special:'speed'},
+    6:{w:26,h:30,dy:-30,color:'#ff8800',bird:false,special:'double'},
+    7:{w:54,h:88,dy:-88,color:'#ff00ff',bird:false,special:'boss'},
+    // HOLDER
+    8:{w:22,h:44,dy:-44,color:'#88ffee',bird:false,special:'crystal'},
+    9:{w:38,h:38,dy:-106,color:'#ccddff',bird:true, special:'moon'},
+   10:{w:16,h:160,dy:-160,color:'#ff2244',bird:false,special:'laser'},
+  };
   const d=defs[type]||defs[0];
-  return{x:canvasW+80+slot*120,y:GROUND+d.dy,w:d.w,h:d.h,color:d.color,bird:d.bird};
+  return{x:canvasW+80+slot*120,y:GROUND+d.dy,w:d.w,h:d.h,color:d.color,bird:d.bird,special:d.special};
 }
 
 function playCustomLevel(code,c,cv,msgId,scoreId){
@@ -599,6 +799,134 @@ function saveScore(s){
   lb.sort((a,b)=>b.score-a.score);
   localStorage.setItem('leaderboard',JSON.stringify(lb.slice(0,20)));
 }
+
+// ─── Shop rendering ───────────────────────────────────────────────────────────
+const PURCHASABLE_SHOP = [
+  { id:'spike_wall',   name:'Spike Wall',   icon:'🔺', desc:'Extra-tall red barrier, narrow & deadly',      monetPrice:1, lamports:300_000,  solLabel:'~$0.05' },
+  { id:'mega_bird',    name:'Mega Bird',    icon:'🦅', desc:'Giant gold bird that dominates airspace',       monetPrice:1, lamports:300_000,  solLabel:'~$0.05' },
+  { id:'speed_burst',  name:'Speed Burst',  icon:'⚡', desc:'Zone that triples runner speed for 2 seconds', monetPrice:2, lamports:600_000,  solLabel:'~$0.10' },
+  { id:'double_stack', name:'Double Stack', icon:'📦', desc:'Ground + air combo — jump AND duck required',   monetPrice:2, lamports:600_000,  solLabel:'~$0.10' },
+  { id:'boss_block',   name:'Boss Block',   icon:'💀', desc:'Massive pulsing wall — nearly unsurvivable',   monetPrice:3, lamports:900_000,  solLabel:'~$0.15' },
+];
+const HOLDER_SHOP = [
+  { id:'crystal',    name:'Crystal',    icon:'💎', desc:'Prismatic gem hazard — dazzles and destroys'    },
+  { id:'moon_rock',  name:'Moon Rock',  icon:'🌙', desc:'Orbiting moon obstacle at high altitude'        },
+  { id:'laser_gate', name:'Laser Gate', icon:'🔴', desc:'Full-height laser beam — no gap to squeeze past' },
+];
+
+async function renderShop(){
+  const connected = window.WalletState && WalletState.connected;
+  const balance   = connected ? (WalletState.monetBalance || 0) : 0;
+  const isHolder  = balance >= 100;
+
+  // Banner
+  const banner = document.getElementById('holderBanner');
+  if(banner) banner.style.display = isHolder ? 'block' : 'none';
+
+  // Wallet note
+  const note = document.getElementById('shopWalletNote');
+  if(note) note.style.display = connected ? 'none' : 'block';
+
+  // Load owned items
+  let owned = [];
+  if(connected && WalletState.address){
+    try {
+      const r = await fetch(`/api/shop/owned/${WalletState.address}`);
+      if(r.ok){ const d = await r.json(); owned = d.owned||[]; }
+    } catch(_){}
+    _ownedItems = owned;
+    _isHolder   = isHolder;
+  }
+
+  // Render purchasable grid
+  const sg = document.getElementById('shopGrid');
+  if(sg){
+    sg.innerHTML = '';
+    PURCHASABLE_SHOP.forEach(item => {
+      const isOwned = owned.includes(item.id);
+      const card = document.createElement('div');
+      card.className = 'shop-card' + (isOwned ? ' owned' : '');
+      card.innerHTML = `
+        <div class="shop-card-icon">${item.icon}</div>
+        <div class="shop-card-name">${item.name}</div>
+        <div class="shop-card-desc">${item.desc}</div>
+        <div class="shop-card-prices" id="shop-prices-${item.id}">
+          ${isOwned
+            ? `<div class="shop-owned-badge">✓ OWNED — unlocked in CREATE</div>`
+            : connected
+              ? `<button class="shop-btn shop-btn-monet" onclick="buyItem('${item.id}','monet')" id="btn-monet-${item.id}">BUY ${item.monetPrice} MONET</button>
+                 <button class="shop-btn shop-btn-sol"   onclick="buyItem('${item.id}','sol')"   id="btn-sol-${item.id}">BUY SOL ${item.solLabel}</button>`
+              : `<div style="font-size:9px;color:#666;font-family:Orbitron,sans-serif">Connect wallet to buy</div>`
+          }
+        </div>`;
+      sg.appendChild(card);
+    });
+  }
+
+  // Render holder grid
+  const hg = document.getElementById('holderShopGrid');
+  if(hg){
+    hg.innerHTML = '';
+    HOLDER_SHOP.forEach(item => {
+      const card = document.createElement('div');
+      card.className = 'shop-card' + (isHolder ? ' owned' : '');
+      card.innerHTML = `
+        <div class="shop-card-icon">${item.icon}</div>
+        <div class="shop-card-name">${item.name}</div>
+        <div class="shop-card-desc">${item.desc}</div>
+        <div class="shop-card-prices">
+          ${isHolder
+            ? `<div class="shop-owned-badge">✓ UNLOCKED — you hold ${Math.floor(balance)} MONET</div>`
+            : `<div style="font-size:9px;color:#888;font-family:Orbitron,sans-serif;text-align:center;padding:4px">🔒 Hold 100+ MONET to unlock<br><span style="color:#666">(current: ${Math.floor(balance)} MONET)</span></div>`
+          }
+        </div>`;
+      hg.appendChild(card);
+    });
+  }
+}
+
+async function buyItem(itemId, paymentType){
+  const item = PURCHASABLE_SHOP.find(i => i.id === itemId);
+  if(!item || !window.WalletState || !WalletState.connected) return;
+
+  const mBtn = document.getElementById(`btn-monet-${itemId}`);
+  const sBtn = document.getElementById(`btn-sol-${itemId}`);
+  if(mBtn) mBtn.disabled = true;
+  if(sBtn) sBtn.disabled = true;
+
+  const spinEl = document.getElementById(`shop-prices-${itemId}`);
+  if(spinEl) spinEl.innerHTML = `<div class="shop-spin">⏳ SIGNING...</div>`;
+
+  try {
+    let txId;
+    if(paymentType === 'sol'){
+      txId = await payShopItemSOL(item.lamports, itemId);
+    } else {
+      txId = await payShopItem(item.monetPrice, itemId);
+    }
+    if(spinEl) spinEl.innerHTML = `<div class="shop-spin">⏳ CONFIRMING...</div>`;
+    const r = await fetch('/api/shop/purchase', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ wallet: WalletState.address, txId, itemId, paymentType })
+    });
+    const d = await r.json();
+    if(!r.ok) throw new Error(d.error || 'Purchase failed');
+    if(spinEl) spinEl.innerHTML = `<div class="shop-owned-badge">✓ OWNED — unlocked in CREATE</div>`;
+    const card = spinEl?.closest('.shop-card');
+    if(card) card.classList.add('owned');
+    _ownedItems.push(itemId);
+  } catch(e){
+    if(spinEl) spinEl.innerHTML =
+      `<div style="color:#ff4444;font-size:9px;font-family:Orbitron,sans-serif;text-align:center">${e.message}</div>
+       <button class="shop-btn shop-btn-monet" onclick="buyItem('${itemId}','monet')">RETRY MONET</button>
+       <button class="shop-btn shop-btn-sol"   onclick="buyItem('${itemId}','sol')">RETRY SOL</button>`;
+  }
+}
+
+// Re-render shop/grids when wallet connects or balance updates
+document.addEventListener('walletConnected', ()=>{ renderShop(); });
+document.addEventListener('balanceUpdated',  ()=>{ renderShop(); });
 
 // ─── Gamepad support ──────────────────────────────────────────────────────────
 GamepadMgr.on('up',    () => jump());

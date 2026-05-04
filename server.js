@@ -859,6 +859,49 @@ app.get('/api/sol-entry-fee', (_req, res) => {
   res.json({ ok: true, lamports: SOL_ENTRY_LAMPORTS, sol: SOL_ENTRY_LAMPORTS / 1e9, approxUsd: 0.25 });
 });
 
+// ─── Monet Maker Shop ─────────────────────────────────────────────────────────
+const SHOP_ITEMS = [
+  { id: 'spike_wall',   name: 'Spike Wall',    desc: 'Razor-sharp red barrier — extra-tall & narrow',       monetPrice: 1, lamports:  300_000, row: 3, icon: '🔺', solLabel: '~$0.05' },
+  { id: 'mega_bird',    name: 'Mega Bird',     desc: 'Giant gold bird that dominates the airspace',          monetPrice: 1, lamports:  300_000, row: 4, icon: '🦅', solLabel: '~$0.05' },
+  { id: 'speed_burst',  name: 'Speed Burst',   desc: 'Cyan zone that triples runner speed for 2 seconds',    monetPrice: 2, lamports:  600_000, row: 5, icon: '⚡', solLabel: '~$0.10' },
+  { id: 'double_stack', name: 'Double Stack',  desc: 'Ground + air combo — requires both jump and duck',     monetPrice: 2, lamports:  600_000, row: 6, icon: '📦', solLabel: '~$0.10' },
+  { id: 'boss_block',   name: 'Boss Block',    desc: 'Massive pulsing wall — nearly impossible to survive',  monetPrice: 3, lamports:  900_000, row: 7, icon: '💀', solLabel: '~$0.15' },
+];
+
+app.get('/api/shop/items', (_req, res) => {
+  res.json({ items: SHOP_ITEMS });
+});
+
+app.get('/api/shop/owned/:wallet', (req, res) => {
+  const { wallet } = req.params;
+  if (!wallet) return res.status(400).json({ error: 'wallet required' });
+  const purchases = dbRead('shop_purchases');
+  const owned = [...new Set(purchases.filter(p => p.wallet === wallet).map(p => p.itemId))];
+  res.json({ owned });
+});
+
+app.post('/api/shop/purchase', async (req, res) => {
+  const { wallet, txId, itemId, paymentType } = req.body;
+  if (!wallet || !txId || !itemId) return res.status(400).json({ error: 'wallet, txId, itemId required' });
+
+  const item = SHOP_ITEMS.find(i => i.id === itemId);
+  if (!item) return res.status(400).json({ error: 'Unknown item' });
+
+  const purchases = dbRead('shop_purchases');
+  if (purchases.some(p => p.txId === txId)) return res.status(400).json({ error: 'Transaction already used' });
+  if (purchases.some(p => p.wallet === wallet && p.itemId === itemId)) return res.json({ ok: true, alreadyOwned: true });
+
+  try {
+    if (paymentType === 'sol') { await verifySOLPayment(txId); }
+    else { await verifyEntryFee(txId, item.monetPrice); }
+  } catch (e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
+
+  purchases.push({ wallet, txId, itemId, paymentType: paymentType || 'monet', purchasedAt: Date.now() });
+  dbWrite('shop_purchases', purchases);
+  console.log(`[SHOP] ${wallet.slice(0,8)} purchased ${itemId} via ${paymentType || 'monet'}`);
+  res.json({ ok: true, item });
+});
+
 // ─── Terms acceptance log ─────────────────────────────────────────────────────
 app.post('/api/terms/accept', (req, res) => {
   const { username } = req.body || {};

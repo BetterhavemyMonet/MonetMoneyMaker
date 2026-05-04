@@ -750,6 +750,16 @@ async function payEntryFeeSOL(gameName, onProgress, lamports) {
 
 window.payEntryFeeSOL = payEntryFeeSOL;
 
+// ─── Pay Shop Item (MONET or SOL) ─────────────────────────────────────────────
+async function payShopItem(amountMonet, itemId, onProgress) {
+  return payEntryFee(`SHOP_${(itemId || 'ITEM').toUpperCase()}`, onProgress, amountMonet);
+}
+async function payShopItemSOL(lamports, itemId, onProgress) {
+  return payEntryFeeSOL(`SHOP_${(itemId || 'ITEM').toUpperCase()}`, onProgress, lamports);
+}
+window.payShopItem    = payShopItem;
+window.payShopItemSOL = payShopItemSOL;
+
 // ─── Record Win / Claim ───────────────────────────────────────────────────────
 function recordWin(gameName, score) {
   const session = JSON.parse(sessionStorage.getItem('game_session') || 'null');
