@@ -84,7 +84,7 @@ const BASE_MAP=[
   [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ];
 
-let map, player, ghosts, score, lives, level, gameRunning, animId, frameCount, nextDir;
+let map, player, ghosts, score, lives, level, gameRunning, animId, frameCount, nextDir, transitioning;
 
 const GHOST_COLORS=['#ff4444','#ffb8ff','#00ffff','#ffb852'];
 // Start ghosts outside the ghost house at maze corridor positions
@@ -94,7 +94,7 @@ function makeMap(){ return BASE_MAP.map(row=>row.map(c=>c===1?1:c===3?3:c===2?2:
 function countDots(m){ return m.reduce((a,r)=>a+r.reduce((b,c)=>b+(c===2||c===3?1:0),0),0); }
 
 function startGame(){
-  map=makeMap(); score=0; lives=3; level=1; gameRunning=true; frameCount=0;
+  map=makeMap(); score=0; lives=3; level=1; gameRunning=true; frameCount=0; transitioning=false;
   resetPositions();
   document.getElementById('msg').textContent='';
   document.getElementById('score').textContent=0;
@@ -105,7 +105,8 @@ function startGame(){
 }
 
 function resetPositions(){
-  player={col:10,row:16,x:10*CELL+CELL/2,y:16*CELL+CELL/2,dx:1,dy:0,mouthAngle:0.25,mouthDir:1,powered:false,powerTimer:0,dead:false};
+  player={col:10,row:16,x:10*CELL+CELL/2,y:16*CELL+CELL/2,dx:1,dy:0,mouthAngle:0.25,mouthDir:1,powered:false,powerTimer:0,dead:false,invincible:120};
+  transitioning=false;
   nextDir={dx:1,dy:0};
   ghosts=GHOST_STARTS.map((s,i)=>({
     col:s[0],row:s[1],x:s[0]*CELL+CELL/2,y:s[1]*CELL+CELL/2,
@@ -145,12 +146,14 @@ function update(){
     player.powerTimer--;
     if(player.powerTimer<=0){player.powered=false;ghosts.forEach(g=>g.frightened=false);}
   }
-  // Guards: ghosts only move while gameRunning (already guarded by top return)
+  if(player.invincible>0) player.invincible--;
+  // Skip ghost movement and collision while dead or transitioning between levels
+  if(player.dead||transitioning) return;
   ghosts.forEach(g=>moveGhost(g));
   ghosts.forEach(g=>{
     const dx=player.x-g.x,dy=player.y-g.y;
     if(Math.sqrt(dx*dx+dy*dy)<CELL*0.8){
-      if(g.frightened){eatGhost(g);}else if(!player.dead){killPlayer();}
+      if(g.frightened){eatGhost(g);}else if(player.invincible<=0){killPlayer();}
     }
   });
   if(countDots(map)===0) nextLevel();
@@ -178,6 +181,8 @@ function eatGhost(g){
 }
 
 function killPlayer(){
+  if(player.dead) return;
+  player.dead=true;
   lives--;document.getElementById('lives').textContent=lives;
   if(lives<=0){gameOver();return;}
   setTimeout(()=>resetPositions(),1000);
@@ -191,9 +196,10 @@ function gameOver(){
 }
 
 function nextLevel(){
+  transitioning=true;
   level++;document.getElementById('lvl').textContent=level;score+=level*200;
   document.getElementById('score').textContent=score;
-  setTimeout(()=>{map=makeMap();resetPositions();},1000);
+  setTimeout(()=>{map=makeMap();resetPositions();},1200);
 }
 
 function moveGhost(g){
@@ -283,6 +289,18 @@ function draw(){
     }
   }
   if(!player) return;
+  // Death flash: blink player red then hide
+  if(player.dead){
+    if(Math.floor(frameCount/6)%2===0){
+      ctx.save();ctx.translate(player.x,player.y);
+      ctx.fillStyle='rgba(255,60,60,0.7)';ctx.shadowColor='#ff3333';ctx.shadowBlur=20;
+      ctx.beginPath();ctx.arc(0,0,CELL/2+4,0,Math.PI*2);ctx.fill();
+      ctx.restore();
+    }
+    return;
+  }
+  // Invincibility flash: blink player every 8 frames
+  if(player.invincible>0&&Math.floor(frameCount/8)%2===0) return;
   ctx.save();ctx.translate(player.x,player.y);
   const rot=Math.atan2(player.dy,player.dx)||0;ctx.rotate(rot);
   const PR=CELL/2+9;
