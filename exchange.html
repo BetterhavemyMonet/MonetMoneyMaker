@@ -83,17 +83,17 @@ body::before {
 
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
-<script src="https://terminal.jup.ag/main-v4.js" data-preload></script>
+<script src="https://terminal.jup.ag/main-v3.js" data-preload></script>
 <script>
 renderWalletBar('walletBar');
 
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
 
-// RPC endpoints in priority order — fall through on failure
+// RPC endpoints in priority order
 const RPC_ENDPOINTS = [
-  'https://solana-rpc.publicnode.com',   // free, no key, reliable
-  'https://api.mainnet-beta.solana.com', // official fallback
+  'https://solana-rpc.publicnode.com',
+  'https://api.mainnet-beta.solana.com',
 ];
 
 document.addEventListener('balanceUpdated', () => {
@@ -105,7 +105,6 @@ document.addEventListener('walletConnected', () => {
   if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
 });
 
-// Test an RPC endpoint quickly
 async function testRpc(url) {
   try {
     const res = await fetch(url, {
@@ -119,19 +118,28 @@ async function testRpc(url) {
   } catch { return false; }
 }
 
-// Pick the fastest healthy RPC
 async function pickRpc() {
   for (const url of RPC_ENDPOINTS) {
-    const ok = await testRpc(url);
-    if (ok) return url;
+    if (await testRpc(url)) return url;
   }
-  return RPC_ENDPOINTS[0]; // fallback
+  return RPC_ENDPOINTS[0];
 }
 
 let _jupInited = false;
+let _initAttempts = 0;
 
 async function initJupiter(passThroughWallet) {
-  if (!window.Jupiter) { setTimeout(() => initJupiter(passThroughWallet), 400); return; }
+  if (_jupInited) return;
+  if (!window.Jupiter) {
+    _initAttempts++;
+    if (_initAttempts > 30) {
+      const el = document.getElementById('jupLoad');
+      if (el) el.textContent = 'Swap widget failed to load. Please refresh.';
+      return;
+    }
+    setTimeout(() => initJupiter(passThroughWallet), 400);
+    return;
+  }
 
   const endpoint = await pickRpc();
   document.getElementById('rpcBadge').textContent = 'RPC: ' + new URL(endpoint).hostname;
@@ -157,15 +165,20 @@ async function initJupiter(passThroughWallet) {
     _jupInited = true;
   } catch (e) {
     console.warn('[Exchange] Jupiter init error:', e);
+    const el = document.getElementById('jupLoad');
+    if (el) { el.style.display = ''; el.textContent = 'Swap widget error: ' + e.message; }
   }
 }
 
-// Init on load
+// Start polling for Jupiter (loaded via static script tag in <head>)
 initJupiter(null);
 
-// Re-init when wallet connects so Jupiter uses the connected wallet
 document.addEventListener('walletConnected', () => {
-  if (window.solana) initJupiter(window.solana);
+  if (window.solana) {
+    _jupInited = false;
+    _initAttempts = 0;
+    initJupiter(window.solana);
+  }
 });
 </script>
 </body>
