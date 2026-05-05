@@ -7,7 +7,7 @@
   const WAGER_PRESETS  = [5, 10, 25, 50];
   const POLL_INTERVAL  = 2500;
   const HOUSE_RAKE     = 0.20;
-  const CPU_WIN_PAYOUT = 4;   // MONET paid to winner (server caps at 6)
+  const CPU_WIN_PAYOUT = 8;   // MONET paid to winner — house matches entry: (5+5)*0.8=8
 
   function _injectStyles() {
     if (document.getElementById('lb-styles')) return;

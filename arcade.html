@@ -305,6 +305,29 @@ body::before {
 </div>
 </div>
 
+<!-- ── Join Friend by Code ── -->
+<div style="max-width:700px;margin:24px auto 0;padding:0 16px">
+  <div id="join-code-box" style="background:rgba(0,240,255,0.06);border:1px solid #00f0ff33;border-radius:16px;padding:18px 20px;display:flex;flex-wrap:wrap;align-items:center;gap:12px">
+    <div style="flex:1;min-width:200px">
+      <div style="font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;color:#00f0ff;margin-bottom:4px">&#128273; JOIN A FRIEND'S GAME</div>
+      <div style="font-size:11px;color:#888">Enter the 6-character code your friend shared</div>
+    </div>
+    <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+      <input id="arcade-code-input"
+             maxlength="8" placeholder="XXXXXX"
+             autocapitalize="characters" autocorrect="off" spellcheck="false"
+             style="width:130px;padding:10px 14px;border-radius:10px;border:1px solid #00f0ff55;background:#060d1a;color:#00f0ff;font-family:'Orbitron',sans-serif;font-size:14px;font-weight:800;letter-spacing:3px;text-align:center;text-transform:uppercase"
+             oninput="this.value=this.value.toUpperCase()"
+             onkeydown="if(event.key==='Enter')joinByCode()">
+      <button onclick="joinByCode()"
+              style="padding:10px 20px;border-radius:10px;border:none;background:linear-gradient(135deg,#00f0ff,#0088bb);color:#000;font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap">
+        JOIN &#9654;
+      </button>
+    </div>
+    <div id="arcade-code-err" style="width:100%;font-size:11px;color:#ff6b6b;font-family:'Orbitron',sans-serif;display:none"></div>
+  </div>
+</div>
+
 <!-- ── Game Mode Modal ── -->
 <div id="gm-overlay" style="display:none;position:fixed;inset:0;z-index:1000;background:rgba(2,4,10,0.88);align-items:center;justify-content:center;padding:12px">
 <div id="gm-modal" style="background:#0d0f1a;border:1px solid #a855ff55;border-radius:20px;max-width:360px;width:100%;padding:22px 18px 18px;position:relative;box-shadow:0 0 40px #a855ff22">
@@ -411,6 +434,38 @@ document.getElementById('gm-overlay').addEventListener('click', function(e) {
 });
 // Close on Escape
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+
+// ── Join by code ──────────────────────────────────────────────────────────────
+async function joinByCode() {
+  const inp  = document.getElementById('arcade-code-input');
+  const err  = document.getElementById('arcade-code-err');
+  const code = (inp ? inp.value.trim().toUpperCase() : '');
+  err.style.display = 'none';
+  if (!code || code.length < 4) {
+    err.textContent = 'Enter a valid challenge code (4–6 characters)';
+    err.style.display = 'block';
+    return;
+  }
+  err.textContent = 'Looking up challenge…';
+  err.style.color = '#00f0ff';
+  err.style.display = 'block';
+  try {
+    const res = await fetch(`/api/challenge/${code}`);
+    if (!res.ok) throw new Error('Challenge not found');
+    const data = await res.json();
+    const game = data.challenge && data.challenge.game;
+    if (!game) throw new Error('Invalid challenge data');
+    if (data.challenge.status !== 'open') {
+      throw new Error(`Challenge is ${data.challenge.status} — it may have already started or expired`);
+    }
+    // Redirect to the correct game page; lobby.js detects ?challenge= and auto-opens join screen
+    location.href = `${game}.html?challenge=${code}`;
+  } catch(e) {
+    err.textContent = e.message || 'Challenge not found — check the code and try again';
+    err.style.color = '#ff6b6b';
+    err.style.display = 'block';
+  }
+}
 
 // ── Pot balance ───────────────────────────────────────────────────────────────
 async function loadPotBalance() {

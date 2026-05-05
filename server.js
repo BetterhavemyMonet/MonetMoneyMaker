@@ -24,7 +24,7 @@ const ENTRY_FEE       = 5;
 const ALLOWED_ENTRY_FEES = new Set([5, 10, 25, 50]);
 const DECIMALS        = 6;
 const HOUSE_RAKE      = 0.20;
-const CPU_PAYOUT_MAX  = 6;
+const CPU_PAYOUT_MAX  = 9;
 const SOL_ENTRY_LAMPORTS = 1_500_000;   // ~0.0015 SOL ≈ $0.25 at ~$167/SOL
 const PRIZE_CUTS      = [0.50, 0.30, 0.20];
 const CHALLENGE_TTL   = 24 * 60 * 60 * 1000;
@@ -131,19 +131,32 @@ async function sendPayout(toAddress, amount) {
   const dstATA   = getATA(mint, winner);
   const rawAmt   = Math.round(amount * Math.pow(10, DECIMALS));
 
-  return withRpc(async conn => {
+  // Phase 1: build + send (15 s per RPC). Once sendRawTransaction succeeds,
+  // the transaction is on-chain — do NOT retry sending on a new RPC to avoid
+  // double-pays. Capture the sig and break out immediately.
+  let sig = null;
+  await withRpc(async conn => {
     const tx = new Transaction();
     tx.feePayer = treasury;
-    const { blockhash } = await conn.getLatestBlockhash();
-    tx.recentBlockhash = blockhash;
+    const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
+    tx.recentBlockhash  = blockhash;
+    tx.lastValidBlockHeight = lastValidBlockHeight;
     const dstInfo = await conn.getAccountInfo(dstATA);
     if (!dstInfo) tx.add(makeCreateATAIx(treasury, dstATA, winner, mint));
     tx.add(makeTransferIx(srcATA, dstATA, treasury, rawAmt));
     tx.sign(kp);
-    const sig = await conn.sendRawTransaction(tx.serialize());
-    await conn.confirmTransaction(sig, 'confirmed');
-    return sig;
+    sig = await conn.sendRawTransaction(tx.serialize());
   });
+
+  // Phase 2: confirm with a 60 s window. If it times out the tx is still
+  // in-flight and will confirm; return the sig so callers mark it paid and
+  // the auto-retry skips resending.
+  try {
+    await withRpc(conn => conn.confirmTransaction(sig, 'confirmed'), 60_000);
+  } catch(e) {
+    console.warn(`[PAYOUT] confirmTransaction ${sig?.slice(0,12)}… timed out (${e.message}) — tx is in-flight, returning sig`);
+  }
+  return sig;
 }
 
 let _tBal = 0, _tBalTs = 0;
@@ -800,7 +813,7 @@ app.post('/api/cpu/submit', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
 
   const g = cpuGames[idx];
-  const CPU_PAYOUT = Math.min(ENTRY_FEE * (1 - HOUSE_RAKE), CPU_PAYOUT_MAX); // 5 * 0.8 = 4, capped at 6
+  const CPU_PAYOUT = Math.min(ENTRY_FEE * 2 * (1 - HOUSE_RAKE), CPU_PAYOUT_MAX); // house matches: (5+5)*0.8=8
   if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
 
   g.playerScore = playerScore;
@@ -836,11 +849,18 @@ async function retryPendingClaims() {
   let changed = false;
   for (const claim of pending) {
     try {
-      claim.payoutTxId  = await sendPayout(claim.wallet, claim.amount);
+      // If sendPayout already got a sig (tx sent but confirm timed out), just
+      // re-confirm instead of sending a second transaction (avoids double-pay).
+      if (claim.payoutTxId) {
+        await withRpc(conn => conn.confirmTransaction(claim.payoutTxId, 'confirmed'), 60_000);
+        console.log(`[PAYOUT-RETRY] ✓ confirmed existing tx ${claim.payoutTxId.slice(0,12)}… for ${claim.wallet.slice(0,8)}…`);
+      } else {
+        claim.payoutTxId = await sendPayout(claim.wallet, claim.amount);
+        console.log(`[PAYOUT-RETRY] ✓ ${claim.type} ${claim.id.slice(0,8)} → ${claim.wallet.slice(0,8)}… ${claim.amount} MONET`);
+      }
       claim.status      = 'paid';
       claim.processedAt = Date.now();
       delete claim.error;
-      console.log(`[PAYOUT-RETRY] ✓ ${claim.type} ${claim.id.slice(0,8)} → ${claim.wallet.slice(0,8)}… ${claim.amount} MONET`);
       changed = true;
     } catch(e) {
       claim.error       = e.message;

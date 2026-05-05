@@ -1252,6 +1252,40 @@ function showCpuTarget(cpuScore, difficulty) {
 }
 window.showCpuTarget = showCpuTarget;
 
+// ─── Submit toast ─────────────────────────────────────────────────────────────
+function _showSubmitToast(msg) {
+  const existing = document.getElementById('arcade-submit-toast');
+  if (existing) existing.remove();
+  const t = document.createElement('div');
+  t.id = 'arcade-submit-toast';
+  t.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:rgba(2,4,10,0.95);border:1px solid #00f0ff55;border-radius:12px;padding:10px 20px;font-family:Orbitron,sans-serif;font-size:11px;color:#00f0ff;z-index:99998;pointer-events:none;box-shadow:0 0 20px #00f0ff22;white-space:nowrap';
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => t.remove(), 5000);
+}
+
+// ─── H2H challenge result overlay ────────────────────────────────────────────
+function _showChallengeResult(iWon, myScore, opScore, pot) {
+  if (document.getElementById('challenge-result-overlay')) return;
+  const box = document.createElement('div');
+  box.id = 'challenge-result-overlay';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(2,4,10,0.96);z-index:99999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  const fmt = v => (v !== null && v !== undefined) ? Number(v).toLocaleString() : '—';
+  box.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0d1017,#111827);border:2px solid ${iWon ? '#ffd700' : '#ff4488'};border-radius:20px;padding:28px 24px;width:min(340px,92vw);text-align:center">
+      <div style="font-size:38px;margin-bottom:8px">${iWon ? '&#127942;' : '&#128128;'}</div>
+      <div style="font-size:18px;font-weight:800;color:${iWon ? '#ffd700' : '#ff4488'};margin-bottom:14px">${iWon ? 'YOU WIN!' : 'OPPONENT WINS'}</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Your Score</span><span style="color:#00ff9d;font-weight:700">${fmt(myScore)}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Opponent</span><span style="color:#ff4488;font-weight:700">${fmt(opScore)}</span></div>
+      ${iWon ? `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#888">Payout</span><span style="color:#ffd700;font-weight:700">+${pot} MONET</span></div>` : `<div style="padding:8px 0;font-size:11px;color:#888">Better luck next time!</div>`}
+      <button onclick="location.href='arcade.html'" style="margin-top:14px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;font-family:Orbitron,sans-serif;font-size:12px;font-weight:800">&#8592; BACK TO ARCADE</button>
+      <button onclick="location.href='challenge.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#888;font-family:Orbitron,sans-serif;font-size:10px">CHALLENGE AGAIN</button>
+    </div>`;
+  document.body.appendChild(box);
+}
+
+window._showChallengeResult = _showChallengeResult;
+
 // ─── CPU result overlay ───────────────────────────────────────────────────────
 function _showCpuResult(result, playerScore) {
   if (document.getElementById('cpu-result-overlay')) return;
@@ -1298,15 +1332,26 @@ async function arcadeSubmitScore(gameName, score) {
   } else if (challengeCode || csActive) {
     try {
       if (csActive) {
-        await api('/api/challenge/submit', 'POST', { challengeId: cs.challengeId, wallet: WalletState.address, score });
-        console.log('[ARCADE] Challenge score submitted:', score);
+        _showSubmitToast('Score submitted! Waiting for opponent…');
+        const result = await api('/api/challenge/submit', 'POST', { challengeId: cs.challengeId, wallet: WalletState.address, score });
         sessionStorage.removeItem('challenge_session');
+        // If both players have now submitted, show the result immediately
+        // instead of waiting for the next H2H watcher poll cycle.
+        const ch = result.challenge;
+        if (ch && ch.status === 'complete') {
+          const myWallet = WalletState.address || '';
+          const iWon = ch.winner && ch.winner === myWallet;
+          const p1 = ch.player1, p2 = ch.player2;
+          const myScore = p1?.wallet === myWallet ? p1.score : p2?.score ?? null;
+          const opScore = p1?.wallet === myWallet ? p2?.score ?? null : p1.score;
+          _showChallengeResult(iWon, myScore, opScore, ch.pot);
+        }
       }
     } catch(e) { console.warn('[ARCADE] Challenge submit error:', e.message); }
   } else if (tournamentId) {
     try {
+      _showSubmitToast('Score submitted to tournament!');
       await api('/api/tournament/submit', 'POST', { tournamentId, wallet: WalletState.address, score });
-      console.log('[ARCADE] Tournament score submitted:', score);
     } catch(e) { console.warn('[ARCADE] Tournament submit error:', e.message); }
   } else {
     if (score > 0 && WalletState.connected) recordWin(gameName, score);
