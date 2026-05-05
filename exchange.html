@@ -29,7 +29,6 @@ body::before {
 .monet-info { max-width:560px; margin:0 auto 16px; background:rgba(168,85,255,0.1); border:1px solid #a855ff33; border-radius:12px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 .monet-info .label { font-family:'Orbitron',sans-serif; font-size:11px; color:#a855ff; }
 .monet-info .value { font-size:20px; font-weight:bold; color:#fff; }
-.monet-info .sub { font-size:11px; color:#888; }
 #jupiter-terminal-wrap {
   max-width:500px; margin:0 auto;
   background:rgba(0,0,0,0.5);
@@ -37,17 +36,33 @@ body::before {
   overflow:hidden; min-height:480px;
   position:relative;
 }
-.loading-msg { color:#888; font-size:13px; padding:40px; }
-.rpc-badge {
-  text-align:center; font-size:10px; color:#666;
-  padding:6px; font-family:monospace;
+#jupLoad {
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:14px; padding:40px 20px; min-height:300px;
 }
+.jup-spinner {
+  width:40px; height:40px; border:3px solid #a855ff33;
+  border-top-color:#a855ff; border-radius:50%;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform:rotate(360deg); } }
+.jup-status { color:#888; font-size:13px; font-family:'Orbitron',sans-serif; text-align:center; }
+.jup-fallback-btn {
+  display:none; margin-top:8px;
+  padding:12px 24px; border-radius:10px;
+  background:linear-gradient(135deg,#a855ff,#7c3aed);
+  color:#fff; font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800;
+  border:none; cursor:pointer; text-decoration:none;
+  box-shadow:0 0 20px #a855ff44;
+}
+.jup-fallback-btn:hover { filter:brightness(1.2); }
 .swap-hint {
   max-width:500px; margin:0 auto 10px;
   font-size:11px; color:#a78bfa;
   text-align:center; font-family:'Orbitron',sans-serif;
   letter-spacing:.5px;
 }
+.rpc-badge { text-align:center; font-size:10px; color:#555; padding:6px; font-family:monospace; }
 </style>
 </head>
 <body>
@@ -75,7 +90,15 @@ body::before {
   <p class="swap-hint">Swap SOL &#8646; MONET or any Solana token</p>
 
   <div id="jupiter-terminal-wrap">
-    <p class="loading-msg" id="jupLoad">Loading swap widget…</p>
+    <div id="jupLoad">
+      <div class="jup-spinner"></div>
+      <div class="jup-status" id="jupStatus">Loading swap widget…</div>
+      <a id="jupFallback" class="jup-fallback-btn"
+         href="https://jup.ag/swap/SOL-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b"
+         target="_blank" rel="noopener">
+        &#9654; Open Jupiter Swap
+      </a>
+    </div>
     <div id="integrated-terminal"></div>
   </div>
   <p class="rpc-badge" id="rpcBadge"></p>
@@ -83,17 +106,16 @@ body::before {
 
 <script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
 <script src="/wallet.js"></script>
-<script src="https://terminal.jup.ag/main-v3.js" data-preload></script>
 <script>
 renderWalletBar('walletBar');
 
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
 
-// RPC endpoints in priority order
-const RPC_ENDPOINTS = [
-  'https://solana-rpc.publicnode.com',
+// Best free RPCs — no key required, no pre-testing (just try in order)
+const RPCS = [
   'https://api.mainnet-beta.solana.com',
+  'https://solana-rpc.publicnode.com',
 ];
 
 document.addEventListener('balanceUpdated', () => {
@@ -105,46 +127,22 @@ document.addEventListener('walletConnected', () => {
   if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
 });
 
-async function testRpc(url) {
-  try {
-    const res = await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ jsonrpc:'2.0', id:1, method:'getHealth' }),
-      signal: AbortSignal.timeout(3000),
-    });
-    const json = await res.json();
-    return json && (json.result === 'ok' || json.result);
-  } catch { return false; }
-}
-
-async function pickRpc() {
-  for (const url of RPC_ENDPOINTS) {
-    if (await testRpc(url)) return url;
-  }
-  return RPC_ENDPOINTS[0];
-}
-
 let _jupInited = false;
-let _initAttempts = 0;
 
-async function initJupiter(passThroughWallet) {
+function _showFallback(msg) {
+  const status = document.getElementById('jupStatus');
+  const btn    = document.getElementById('jupFallback');
+  const spin   = document.querySelector('.jup-spinner');
+  if (spin)   spin.style.display = 'none';
+  if (status) status.textContent = msg || 'Widget unavailable — swap directly on Jupiter:';
+  if (btn)    btn.style.display  = 'inline-block';
+}
+
+function _jupInit(passThroughWallet) {
   if (_jupInited) return;
-  if (!window.Jupiter) {
-    _initAttempts++;
-    if (_initAttempts > 30) {
-      const el = document.getElementById('jupLoad');
-      if (el) el.textContent = 'Swap widget failed to load. Please refresh.';
-      return;
-    }
-    setTimeout(() => initJupiter(passThroughWallet), 400);
-    return;
-  }
+  if (!window.Jupiter) return;
 
-  const endpoint = await pickRpc();
-  document.getElementById('rpcBadge').textContent = 'RPC: ' + new URL(endpoint).hostname;
-  document.getElementById('jupLoad').style.display = 'none';
-
+  const endpoint = RPCS[0]; // use primary, no blocking pre-test
   const config = {
     displayMode: 'integrated',
     integratedTargetId: 'integrated-terminal',
@@ -157,28 +155,52 @@ async function initJupiter(passThroughWallet) {
       swapMode: 'ExactIn',
     },
   };
-
   if (passThroughWallet) config.passThroughWallet = passThroughWallet;
 
   try {
     window.Jupiter.init(config);
     _jupInited = true;
-  } catch (e) {
-    console.warn('[Exchange] Jupiter init error:', e);
-    const el = document.getElementById('jupLoad');
-    if (el) { el.style.display = ''; el.textContent = 'Swap widget error: ' + e.message; }
+    document.getElementById('jupLoad').style.display = 'none';
+    document.getElementById('rpcBadge').textContent  = 'via ' + new URL(endpoint).hostname;
+  } catch(e) {
+    console.error('[Exchange] Jupiter.init failed:', e);
+    _showFallback('Widget error — swap directly on Jupiter:');
   }
 }
 
-// Start polling for Jupiter (loaded via static script tag in <head>)
-initJupiter(null);
+// Load Jupiter Terminal v3 dynamically, fall back to v2
+function _loadJup(versions, i) {
+  if (i >= versions.length) { _showFallback('Could not load swap widget:'); return; }
+  const s = document.createElement('script');
+  s.src = 'https://terminal.jup.ag/main-' + versions[i] + '.js';
+  s.setAttribute('data-preload', '');
+  s.onload = () => {
+    // Give Jupiter 300 ms to fully initialise its React tree
+    setTimeout(() => _jupInit(null), 300);
+  };
+  s.onerror = () => {
+    console.warn('[Exchange] Failed to load Jupiter', versions[i]);
+    _loadJup(versions, i + 1);
+  };
+  document.body.appendChild(s);
+}
 
+_loadJup(['v3', 'v2'], 0);
+
+// Show the fallback "Open Jupiter" button after 8 s if still not loaded
+setTimeout(() => {
+  if (!_jupInited) _showFallback('Taking too long — swap directly on Jupiter:');
+}, 8000);
+
+// Re-init when wallet connects
 document.addEventListener('walletConnected', () => {
-  if (window.solana) {
-    _jupInited = false;
-    _initAttempts = 0;
-    initJupiter(window.solana);
+  if (!window.Jupiter) return;
+  if (_jupInited) {
+    // Jupiter is already running — just resume with connected wallet
+    try { window.Jupiter.resume(); } catch(_) {}
+    return;
   }
+  _jupInit(window.solana);
 });
 </script>
 </body>
