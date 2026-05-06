@@ -435,6 +435,11 @@ app.get('/api/account-exists/:address', async (req, res) => {
 });
 
 // ─── Routes: status ───────────────────────────────────────────────────────────
+app.get('/api/rpc-url', (_req, res) => {
+  const url = process.env.SOLANA_RPC_URL || 'https://api.mainnet-beta.solana.com';
+  res.json({ ok: true, url });
+});
+
 app.get('/api/status', async (req, res) => {
   const balance    = await getTreasuryBalance().catch(() => 0);
   const challenges = dbRead('challenges');

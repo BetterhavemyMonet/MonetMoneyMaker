@@ -112,11 +112,9 @@ renderWalletBar('walletBar');
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
 
-// Best free RPCs — no key required, no pre-testing (just try in order)
-const RPCS = [
-  'https://api.mainnet-beta.solana.com',
-  'https://solana-rpc.publicnode.com',
-];
+// RPC endpoint — fetched from server so the Alchemy API key stays out of source
+let _rpcEndpoint = 'https://api.mainnet-beta.solana.com'; // safe fallback
+fetch('/api/rpc-url').then(r => r.json()).then(d => { if (d.url) _rpcEndpoint = d.url; }).catch(() => {});
 
 document.addEventListener('balanceUpdated', () => {
   const el = document.getElementById('monetBal');
@@ -142,7 +140,7 @@ function _jupInit(passThroughWallet) {
   if (_jupInited) return;
   if (!window.Jupiter) return;
 
-  const endpoint = RPCS[0]; // use primary, no blocking pre-test
+  const endpoint = _rpcEndpoint;
   const config = {
     displayMode: 'integrated',
     integratedTargetId: 'integrated-terminal',
