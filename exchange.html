@@ -112,10 +112,6 @@ renderWalletBar('walletBar');
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
 
-// RPC endpoint — fetched from server so the Alchemy API key stays out of source
-let _rpcEndpoint = 'https://api.mainnet-beta.solana.com'; // safe fallback
-fetch('/api/rpc-url').then(r => r.json()).then(d => { if (d.url) _rpcEndpoint = d.url; }).catch(() => {});
-
 document.addEventListener('balanceUpdated', () => {
   const el = document.getElementById('monetBal');
   if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
@@ -123,9 +119,11 @@ document.addEventListener('balanceUpdated', () => {
 document.addEventListener('walletConnected', () => {
   const el = document.getElementById('monetBal');
   if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
+  _onWalletReady();
 });
 
-let _jupInited = false;
+let _jupInited  = false;
+let _rpcEndpoint = 'https://api.mainnet-beta.solana.com';
 
 function _showFallback(msg) {
   const status = document.getElementById('jupStatus');
@@ -136,70 +134,82 @@ function _showFallback(msg) {
   if (btn)    btn.style.display  = 'inline-block';
 }
 
-function _jupInit(passThroughWallet) {
+function _jupInit() {
   if (_jupInited) return;
   if (!window.Jupiter) return;
 
-  const endpoint = _rpcEndpoint;
+  // Use connected wallet provider if available — gives Jupiter signing capability
+  const provider = WalletState._provider || null;
+
   const config = {
-    displayMode: 'integrated',
-    integratedTargetId: 'integrated-terminal',
-    endpoint,
-    defaultExplorer: 'SolanaFM',
-    strictTokenList: false,
+    displayMode:         'integrated',
+    integratedTargetId:  'integrated-terminal',
+    endpoint:            _rpcEndpoint,
+    defaultExplorer:     'SolanaFM',
+    strictTokenList:     false,
     formProps: {
       initialInputMint:  SOL_MINT,
       initialOutputMint: MONET_MINT,
-      swapMode: 'ExactIn',
+      swapMode:          'ExactIn',
     },
   };
-  if (passThroughWallet) config.passThroughWallet = passThroughWallet;
+  if (provider) config.passThroughWallet = provider;
 
   try {
     window.Jupiter.init(config);
     _jupInited = true;
     document.getElementById('jupLoad').style.display = 'none';
-    document.getElementById('rpcBadge').textContent  = 'via ' + new URL(endpoint).hostname;
+    document.getElementById('rpcBadge').textContent  =
+      'via ' + new URL(_rpcEndpoint).hostname;
   } catch(e) {
     console.error('[Exchange] Jupiter.init failed:', e);
     _showFallback('Widget error — swap directly on Jupiter:');
   }
 }
 
-// Load Jupiter Terminal v3 dynamically, fall back to v2
+// Called when wallet connects — wire the provider into Jupiter
+function _onWalletReady() {
+  if (!window.Jupiter) return;
+  if (!_jupInited) { _jupInit(); return; }
+  // Jupiter is already running; pass the wallet in via syncProps if available,
+  // otherwise fall back to a full re-init
+  const provider = WalletState._provider || null;
+  if (!provider) return;
+  try {
+    if (typeof window.Jupiter.syncProps === 'function') {
+      window.Jupiter.syncProps({ passThroughWallet: provider });
+    } else {
+      // Jupiter v3 doesn't expose syncProps — re-mount the widget
+      _jupInited = false;
+      try { window.Jupiter.close?.(); } catch(_) {}
+      const container = document.getElementById('integrated-terminal');
+      if (container) container.innerHTML = '';
+      _jupInit();
+    }
+  } catch(e) {
+    console.warn('[Exchange] wallet sync failed:', e);
+  }
+}
+
+// Load Jupiter Terminal — fetch RPC URL first so the right endpoint is used
+fetch('/api/rpc-url')
+  .then(r => r.json())
+  .then(d => { if (d.url) _rpcEndpoint = d.url; })
+  .catch(() => {})
+  .finally(() => _loadJup(['v3', 'v2'], 0));
+
 function _loadJup(versions, i) {
   if (i >= versions.length) { _showFallback('Could not load swap widget:'); return; }
   const s = document.createElement('script');
   s.src = 'https://terminal.jup.ag/main-' + versions[i] + '.js';
   s.setAttribute('data-preload', '');
-  s.onload = () => {
-    // Give Jupiter 300 ms to fully initialise its React tree
-    setTimeout(() => _jupInit(null), 300);
-  };
-  s.onerror = () => {
-    console.warn('[Exchange] Failed to load Jupiter', versions[i]);
-    _loadJup(versions, i + 1);
-  };
+  s.onload  = () => setTimeout(_jupInit, 400);
+  s.onerror = () => { console.warn('[Exchange] Failed to load Jupiter', versions[i]); _loadJup(versions, i + 1); };
   document.body.appendChild(s);
 }
 
-_loadJup(['v3', 'v2'], 0);
-
-// Show the fallback "Open Jupiter" button after 8 s if still not loaded
-setTimeout(() => {
-  if (!_jupInited) _showFallback('Taking too long — swap directly on Jupiter:');
-}, 8000);
-
-// Re-init when wallet connects
-document.addEventListener('walletConnected', () => {
-  if (!window.Jupiter) return;
-  if (_jupInited) {
-    // Jupiter is already running — just resume with connected wallet
-    try { window.Jupiter.resume(); } catch(_) {}
-    return;
-  }
-  _jupInit(window.solana);
-});
+// Fallback button after 10 s if widget never loads
+setTimeout(() => { if (!_jupInited) _showFallback('Taking too long — swap directly on Jupiter:'); }, 10000);
 </script>
 </body>
 </html>
