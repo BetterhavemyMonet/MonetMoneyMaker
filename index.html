@@ -55,9 +55,16 @@ body::before {
 <div class="page">
   <img src="/logo.png" style="width:100px;display:block;margin:16px auto 6px;filter:drop-shadow(0 0 20px #a855ff)">
   <h1>MONET ARCADE</h1>
-  <p style="color:#888;font-size:12px;font-family:Orbitron,sans-serif;margin:-6px 0 12px">Welcome, <span id="playerName" style="color:#00f0ff"></span></p>
+  <p style="color:#a855ff;font-size:13px;font-family:Orbitron,sans-serif;margin:-4px 0 4px;letter-spacing:1px">Swap, play, compete, repeat.</p>
+  <p style="color:#888;font-size:12px;font-family:Orbitron,sans-serif;margin:0 0 12px">Welcome, <span id="playerName" style="color:#00f0ff"></span></p>
 
   <div class="wallet-bar" id="walletBar"></div>
+
+  <div style="max-width:420px;margin:0 auto 14px;padding:8px 14px;background:rgba(168,85,255,0.07);border:1px solid #a855ff33;border-radius:10px;display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
+    <span style="font-size:10px;color:#a855ff;font-family:Orbitron,sans-serif;white-space:nowrap">MONET TOKEN</span>
+    <span id="tokenAddrTxt" style="font-size:10px;color:#ccc;font-family:monospace;word-break:break-all;flex:1;text-align:center">6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b</span>
+    <button onclick="copyTokenAddr()" title="Copy address" style="background:transparent;border:1px solid #a855ff55;color:#a855ff;border-radius:6px;padding:4px 10px;font-size:10px;cursor:pointer;font-family:Orbitron,sans-serif;white-space:nowrap" id="copyBtn">COPY</button>
+  </div>
 
   <div class="hero">
     <img src="/title.jpg" alt="Monet Mario">
@@ -115,6 +122,16 @@ document.addEventListener('walletConnected', updateHeroBal);
 document.addEventListener('balanceUpdated', updateHeroBal);
 document.addEventListener('walletDisconnected', updateHeroBal);
 updateHeroBal();
+
+function copyTokenAddr() {
+  navigator.clipboard.writeText('6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b').then(() => {
+    const btn = document.getElementById('copyBtn');
+    btn.textContent = 'COPIED!';
+    btn.style.color = '#00ff9d';
+    btn.style.borderColor = '#00ff9d55';
+    setTimeout(() => { btn.textContent = 'COPY'; btn.style.color = '#a855ff'; btn.style.borderColor = '#a855ff55'; }, 2000);
+  });
+}
 
 function logout() {
   localStorage.removeItem('player_name');
