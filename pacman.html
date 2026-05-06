@@ -104,8 +104,8 @@ function startGame(){
   loop();
 }
 
-function resetPositions(){
-  player={col:10,row:16,x:10*CELL+CELL/2,y:16*CELL+CELL/2,dx:1,dy:0,mouthAngle:0.25,mouthDir:1,powered:false,powerTimer:0,dead:false,invincible:120};
+function resetPositions(afterDeath=false){
+  player={col:10,row:16,x:10*CELL+CELL/2,y:16*CELL+CELL/2,dx:1,dy:0,mouthAngle:0.25,mouthDir:1,powered:false,powerTimer:0,dead:false,invincible:afterDeath?120:0};
   transitioning=false;
   nextDir={dx:1,dy:0};
   ghosts=GHOST_STARTS.map((s,i)=>({
@@ -123,7 +123,7 @@ function update(){
   const speed=2;
   // Only allow direction change when player is snapped to cell center (fixes off-track glitch)
   const cx=player.col*CELL+CELL/2, cy=player.row*CELL+CELL/2;
-  if(Math.abs(player.x-cx)<=speed&&Math.abs(player.y-cy)<=speed){
+  if(Math.abs(player.x-cx)<speed&&Math.abs(player.y-cy)<speed){
     const np={col:player.col+nextDir.dx, row:player.row+nextDir.dy};
     if(canMove(np.col,np.row)){
       player.dx=nextDir.dx; player.dy=nextDir.dy;
@@ -185,7 +185,7 @@ function killPlayer(){
   player.dead=true;
   lives--;document.getElementById('lives').textContent=lives;
   if(lives<=0){gameOver();return;}
-  setTimeout(()=>resetPositions(),1000);
+  setTimeout(()=>resetPositions(true),1000);
 }
 
 function gameOver(){
