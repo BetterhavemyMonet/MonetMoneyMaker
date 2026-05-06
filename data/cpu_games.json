@@ -11,5 +11,18 @@
     "payoutTxId": null,
     "status": "active",
     "createdAt": 1777820561457
+  },
+  {
+    "id": "motd60euy36d",
+    "wallet": "BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z",
+    "txId": "practice-mode",
+    "game": "mario",
+    "difficulty": "expert",
+    "cpuScore": 2860,
+    "playerScore": null,
+    "won": null,
+    "payoutTxId": null,
+    "status": "active",
+    "createdAt": 1778030020758
   }
 ]
