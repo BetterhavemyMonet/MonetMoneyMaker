@@ -21,48 +21,68 @@ body::before {
   pointer-events:none;
   z-index:0;
 }
-.page { position:relative; z-index:1; padding-bottom:30px; }
+.page { position:relative; z-index:1; padding-bottom:40px; }
 .wallet-bar { max-width:600px; margin:0 auto 12px; padding:10px 16px; background:rgba(0,0,0,0.4); border-radius:10px; border:1px solid #333; display:flex; align-items:center; justify-content:center; flex-wrap:wrap; gap:8px; }
 .nav-row { display:flex; justify-content:center; gap:10px; margin:8px 0 16px; flex-wrap:wrap; }
 .nav-btn { padding:7px 18px; border-radius:8px; border:2px solid #a855ff; background:transparent; color:#a855ff; font-family:'Orbitron',sans-serif; font-size:11px; font-weight:bold; cursor:pointer; text-decoration:none; display:inline-block; }
 .nav-btn:hover { background:#a855ff; color:#000; }
-.monet-info { max-width:560px; margin:0 auto 16px; background:rgba(168,85,255,0.1); border:1px solid #a855ff33; border-radius:12px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
+.monet-info { max-width:500px; margin:0 auto 16px; background:rgba(168,85,255,0.1); border:1px solid #a855ff33; border-radius:12px; padding:14px 18px; display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 .monet-info .label { font-family:'Orbitron',sans-serif; font-size:11px; color:#a855ff; }
 .monet-info .value { font-size:20px; font-weight:bold; color:#fff; }
-#jupiter-terminal-wrap {
+
+/* Terminal wrapper */
+#jup-wrap {
   max-width:500px; margin:0 auto;
-  background:rgba(0,0,0,0.5);
   border-radius:16px; border:1px solid #a855ff44;
-  overflow:hidden; min-height:480px;
+  overflow:hidden; min-height:420px;
   position:relative;
+  background:rgba(0,0,0,0.45);
 }
-#jupLoad {
-  display:flex; flex-direction:column; align-items:center; justify-content:center;
-  gap:14px; padding:40px 20px; min-height:300px;
+/* Loading overlay */
+#jup-loading {
+  position:absolute; inset:0;
+  display:flex; flex-direction:column;
+  align-items:center; justify-content:center;
+  gap:16px; padding:30px;
+  background:rgba(2,4,10,0.92);
+  z-index:10;
+  transition:opacity 0.3s;
 }
 .jup-spinner {
-  width:40px; height:40px; border:3px solid #a855ff33;
-  border-top-color:#a855ff; border-radius:50%;
-  animation: spin 0.9s linear infinite;
+  width:40px; height:40px;
+  border:3px solid #a855ff33;
+  border-top-color:#a855ff;
+  border-radius:50%;
+  animation:spin 0.9s linear infinite;
 }
 @keyframes spin { to { transform:rotate(360deg); } }
-.jup-status { color:#888; font-size:13px; font-family:'Orbitron',sans-serif; text-align:center; }
-.jup-fallback-btn {
-  display:none; margin-top:8px;
-  padding:12px 24px; border-radius:10px;
-  background:linear-gradient(135deg,#a855ff,#7c3aed);
-  color:#fff; font-family:'Orbitron',sans-serif; font-size:12px; font-weight:800;
-  border:none; cursor:pointer; text-decoration:none;
-  box-shadow:0 0 20px #a855ff44;
+.jup-status {
+  color:#888; font-size:12px;
+  font-family:'Orbitron',sans-serif;
+  text-align:center; line-height:1.6;
 }
-.jup-fallback-btn:hover { filter:brightness(1.2); }
+
+/* Always-visible Jupiter.ag fallback link */
+.jup-direct {
+  display:block;
+  max-width:500px; margin:14px auto 0;
+  padding:13px 20px;
+  background:linear-gradient(135deg,#a855ff,#7c3aed);
+  color:#fff; font-family:'Orbitron',sans-serif;
+  font-size:12px; font-weight:800;
+  border-radius:12px; text-align:center;
+  text-decoration:none;
+  box-shadow:0 0 24px #a855ff33;
+  letter-spacing:.5px;
+}
+.jup-direct:hover { filter:brightness(1.15); }
+
 .swap-hint {
   max-width:500px; margin:0 auto 10px;
   font-size:11px; color:#a78bfa;
   text-align:center; font-family:'Orbitron',sans-serif;
-  letter-spacing:.5px;
 }
-.rpc-badge { text-align:center; font-size:10px; color:#555; padding:6px; font-family:monospace; }
+.rpc-badge { text-align:center; font-size:10px; color:#444; padding:6px; font-family:monospace; }
 </style>
 </head>
 <body>
@@ -87,20 +107,23 @@ body::before {
     <a class="nav-btn" href="index.html">&#8592; Home</a>
   </div>
 
-  <p class="swap-hint">Swap SOL &#8646; MONET or any Solana token</p>
+  <p class="swap-hint">Swap SOL &#8646; MONET using Jupiter</p>
 
-  <div id="jupiter-terminal-wrap">
-    <div id="jupLoad">
+  <div id="jup-wrap">
+    <div id="jup-loading">
       <div class="jup-spinner"></div>
-      <div class="jup-status" id="jupStatus">Loading swap widget…</div>
-      <a id="jupFallback" class="jup-fallback-btn"
-         href="https://jup.ag/swap/SOL-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b"
-         target="_blank" rel="noopener">
-        &#9654; Open Jupiter Swap
-      </a>
+      <div class="jup-status" id="jup-status">Loading swap widget…</div>
     </div>
     <div id="integrated-terminal"></div>
   </div>
+
+  <!-- Always-visible direct link — works even if widget fails -->
+  <a class="jup-direct"
+     href="https://jup.ag/swap/SOL-6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b"
+     target="_blank" rel="noopener">
+    &#9654; Open Full Jupiter Swap
+  </a>
+
   <p class="rpc-badge" id="rpcBadge"></p>
 </div>
 
@@ -112,104 +135,88 @@ renderWalletBar('walletBar');
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
 
-document.addEventListener('balanceUpdated', () => {
+function updateBal() {
   const el = document.getElementById('monetBal');
-  if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
-});
-document.addEventListener('walletConnected', () => {
-  const el = document.getElementById('monetBal');
-  if (el) el.textContent = WalletState.monetBalance.toFixed(2) + ' MONET';
-  _onWalletReady();
-});
+  if (!el) return;
+  el.textContent = WalletState.connected
+    ? WalletState.monetBalance.toFixed(2) + ' MONET'
+    : '—';
+}
+document.addEventListener('walletConnected',  updateBal);
+document.addEventListener('balanceUpdated',   updateBal);
+document.addEventListener('walletDisconnected', updateBal);
 
-let _jupInited  = false;
+// ── Jupiter Terminal ──────────────────────────────────────────────────────────
 let _rpcEndpoint = 'https://api.mainnet-beta.solana.com';
+let _inited = false;
 
-function _showFallback(msg) {
-  const status = document.getElementById('jupStatus');
-  const btn    = document.getElementById('jupFallback');
-  const spin   = document.querySelector('.jup-spinner');
-  if (spin)   spin.style.display = 'none';
-  if (status) status.textContent = msg || 'Widget unavailable — swap directly on Jupiter:';
-  if (btn)    btn.style.display  = 'inline-block';
+function _hideLoading() {
+  const el = document.getElementById('jup-loading');
+  if (el) { el.style.opacity = '0'; setTimeout(() => el.style.display = 'none', 300); }
 }
 
-function _jupInit() {
-  if (_jupInited) return;
-  if (!window.Jupiter) return;
+function _setStatus(msg) {
+  const el = document.getElementById('jup-status');
+  if (el) el.textContent = msg;
+}
 
-  // Use connected wallet provider if available — gives Jupiter signing capability
-  const provider = WalletState._provider || null;
-
-  const config = {
-    displayMode:         'integrated',
-    integratedTargetId:  'integrated-terminal',
-    endpoint:            _rpcEndpoint,
-    defaultExplorer:     'SolanaFM',
-    strictTokenList:     false,
-    formProps: {
-      initialInputMint:  SOL_MINT,
-      initialOutputMint: MONET_MINT,
-      swapMode:          'ExactIn',
-    },
-  };
-  if (provider) config.passThroughWallet = provider;
-
+function _init() {
+  if (_inited || !window.Jupiter) return;
   try {
-    window.Jupiter.init(config);
-    _jupInited = true;
-    document.getElementById('jupLoad').style.display = 'none';
-    document.getElementById('rpcBadge').textContent  =
-      'via ' + new URL(_rpcEndpoint).hostname;
+    window.Jupiter.init({
+      displayMode:        'integrated',
+      integratedTargetId: 'integrated-terminal',
+      endpoint:           _rpcEndpoint,
+      defaultExplorer:    'SolanaFM',
+      formProps: {
+        initialInputMint:  SOL_MINT,
+        initialOutputMint: MONET_MINT,
+      },
+    });
+    _inited = true;
+    _hideLoading();
+    document.getElementById('rpcBadge').textContent = 'RPC: ' + new URL(_rpcEndpoint).hostname;
   } catch(e) {
-    console.error('[Exchange] Jupiter.init failed:', e);
-    _showFallback('Widget error — swap directly on Jupiter:');
+    console.error('[Exchange] Jupiter.init error:', e);
+    _setStatus('Widget failed to start — use the button below to swap on Jupiter.');
+    document.querySelector('.jup-spinner').style.display = 'none';
   }
 }
 
-// Called when wallet connects — wire the provider into Jupiter
-function _onWalletReady() {
-  if (!window.Jupiter) return;
-  if (!_jupInited) { _jupInit(); return; }
-  // Jupiter is already running; pass the wallet in via syncProps if available,
-  // otherwise fall back to a full re-init
-  const provider = WalletState._provider || null;
-  if (!provider) return;
-  try {
-    if (typeof window.Jupiter.syncProps === 'function') {
-      window.Jupiter.syncProps({ passThroughWallet: provider });
-    } else {
-      // Jupiter v3 doesn't expose syncProps — re-mount the widget
-      _jupInited = false;
-      try { window.Jupiter.close?.(); } catch(_) {}
-      const container = document.getElementById('integrated-terminal');
-      if (container) container.innerHTML = '';
-      _jupInit();
-    }
-  } catch(e) {
-    console.warn('[Exchange] wallet sync failed:', e);
-  }
-}
-
-// Load Jupiter Terminal — fetch RPC URL first so the right endpoint is used
+// Load in order: fetch RPC → inject script → init
 fetch('/api/rpc-url')
   .then(r => r.json())
-  .then(d => { if (d.url) _rpcEndpoint = d.url; })
+  .then(d => { if (d && d.url) _rpcEndpoint = d.url; })
   .catch(() => {})
-  .finally(() => _loadJup(['v3', 'v2'], 0));
+  .finally(() => {
+    // Try v4 first (stable), fall back to v3
+    _loadScript(
+      'https://terminal.jup.ag/main-v4.js',
+      () => setTimeout(_init, 500),
+      () => _loadScript(
+        'https://terminal.jup.ag/main-v3.js',
+        () => setTimeout(_init, 500),
+        () => {
+          _setStatus('Could not load swap widget — use the button below.');
+          document.querySelector('.jup-spinner').style.display = 'none';
+        }
+      )
+    );
+  });
 
-function _loadJup(versions, i) {
-  if (i >= versions.length) { _showFallback('Could not load swap widget:'); return; }
+function _loadScript(src, onload, onerror) {
   const s = document.createElement('script');
-  s.src = 'https://terminal.jup.ag/main-' + versions[i] + '.js';
+  s.src = src;
   s.setAttribute('data-preload', '');
-  s.onload  = () => setTimeout(_jupInit, 400);
-  s.onerror = () => { console.warn('[Exchange] Failed to load Jupiter', versions[i]); _loadJup(versions, i + 1); };
+  s.onload  = onload;
+  s.onerror = onerror;
   document.body.appendChild(s);
 }
 
-// Fallback button after 10 s if widget never loads
-setTimeout(() => { if (!_jupInited) _showFallback('Taking too long — swap directly on Jupiter:'); }, 10000);
+// Safety net — show status if still not loaded after 12 s
+setTimeout(() => {
+  if (!_inited) _setStatus('Taking longer than expected — use the button below to swap.');
+}, 12000);
 </script>
 </body>
 </html>
