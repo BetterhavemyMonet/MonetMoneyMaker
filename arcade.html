@@ -468,12 +468,30 @@ async function joinByCode() {
 }
 
 // ── Pot balance ───────────────────────────────────────────────────────────────
+// Use /api/balance/:treasury directly — same battle-tested path used for player
+// balances, with server-side RPC fallback + stale-cache support. Avoids the
+// separate getTreasuryBalance() cache that resets to 0 on every server restart.
+const TREASURY_ADDR = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
+let _lastPotBal = null;
+
 async function loadPotBalance() {
+  const el = document.getElementById('pot-balance');
   try {
-    const res = await api('/api/status');
-    const el  = document.getElementById('pot-balance');
-    if (el) el.textContent = (typeof res.balance === 'number' ? res.balance.toFixed(2) : '—') + ' MONET';
-  } catch {}
+    const res = await fetch(`/api/balance/${TREASURY_ADDR}`);
+    if (!res.ok) throw new Error('non-ok');
+    const data = await res.json();
+    if (typeof data.monet === 'number') {
+      _lastPotBal = data.monet;
+      if (el) el.textContent = data.monet.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' MONET';
+    } else if (_lastPotBal !== null && el) {
+      el.textContent = _lastPotBal.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' MONET';
+    }
+  } catch {
+    // Keep last known value; don't blank out on transient RPC errors
+    if (_lastPotBal !== null && el) {
+      el.textContent = _lastPotBal.toLocaleString(undefined, { maximumFractionDigits: 2 }) + ' MONET';
+    }
+  }
 }
 
 // ── Init ─────────────────────────────────────────────────────────────────────
