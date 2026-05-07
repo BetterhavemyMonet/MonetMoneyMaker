@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Treasury Admin — Monet Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<style>
+body {
+  background-image: url('/title.jpg');
+  background-size: cover;
+  background-position: center;
+  background-attachment: fixed;
+  min-height: 100vh;
+}
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: rgba(2,4,10,0.88);
+  pointer-events: none;
+  z-index: 0;
+}
+.page { position: relative; z-index: 1; padding-bottom: 50px; }
+.wallet-bar { max-width: 680px; margin: 0 auto 12px; padding: 10px 16px; background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.nav-row { display: flex; justify-content: center; gap: 10px; margin: 8px 0 18px; flex-wrap: wrap; }
+.nav-btn { padding: 7px 18px; border-radius: 8px; border: 2px solid #a855ff; background: transparent; color: #a855ff; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+.nav-btn:hover { background: #a855ff; color: #000; }
+
+/* Lock screen */
+#lock-screen {
+  max-width: 480px; margin: 60px auto; text-align: center;
+  background: rgba(0,0,0,0.5); border: 1px solid #a855ff44;
+  border-radius: 16px; padding: 40px 28px;
+}
+#lock-screen h3 { font-size: 16px; color: #a855ff; margin-bottom: 8px; }
+#lock-screen p  { color: #888; font-size: 12px; margin-bottom: 20px; line-height: 1.7; }
+#lock-addr { font-size: 10px; font-family: monospace; color: #555; word-break: break-all; margin-top: 8px; }
+
+/* Stats bar */
+.stats-bar {
+  max-width: 680px; margin: 0 auto 20px;
+  display: flex; gap: 12px; flex-wrap: wrap;
+}
+.stat-card {
+  flex: 1; min-width: 130px;
+  background: rgba(0,0,0,0.45); border: 1px solid #a855ff33;
+  border-radius: 12px; padding: 14px 16px; text-align: center;
+}
+.stat-card .label { font-family: 'Orbitron', sans-serif; font-size: 10px; color: #666; margin-bottom: 4px; }
+.stat-card .value { font-size: 20px; font-weight: bold; color: #fff; }
+.stat-card .value.green  { color: #00ff9d; }
+.stat-card .value.yellow { color: #ffd700; }
+.stat-card .value.red    { color: #ff4488; }
+
+/* Section */
+.section {
+  max-width: 680px; margin: 0 auto 24px;
+  background: rgba(0,0,0,0.4); border: 1px solid #a855ff22;
+  border-radius: 14px; overflow: hidden;
+}
+.section-header {
+  padding: 14px 18px; background: rgba(168,85,255,0.08);
+  border-bottom: 1px solid #a855ff22;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.section-header h3 { font-size: 13px; color: #a855ff; margin: 0; }
+.section-body { padding: 4px 0; }
+
+/* Claim rows */
+.claim-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 18px; border-bottom: 1px solid #ffffff08;
+  flex-wrap: wrap;
+}
+.claim-row:last-child { border: none; }
+.claim-type {
+  font-family: 'Orbitron', sans-serif; font-size: 9px; font-weight: 800;
+  padding: 3px 8px; border-radius: 20px; white-space: nowrap;
+}
+.type-challenge { background: rgba(0,240,255,0.12); color: #00f0ff; border: 1px solid #00f0ff33; }
+.type-cpu       { background: rgba(168,85,255,0.12); color: #a855ff; border: 1px solid #a855ff33; }
+.type-tournament{ background: rgba(255,215,0,0.12);  color: #ffd700; border: 1px solid #ffd70033; }
+.type-solo      { background: rgba(0,255,157,0.12);  color: #00ff9d; border: 1px solid #00ff9d33; }
+.claim-wallet { font-family: monospace; font-size: 11px; color: #aaa; flex: 1; min-width: 120px; }
+.claim-amount { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 800; color: #ffd700; white-space: nowrap; }
+.claim-age    { font-size: 10px; color: #555; white-space: nowrap; }
+.pay-btn {
+  padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #a855ff, #7c3aed);
+  color: #fff; font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 800;
+  white-space: nowrap;
+  transition: opacity .15s, filter .15s;
+}
+.pay-btn:hover    { filter: brightness(1.2); }
+.pay-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pay-btn.done  { background: #1a3a2a; border: 1px solid #00ff9d44; color: #00ff9d; cursor: default; }
+.pay-btn.error { background: #3a1a1a; border: 1px solid #ff448844; color: #ff4488; cursor: default; }
+
+/* Pay-all button */
+.pay-all-btn {
+  padding: 9px 22px; border-radius: 10px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #00ff9d, #00c97b);
+  color: #000; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
+}
+.pay-all-btn:hover    { filter: brightness(1.1); }
+.pay-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Paid row */
+.paid-row .claim-wallet { color: #555; }
+.paid-row .claim-amount { color: #666; }
+.tx-link { font-size: 10px; color: #555; font-family: monospace; text-decoration: none; }
+.tx-link:hover { color: #a855ff; }
+
+/* Empty */
+.empty { padding: 28px; text-align: center; color: #555; font-size: 12px; font-family: 'Orbitron', sans-serif; }
+
+/* Toast */
+#toast {
+  position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+  background: #1a2a1a; border: 1px solid #00ff9d44; border-radius: 10px;
+  padding: 10px 20px; color: #00ff9d; font-family: 'Orbitron', sans-serif;
+  font-size: 11px; z-index: 9999; opacity: 0;
+  transition: opacity .3s; pointer-events: none;
+}
+#toast.error { background: #2a1a1a; border-color: #ff448844; color: #ff4488; }
+#toast.show  { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="page">
+  <h2>TREASURY ADMIN</h2>
+  <div class="wallet-bar" id="walletBar"></div>
+  <div class="nav-row">
+    <a class="nav-btn" href="index.html">&#8592; Home</a>
+    <a class="nav-btn" href="arcade.html">&#127918; Arcade</a>
+  </div>
+
+  <!-- Lock screen — shown when non-treasury wallet connected -->
+  <div id="lock-screen" style="display:none">
+    <h3>&#128274; TREASURY ACCESS ONLY</h3>
+    <p>Connect the treasury wallet to access this admin panel and process pending player payouts.</p>
+    <div id="lock-addr">Treasury: ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs</div>
+  </div>
+
+  <!-- Admin panel — shown only for treasury wallet -->
+  <div id="admin-panel" style="display:none">
+
+    <!-- Stats -->
+    <div class="stats-bar">
+      <div class="stat-card">
+        <div class="label">TREASURY MONET</div>
+        <div class="value yellow" id="stat-balance">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">PENDING PAYOUTS</div>
+        <div class="value red" id="stat-pending">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">PENDING MONET</div>
+        <div class="value red" id="stat-pending-amt">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="label">PAID TODAY</div>
+        <div class="value green" id="stat-paid">—</div>
+      </div>
+    </div>
+
+    <!-- Pending claims -->
+    <div class="section">
+      <div class="section-header">
+        <h3>&#9888; PENDING PAYOUTS</h3>
+        <button class="pay-all-btn" id="payAllBtn" onclick="payAll()" disabled>PAY ALL</button>
+      </div>
+      <div class="section-body" id="pendingList">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+
+    <!-- Recent paid -->
+    <div class="section">
+      <div class="section-header">
+        <h3>&#10003; RECENTLY PAID</h3>
+        <span id="paid-count" style="font-size:11px;color:#555"></span>
+      </div>
+      <div class="section-body" id="paidList">
+        <div class="empty">Loading…</div>
+      </div>
+    </div>
+
+  </div><!-- /admin-panel -->
+</div><!-- /page -->
+
+<div id="toast"></div>
+
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script>
+const TREASURY = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
+
+renderWalletBar('walletBar');
+
+// ── Auth gate ──────────────────────────────────────────────────────────────────
+function checkAccess() {
+  const lock  = document.getElementById('lock-screen');
+  const panel = document.getElementById('admin-panel');
+  if (WalletState.connected && WalletState.address === TREASURY) {
+    lock.style.display  = 'none';
+    panel.style.display = 'block';
+    loadAll();
+  } else if (WalletState.connected) {
+    lock.style.display  = 'block';
+    panel.style.display = 'none';
+  } else {
+    lock.style.display  = 'none';
+    panel.style.display = 'none';
+  }
+}
+
+document.addEventListener('walletConnected',    checkAccess);
+document.addEventListener('walletDisconnected', checkAccess);
+document.addEventListener('balanceUpdated',     () => {
+  document.getElementById('stat-balance').textContent =
+    WalletState.monetBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' MONET';
+});
+
+// ── Load claims ───────────────────────────────────────────────────────────────
+let _allClaims = [];
+
+async function loadAll() {
+  try {
+    const r = await fetch('/api/claims');
+    const d = await r.json();
+    _allClaims = d.claims || [];
+    renderClaims();
+  } catch(e) {
+    document.getElementById('pendingList').innerHTML = `<div class="empty">Failed to load claims: ${e.message}</div>`;
+  }
+}
+
+function timeAgo(ts) {
+  const s = Math.floor((Date.now() - ts) / 1000);
+  if (s < 60)  return s + 's ago';
+  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 86400) return Math.floor(s/3600) + 'h ago';
+  return Math.floor(s/86400) + 'd ago';
+}
+
+function renderClaims() {
+  const pending = _allClaims.filter(c => c.status === 'pending');
+  const paid    = _allClaims.filter(c => c.status === 'paid')
+                            .sort((a,b) => (b.processedAt||0) - (a.processedAt||0))
+                            .slice(0, 30);
+
+  // Stats
+  const pendingAmt = pending.reduce((s,c) => s + (c.amount||0), 0);
+  const today = Date.now() - 86400000;
+  const paidToday = paid.filter(c => (c.processedAt||0) > today).length;
+
+  document.getElementById('stat-pending').textContent     = pending.length;
+  document.getElementById('stat-pending-amt').textContent = pendingAmt.toFixed(2) + ' MONET';
+  document.getElementById('stat-paid').textContent        = paidToday;
+  document.getElementById('stat-balance').textContent     =
+    WalletState.monetBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' MONET';
+
+  const payAllBtn = document.getElementById('payAllBtn');
+  payAllBtn.disabled = pending.length === 0;
+
+  // Pending list
+  const pendingEl = document.getElementById('pendingList');
+  if (pending.length === 0) {
+    pendingEl.innerHTML = '<div class="empty">&#10003; No pending payouts</div>';
+  } else {
+    pendingEl.innerHTML = pending.map(c => `
+      <div class="claim-row" id="row-${c.id}">
+        <span class="claim-type type-${c.type || 'solo'}">${(c.type||'solo').toUpperCase()}</span>
+        <span class="claim-wallet" title="${c.wallet}">${c.wallet.slice(0,6)}…${c.wallet.slice(-4)}</span>
+        <span class="claim-amount">${(c.amount||0).toFixed(2)} MONET</span>
+        <span class="claim-age">${timeAgo(c.createdAt||0)}</span>
+        <button class="pay-btn" id="btn-${c.id}" onclick="paySingle('${c.id}','${c.wallet}',${c.amount})">
+          PAY &#9654;
+        </button>
+      </div>
+    `).join('');
+  }
+
+  // Paid list
+  const paidEl = document.getElementById('paidList');
+  document.getElementById('paid-count').textContent = paid.length + ' recent';
+  if (paid.length === 0) {
+    paidEl.innerHTML = '<div class="empty">No paid claims yet</div>';
+  } else {
+    paidEl.innerHTML = paid.map(c => `
+      <div class="claim-row paid-row">
+        <span class="claim-type type-${c.type||'solo'}">${(c.type||'solo').toUpperCase()}</span>
+        <span class="claim-wallet" title="${c.wallet}">${c.wallet.slice(0,6)}…${c.wallet.slice(-4)}</span>
+        <span class="claim-amount">${(c.amount||0).toFixed(2)} MONET</span>
+        <span class="claim-age">${timeAgo(c.processedAt||c.createdAt||0)}</span>
+        ${c.payoutTxId
+          ? `<a class="tx-link" href="https://solscan.io/tx/${c.payoutTxId}" target="_blank" rel="noopener">
+               ${c.payoutTxId.slice(0,8)}… &#8599;
+             </a>`
+          : '<span class="tx-link">—</span>'
+        }
+      </div>
+    `).join('');
+  }
+}
+
+// ── Pay single claim ──────────────────────────────────────────────────────────
+async function paySingle(claimId, wallet, amount) {
+  const btn = document.getElementById('btn-' + claimId);
+  if (!btn || btn.disabled) return;
+  btn.disabled = true;
+  btn.textContent = 'Signing…';
+
+  try {
+    const txId = await treasuryPayout(wallet, amount, claimId, step => {
+      btn.textContent = step === 'signing' ? 'Signing…'
+                      : step === 'confirming' ? 'Confirming…'
+                      : 'Sending…';
+    });
+    btn.className = 'pay-btn done';
+    btn.textContent = '✓ PAID';
+    showToast(`Paid ${amount} MONET → ${wallet.slice(0,8)}…`);
+    // Update local state and re-render after short delay
+    const claim = _allClaims.find(c => c.id === claimId);
+    if (claim) { claim.status = 'paid'; claim.payoutTxId = txId; claim.processedAt = Date.now(); }
+    setTimeout(renderClaims, 1500);
+  } catch(e) {
+    btn.className = 'pay-btn error';
+    btn.textContent = 'FAILED';
+    btn.disabled = false;
+    setTimeout(() => { btn.className = 'pay-btn'; btn.textContent = 'PAY ▶'; btn.disabled = false; }, 3000);
+    showToast(e.message, true);
+    console.error('[TreasuryAdmin] paySingle failed:', e);
+  }
+}
+
+// ── Pay all pending ───────────────────────────────────────────────────────────
+async function payAll() {
+  const pending = _allClaims.filter(c => c.status === 'pending');
+  if (!pending.length) return;
+
+  const payAllBtn = document.getElementById('payAllBtn');
+  payAllBtn.disabled = true;
+  payAllBtn.textContent = `PAYING 0/${pending.length}…`;
+
+  let done = 0;
+  for (const claim of pending) {
+    try {
+      await paySingle(claim.id, claim.wallet, claim.amount);
+      done++;
+      payAllBtn.textContent = `PAYING ${done}/${pending.length}…`;
+    } catch(_) {}
+    // Small gap between transactions to avoid blockhash staleness
+    await new Promise(r => setTimeout(r, 1200));
+  }
+
+  payAllBtn.textContent = `DONE (${done}/${pending.length})`;
+  setTimeout(() => {
+    payAllBtn.textContent = 'PAY ALL';
+    payAllBtn.disabled = _allClaims.filter(c => c.status === 'pending').length === 0;
+  }, 3000);
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let _toastTimer;
+function showToast(msg, isError = false) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (isError ? ' error' : '');
+  clearTimeout(_toastTimer);
+  _toastTimer = setTimeout(() => { el.className = ''; }, 4000);
+}
+
+// ── Auto-refresh pending every 30 s ──────────────────────────────────────────
+setInterval(() => {
+  if (WalletState.connected && WalletState.address === TREASURY) loadAll();
+}, 30000);
+</script>
+</body>
+</html>

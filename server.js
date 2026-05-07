@@ -741,6 +741,34 @@ app.get('/api/claims', (req, res) => {
   res.json({ ok: true, claims: list });
 });
 
+app.get('/api/claims/pending', (_req, res) => {
+  const claims = dbRead('claims').filter(c => c.status === 'pending');
+  res.json({ ok: true, claims, count: claims.length });
+});
+
+// Mark a claim paid after the browser-connected treasury wallet broadcasts the tx.
+// Idempotent: safe to call twice with the same txId.
+app.post('/api/payout/complete', async (req, res) => {
+  const { claimId, txId } = req.body;
+  if (!claimId || !txId) return res.status(400).json({ error: 'claimId and txId required' });
+
+  const claims = dbRead('claims');
+  const idx = claims.findIndex(c => c.id === claimId);
+  if (idx === -1) return res.status(404).json({ error: 'Claim not found' });
+
+  const claim = claims[idx];
+  if (claim.status === 'paid') return res.json({ ok: true, claim }); // already done
+
+  claim.payoutTxId  = txId;
+  claim.status      = 'paid';
+  claim.processedAt = Date.now();
+  delete claim.error;
+  dbWrite('claims', claims);
+
+  console.log(`[PAYOUT] Browser-signed: ${claim.type} ${claim.id.slice(0,8)} → ${claim.wallet.slice(0,8)}… ${claim.amount} MONET | tx: ${txId.slice(0,12)}…`);
+  res.json({ ok: true, claim });
+});
+
 app.post('/api/claims/process', async (req, res) => {
   const { claimId } = req.body;
   const claims = dbRead('claims');
@@ -956,6 +984,25 @@ if (process.env.NODE_ENV === 'production') {
 
 const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 5000 : 3001);
 app.listen(PORT, '0.0.0.0', () => {
-  const hasKey = !!getTreasuryKP();
-  console.log(`[MONET] API+WS server :${PORT} | treasury payouts: ${hasKey ? 'ENABLED' : 'QUEUED (set TREASURY_PRIVATE_KEY)'}`);
+  const kp = getTreasuryKP();
+  if (kp) {
+    const kpAddr = kp.publicKey.toString();
+    if (kpAddr !== TREASURY_ADDR) {
+      console.error('');
+      console.error('╔══════════════════════════════════════════════════════════════╗');
+      console.error('║  ⚠️  TREASURY KEY MISMATCH — PAYOUTS WILL FAIL              ║');
+      console.error('╠══════════════════════════════════════════════════════════════╣');
+      console.error(`║  Expected: ${TREASURY_ADDR}`);
+      console.error(`║  Got:      ${kpAddr}`);
+      console.error('║                                                              ║');
+      console.error('║  Fix: update TREASURY_PRIVATE_KEY secret to the 64-byte     ║');
+      console.error(`║  private key for address: ${TREASURY_ADDR.slice(0,20)}…   ║`);
+      console.error('╚══════════════════════════════════════════════════════════════╝');
+      console.error('');
+    } else {
+      console.log(`[MONET] API+WS server :${PORT} | treasury payouts: ENABLED ✓ (key verified)`);
+    }
+  } else {
+    console.log(`[MONET] API+WS server :${PORT} | treasury payouts: QUEUED (set TREASURY_PRIVATE_KEY)`);
+  }
 });

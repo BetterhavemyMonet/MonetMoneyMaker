@@ -818,6 +818,98 @@ function renderWalletBar(containerId) {
   document.addEventListener('balanceUpdated',     render);
 }
 
+// ─── Treasury Payout (browser-signed) ────────────────────────────────────────
+// Called when the treasury wallet is connected in the browser.
+// Builds, signs, and broadcasts a MONET transfer from treasury → winner,
+// then notifies the server to mark the claim as paid.
+async function treasuryPayout(toAddress, amount, claimId, onProgress) {
+  const report = (s) => { try { onProgress && onProgress(s); } catch(_) {} };
+
+  if (!WalletState.connected) throw new Error('Connect treasury wallet first');
+  if (WalletState.address !== MONET_CONFIG.TREASURY)
+    throw new Error('Connected wallet is not the treasury');
+
+  const provider = getProvider();
+  const w        = getSolanaWeb3();
+  const payer    = new w.PublicKey(WalletState.address);
+  const mint     = new w.PublicKey(MONET_CONFIG.MINT);
+  const winner   = new w.PublicKey(toAddress);
+  const srcATA   = getATA(mint, payer);
+  const dstATA   = getATA(mint, winner);
+
+  report('building');
+
+  // Blockhash
+  let blockhash;
+  try {
+    const conn = await getWorkingConnection();
+    ({ blockhash } = await conn.getLatestBlockhash());
+  } catch(_) {
+    const r = await fetch('/api/blockhash');
+    if (!r.ok) throw new Error('Could not fetch blockhash');
+    ({ blockhash } = await r.json());
+  }
+
+  const tx = new w.Transaction();
+  tx.feePayer        = payer;
+  tx.recentBlockhash = blockhash;
+
+  // Create winner ATA if missing (treasury pays rent)
+  try {
+    const r = await fetch(`/api/account-exists/${dstATA.toString()}`);
+    if (r.ok) {
+      const d = await r.json();
+      if (!d.exists) tx.add(createATAInstruction(payer, dstATA, winner, mint));
+    }
+  } catch(_) {}
+
+  tx.add(createTransferInstruction(srcATA, dstATA, payer, toRawAmount(amount)));
+  tx.add(createMemoInstruction(payer,
+    `Monet Arcade | Payout | ${amount} MONET${claimId ? ' | ' + claimId.slice(0,8) : ''}`));
+
+  report('signing');
+  let txId;
+  try {
+    if (provider.signAndSendTransaction) {
+      const result = await provider.signAndSendTransaction(tx);
+      txId = result.signature || result;
+    } else {
+      const conn   = await getWorkingConnection();
+      const signed = await provider.signTransaction(tx);
+      txId = await conn.sendRawTransaction(signed.serialize());
+    }
+  } catch(e) {
+    throw new Error('Signing failed: ' + e.message);
+  }
+
+  report('confirming');
+  try {
+    const conn = await getWorkingConnection();
+    await conn.confirmTransaction(txId, 'confirmed');
+  } catch(_) {}
+
+  // Tell server to mark the claim paid
+  if (claimId) {
+    try {
+      await fetch('/api/payout/complete', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body:    JSON.stringify({ claimId, txId }),
+      });
+    } catch(_) {}
+  }
+
+  await refreshBalances().catch(() => {});
+  return txId;
+}
+
+function isTreasuryWallet() {
+  return WalletState.connected && WalletState.address === MONET_CONFIG.TREASURY;
+}
+
+window.treasuryPayout   = treasuryPayout;
+window.isTreasuryWallet = isTreasuryWallet;
+
 // ─── Auto-init ────────────────────────────────────────────────────────────────
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', tryAutoConnect);
