@@ -137,15 +137,13 @@ body::before {
     <a class="nav-btn" href="arcade.html">&#127918; Arcade</a>
   </div>
 
-  <!-- Lock screen — shown when non-treasury wallet connected -->
-  <div id="lock-screen" style="display:none">
-    <h3>&#128274; TREASURY ACCESS ONLY</h3>
-    <p>Connect the treasury wallet to access this admin panel and process pending player payouts.</p>
-    <div id="lock-addr">Treasury: ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs</div>
+  <!-- Pay-lock notice — shown when treasury wallet is NOT connected -->
+  <div id="pay-notice" style="max-width:680px;margin:0 auto 16px;padding:12px 18px;background:rgba(255,100,0,0.1);border:1px solid rgba(255,100,0,0.3);border-radius:10px;text-align:center;font-size:12px;color:#ff9955;display:block">
+    &#128274; Connect the treasury wallet <span style="font-family:monospace;font-size:10px;color:#ff6400">ot1CyXF…nRxs</span> to Phantom to enable payouts.
   </div>
 
-  <!-- Admin panel — shown only for treasury wallet -->
-  <div id="admin-panel" style="display:none">
+  <!-- Admin panel — always visible -->
+  <div id="admin-panel">
 
     <!-- Stats -->
     <div class="stats-bar">
@@ -201,20 +199,20 @@ const TREASURY = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
 
 renderWalletBar('walletBar');
 
-// ── Auth gate ──────────────────────────────────────────────────────────────────
+// ── Auth gate — controls pay-lock notice + button availability only ────────────
 function checkAccess() {
-  const lock  = document.getElementById('lock-screen');
-  const panel = document.getElementById('admin-panel');
-  if (WalletState.connected && WalletState.address === TREASURY) {
-    lock.style.display  = 'none';
-    panel.style.display = 'block';
-    loadAll();
-  } else if (WalletState.connected) {
-    lock.style.display  = 'block';
-    panel.style.display = 'none';
-  } else {
-    lock.style.display  = 'none';
-    panel.style.display = 'none';
+  const isTreasury = WalletState.connected && WalletState.address === TREASURY;
+  const notice     = document.getElementById('pay-notice');
+  if (notice) notice.style.display = isTreasury ? 'none' : 'block';
+
+  // Enable/disable all pay buttons
+  document.querySelectorAll('.pay-btn, .pay-all-btn').forEach(btn => {
+    btn.disabled = !isTreasury || btn.id === 'payAllBtn' && _allClaims.filter(c => c.status === 'pending').length === 0;
+  });
+
+  if (isTreasury) {
+    document.getElementById('stat-balance').textContent =
+      WalletState.monetBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' MONET';
   }
 }
 
@@ -227,6 +225,9 @@ document.addEventListener('balanceUpdated',     () => {
 
 // ── Load claims ───────────────────────────────────────────────────────────────
 let _allClaims = [];
+
+// Load claims immediately on page load — no wallet required to view
+loadAll();
 
 async function loadAll() {
   try {
@@ -282,7 +283,7 @@ function renderClaims() {
         <span class="claim-wallet" title="${c.wallet}">${c.wallet.slice(0,6)}…${c.wallet.slice(-4)}</span>
         <span class="claim-amount">${(c.amount||0).toFixed(2)} MONET</span>
         <span class="claim-age">${timeAgo(c.createdAt||0)}</span>
-        <button class="pay-btn" id="btn-${c.id}" onclick="paySingle('${c.id}','${c.wallet}',${c.amount})">
+        <button class="pay-btn" id="btn-${c.id}" disabled onclick="paySingle('${c.id}','${c.wallet}',${c.amount})">
           PAY &#9654;
         </button>
       </div>`;
@@ -295,9 +296,13 @@ function renderClaims() {
   if (paid.length === 0) {
     paidEl.innerHTML = '<div class="empty">No paid claims yet</div>';
   } else {
-    paidEl.innerHTML = paid.map(c => `
+    paidEl.innerHTML = paid.map(c => {
+      const isRefund  = (c.type||'').includes('refund');
+      const typeKey   = isRefund ? 'refund' : (c.type || 'solo');
+      const typeLabel = isRefund ? 'REFUND' : typeKey.toUpperCase();
+      return `
       <div class="claim-row paid-row">
-        <span class="claim-type type-${c.type||'solo'}">${(c.type||'solo').toUpperCase()}</span>
+        <span class="claim-type type-${typeKey}">${typeLabel}</span>
         <span class="claim-wallet" title="${c.wallet}">${c.wallet.slice(0,6)}…${c.wallet.slice(-4)}</span>
         <span class="claim-amount">${(c.amount||0).toFixed(2)} MONET</span>
         <span class="claim-age">${timeAgo(c.processedAt||c.createdAt||0)}</span>
@@ -307,9 +312,12 @@ function renderClaims() {
              </a>`
           : '<span class="tx-link">—</span>'
         }
-      </div>
-    `).join('');
+      </div>`;
+    }).join('');
   }
+
+  // Sync pay-button states after every render
+  checkAccess();
 }
 
 // ── Pay single claim ──────────────────────────────────────────────────────────
