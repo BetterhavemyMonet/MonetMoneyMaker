@@ -4,10 +4,11 @@
 // Requires wallet.js to be loaded first.
 
 (function () {
-  const WAGER_PRESETS  = [5, 10, 25, 50];
+  let WAGER_PRESETS    = [5, 10, 25, 50]; // updated dynamically once price is known
   const POLL_INTERVAL  = 2500;
   const HOUSE_RAKE     = 0.20;
-  const CPU_WIN_PAYOUT = 8;   // MONET paid to winner — house matches entry: (5+5)*0.8=8
+  let CPU_WIN_PAYOUT = 8;   // updated dynamically (= baseFee * 2 * 0.80)
+  let _baseFee = 5;         // current dynamic entry fee (1x wager)
 
   function _injectStyles() {
     if (document.getElementById('lb-styles')) return;
@@ -224,7 +225,7 @@
         <button class="lb-mode-card cpu" onclick="window._lbCpuExpert()">
           <span class="lb-mc-icon">🤖</span>
           <div class="lb-mc-name">CPU EXPERT</div>
-          <div class="lb-mc-sub">5 MONET or ~$0.25 SOL<br>Win ${CPU_WIN_PAYOUT} MONET</div>
+          <div class="lb-mc-sub">${_baseFee} MONET or ~$0.25 SOL<br>Win ${CPU_WIN_PAYOUT} MONET</div>
         </button>
         <button class="lb-mode-card live" onclick="window._lbJoinLive()">
           <span class="lb-mc-icon">⚡</span>
@@ -299,10 +300,11 @@
       </div>
       <div class="lb-wager-label">SELECT WAGER PER PLAYER</div>
       <div class="lb-wager-row" id="lb-wager-row">
-        ${WAGER_PRESETS.map(v => `
-          <button class="lb-wager-btn${v === _selectedWager ? ' selected' : ''}"
-            onclick="window._lbSelectWager(${v})">${v} MONET</button>
-        `).join('')}
+        ${WAGER_PRESETS.map(v => {
+          const usd = MONET_CONFIG?._priceUsd ? '$' + (v * MONET_CONFIG._priceUsd).toFixed(2) : '';
+          return `<button class="lb-wager-btn${v === _selectedWager ? ' selected' : ''}"
+            onclick="window._lbSelectWager(${v})">${v} MONET${usd ? `<br><span style="font-size:8px;opacity:0.6">${usd}</span>` : ''}</button>`;
+        }).join('')}
       </div>
       <div class="lb-pot-info" id="lb-pot-info"></div>
       <div class="lb-err" id="lb-err"></div>
@@ -665,7 +667,7 @@
 
   async function _doJoinTournament(tournamentId, entryFee) {
     try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
-    const fee = entryFee || 5;
+    const fee = entryFee || _baseFee;
     _selectedWager = fee;
     _screenCurrency('TOURNAMENT ENTRY', '🏆',
       () => { _paymentType = 'monet'; _doPayAndRegisterTourney(tournamentId, fee); },
@@ -747,7 +749,7 @@
   function showGameLobby(gameName, onStart) {
     _gameName      = gameName;
     _onStart       = onStart;
-    _selectedWager = 5;
+    _selectedWager = _baseFee;
     _paymentType   = 'monet';
 
     _injectStyles();
@@ -760,14 +762,28 @@
         <div id="lb-logo">🕹</div>
         <div id="lb-title">CHOOSE MODE</div>
         <div id="lb-game-label">${gameName.toUpperCase()}</div>
-        <div id="lb-body"></div>
+        <div id="lb-body"><div style="color:#888;font-size:11px;padding:24px 0;text-align:center">Loading...</div></div>
       </div>
     `;
     document.body.appendChild(_overlay);
 
     const urlCode = new URLSearchParams(location.search).get('challenge');
-    if (urlCode) { _screenJoin(); }
-    else         { _screenMode(); }
+
+    // Fetch dynamic fee then render — fallback after 1.5s to avoid blocking
+    const priceTimeout = new Promise(resolve => setTimeout(resolve, 1500));
+    const priceFetch   = fetch('/api/monet-price').then(r => r.json()).then(d => {
+      if (d.entryFeeMonet > 0) {
+        _baseFee = d.entryFeeMonet;
+        const b = _baseFee;
+        WAGER_PRESETS = [...new Set([b, b*2, b*5, b*10].map(Math.round))];
+        _selectedWager = b;
+        CPU_WIN_PAYOUT = Math.round(b * 2 * (1 - 0.20) * 10) / 10;
+      }
+    }).catch(() => {});
+    Promise.race([priceFetch, priceTimeout]).then(() => {
+      if (urlCode) { _screenJoin(); }
+      else         { _screenMode(); }
+    });
   }
 
   window.showGameLobby = showGameLobby;

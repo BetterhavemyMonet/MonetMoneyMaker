@@ -4,11 +4,35 @@
 const MONET_CONFIG = {
   MINT:         '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
   TREASURY:     'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs',
-  ENTRY_FEE:    5,
+  ENTRY_FEE:    5,      // updated dynamically by fetchEntryFee()
+  ENTRY_FEE_USD: 0.50,  // target USD value per entry
   PAYOUT_RATE:  0.80,
   DECIMALS:     6,
   SYMBOL:       'MONET',
 };
+
+// ─── Dynamic entry fee ────────────────────────────────────────────────────────
+// Fetches the current MONET price from the server and updates MONET_CONFIG.ENTRY_FEE
+// so that it always equals $0.50 worth of MONET. Cached by the server for 5 min.
+let _entryFeeFetched = false;
+async function fetchEntryFee() {
+  try {
+    const r = await fetch('/api/monet-price');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.entryFeeMonet && d.entryFeeMonet > 0) {
+      MONET_CONFIG.ENTRY_FEE = d.entryFeeMonet;
+      MONET_CONFIG._priceUsd  = d.priceUsd;
+      _entryFeeFetched = true;
+      // Notify pay gate if it's already open
+      document.dispatchEvent(new CustomEvent('entryFeeUpdated', { detail: d }));
+    }
+  } catch(_) {}
+}
+
+// Fetch on load, refresh every 5 minutes
+fetchEntryFee();
+setInterval(fetchEntryFee, 5 * 60 * 1000);
 
 // Client-side RPC endpoints — last-resort fallback only.
 // All balance/account queries now go through /api/balance (server-side) to
@@ -764,7 +788,7 @@ window.payShopItemSOL = payShopItemSOL;
 function recordWin(gameName, score) {
   const session = JSON.parse(sessionStorage.getItem('game_session') || 'null');
   if (!session) return false;
-  const payout = MONET_CONFIG.ENTRY_FEE * MONET_CONFIG.PAYOUT_RATE;
+  const payout = (session.entryFee || MONET_CONFIG.ENTRY_FEE) * MONET_CONFIG.PAYOUT_RATE;
   const claim = {
     id:        Date.now().toString(36),
     wallet:    WalletState.address || session.wallet,
@@ -1077,12 +1101,14 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
   function renderGate() {
     const conn     = WalletState.connected;
     const bal      = WalletState.monetBalance;
-    const hasEnough = bal >= MONET_CONFIG.ENTRY_FEE;
+    const fee      = MONET_CONFIG.ENTRY_FEE;
+    const feeUsd   = MONET_CONFIG._priceUsd ? (fee * MONET_CONFIG._priceUsd).toFixed(2) : '0.50';
+    const hasEnough = bal >= fee;
     const short    = conn ? WalletState.address.slice(0,4)+'...'+WalletState.address.slice(-4) : '';
     const potAmt   = opts.pot        ? opts.pot
-                   : challengeCode  ? (MONET_CONFIG.ENTRY_FEE * 2 * (1 - 0.20)).toFixed(1) + ' MONET'
+                   : challengeCode  ? (fee * 2 * (1 - 0.20)).toFixed(1) + ' MONET'
                    : tournamentId   ? 'Pool grows with players'
-                   : (MONET_CONFIG.ENTRY_FEE * MONET_CONFIG.PAYOUT_RATE).toFixed(1) + ' MONET';
+                   : (fee * MONET_CONFIG.PAYOUT_RATE).toFixed(1) + ' MONET';
 
     overlay.innerHTML = `
       <div id="pg-box">
@@ -1095,7 +1121,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
 
         <div class="pg-row">
           <span class="pg-label">Entry Fee</span>
-          <span class="pg-val" style="color:#ff4488">${MONET_CONFIG.ENTRY_FEE} MONET</span>
+          <span class="pg-val" style="color:#ff4488">${fee} MONET <span style="font-size:9px;color:#888">≈ $${feeUsd}</span></span>
         </div>
         <div class="pg-row">
           <span class="pg-label">Prize Pot</span>
@@ -1114,9 +1140,9 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
             <span style="color:${WalletState.solBalance>=0.003?'#00ff9d':'#555'}">${WalletState.solBalance.toFixed(3)} SOL</span>
           </div>
           ${hasEnough ? `
-            <button id="pg-pay-btn" onclick="pgPay()">PAY ${MONET_CONFIG.ENTRY_FEE} MONET &amp; PLAY</button>
+            <button id="pg-pay-btn" onclick="pgPay()">PAY ${fee} MONET &amp; PLAY</button>
           ` : `
-            <div style="color:#ff4488;font-size:11px;margin-top:10px">Insufficient MONET — need ${MONET_CONFIG.ENTRY_FEE}</div>
+            <div style="color:#ff4488;font-size:11px;margin-top:10px">Insufficient MONET — need ${fee}</div>
             <button id="pg-pay-btn" onclick="location.href='exchange.html'" style="background:linear-gradient(135deg,#ff4488,#c0136c)">GET MONET &#8594;</button>
           `}
           <button id="pg-pay-sol-btn" onclick="pgPaySOL()"
@@ -1145,8 +1171,9 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
 
   window._pgRenderGate = renderGate;
   renderGate();
-  document.addEventListener('walletConnected', renderGate);
-  document.addEventListener('balanceUpdated',  renderGate);
+  document.addEventListener('walletConnected',  renderGate);
+  document.addEventListener('balanceUpdated',   renderGate);
+  document.addEventListener('entryFeeUpdated',  renderGate);
 }
 
 async function pgConnect() {

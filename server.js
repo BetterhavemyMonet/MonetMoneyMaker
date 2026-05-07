@@ -20,8 +20,52 @@ app.use(express.json());
 // ─── Config ───────────────────────────────────────────────────────────────────
 const MINT_ADDRESS    = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const TREASURY_ADDR   = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
-const ENTRY_FEE       = 5;
-const ALLOWED_ENTRY_FEES = new Set([5, 10, 25, 50]);
+const ENTRY_FEE       = 5;   // fallback only — dynamic fee targets $0.50 USD
+const TARGET_USD      = 0.50; // entry fee target in USD
+const PRICE_CACHE_MS  = 5 * 60 * 1000; // cache MONET price for 5 minutes
+
+// ─── Dynamic MONET pricing ─────────────────────────────────────────────────
+let _monetPriceUsd = null;
+let _monetPriceTs  = 0;
+
+async function fetchMonetPrice() {
+  try {
+    // DexScreener — reliable, no API key required
+    const r = await fetch(
+      `https://api.dexscreener.com/latest/dex/tokens/${MINT_ADDRESS}`,
+      { headers: { 'User-Agent': 'monet-arcade/1.0' } }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    // Use the first pair with a valid USD price (highest liquidity usually first)
+    const pairs = d?.pairs || [];
+    const best  = pairs.find(p => p.priceUsd && parseFloat(p.priceUsd) > 0);
+    const p     = best ? parseFloat(best.priceUsd) : 0;
+    if (p > 0) { _monetPriceUsd = p; _monetPriceTs = Date.now(); }
+  } catch(e) {
+    console.warn('[PRICE] DexScreener fetch failed:', e.message);
+  }
+  return _monetPriceUsd;
+}
+
+async function getMonetPrice() {
+  if (_monetPriceUsd && Date.now() - _monetPriceTs < PRICE_CACHE_MS) return _monetPriceUsd;
+  return fetchMonetPrice();
+}
+
+// Returns the current MONET entry fee (how many MONET = $0.50 USD)
+// Falls back to ENTRY_FEE (5) if price cannot be fetched.
+async function getDynamicEntryFee() {
+  const p = await getMonetPrice();
+  if (!p) return ENTRY_FEE;
+  return Math.max(1, Math.round(TARGET_USD / p));
+}
+
+// Warm the price cache at startup
+fetchMonetPrice().then(p => {
+  if (p) console.log(`[PRICE] MONET = $${p.toExponential(3)} → entry fee ≈ ${Math.round(TARGET_USD/p)} MONET ($${TARGET_USD})`);
+}).catch(() => {});
+
 const DECIMALS        = 6;
 const HOUSE_RAKE      = 0.20;
 const CPU_PAYOUT_MAX  = 9;
@@ -440,6 +484,25 @@ app.get('/api/rpc-url', (_req, res) => {
   res.json({ ok: true, url });
 });
 
+// ─── Routes: MONET price / dynamic entry fee ──────────────────────────────
+app.get('/api/monet-price', async (_req, res) => {
+  try {
+    const priceUsd     = await getMonetPrice();
+    const entryFeeMonet = priceUsd
+      ? Math.max(1, Math.round(TARGET_USD / priceUsd))
+      : ENTRY_FEE;
+    res.json({
+      ok: true,
+      priceUsd,
+      entryFeeMonet,
+      entryFeeUsd: TARGET_USD,
+      cached: !!(priceUsd && Date.now() - _monetPriceTs < PRICE_CACHE_MS),
+    });
+  } catch(e) {
+    res.json({ ok: true, priceUsd: null, entryFeeMonet: ENTRY_FEE, entryFeeUsd: TARGET_USD });
+  }
+});
+
 app.get('/api/status', async (req, res) => {
   const balance    = await getTreasuryBalance().catch(() => 0);
   const challenges = dbRead('challenges');
@@ -465,9 +528,11 @@ app.post('/api/challenge/create', async (req, res) => {
   const challenges = dbRead('challenges');
   challenges.forEach(c => { if (c.status === 'open' && Date.now() > c.expiresAt) c.status = 'expired'; });
 
-  const fee = (reqFee && Number(reqFee) > 0) ? Number(reqFee) : ENTRY_FEE;
-  if (!ALLOWED_ENTRY_FEES.has(fee)) {
-    return res.status(400).json({ error: `Invalid entry fee. Allowed amounts: ${[...ALLOWED_ENTRY_FEES].join(', ')} MONET` });
+  const baseFee = await getDynamicEntryFee();
+  const fee = (reqFee && Number(reqFee) > 0) ? Number(reqFee) : baseFee;
+  // Accept any fee >= 0.4x and <= 12x of the current dynamic base fee (tolerant of price swings)
+  if (fee <= 0 || fee < baseFee * 0.4 || fee > baseFee * 12) {
+    return res.status(400).json({ error: `Invalid entry fee: ${fee} MONET (current base: ${baseFee} MONET)` });
   }
   // Reject duplicate txIds to prevent replay
   const allForDedup = dbRead('challenges');
@@ -590,7 +655,7 @@ app.get('/api/tournament/list', (req, res) => {
   res.json({ ok: true, tournaments: list });
 });
 
-app.post('/api/tournament/create', (req, res) => {
+app.post('/api/tournament/create', async (req, res) => {
   const { game, title, maxPlayers } = req.body;
   if (!game) return res.status(400).json({ error: 'game required' });
   const max = Math.min(MAX_PLAYERS, Math.max(2, parseInt(maxPlayers) || 8));
@@ -601,7 +666,7 @@ app.post('/api/tournament/create', (req, res) => {
     maxPlayers: max,
     minPlayers: MIN_PLAYERS,
     players:    [],
-    entryFee:   ENTRY_FEE,
+    entryFee:   await getDynamicEntryFee(),
     prizePool:  0,
     rake:       0,
     prizes:     PRIZE_CUTS,
@@ -822,7 +887,7 @@ app.post('/api/cpu/start', async (req, res) => {
   // Verify payment — MONET or SOL
   try {
     if (paymentType === 'sol') { await verifySOLPayment(txId); }
-    else { await verifyEntryFee(txId, ENTRY_FEE); }
+    else { await verifyEntryFee(txId, await getDynamicEntryFee()); }
   } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
   // CPU is always expert
@@ -846,7 +911,8 @@ app.post('/api/cpu/submit', async (req, res) => {
   if (idx === -1) return res.status(404).json({ error: 'CPU game not found' });
 
   const g = cpuGames[idx];
-  const CPU_PAYOUT = Math.min(ENTRY_FEE * 2 * (1 - HOUSE_RAKE), CPU_PAYOUT_MAX); // house matches: (5+5)*0.8=8
+  const dynFee = await getDynamicEntryFee();
+  const CPU_PAYOUT = Math.min(dynFee * 2 * (1 - HOUSE_RAKE), CPU_PAYOUT_MAX * (dynFee / ENTRY_FEE));
   if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
 
   g.playerScore = playerScore;
