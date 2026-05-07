@@ -216,7 +216,7 @@ body::before {
 <div class="page">
 <img src="/logo.png" style="width:80px;display:block;margin:12px auto 6px;filter:drop-shadow(0 0 16px #a855ff)">
 <h1>MONET ARCADE</h1>
-<div class="subtitle">Pick a game · choose your mode · play for MONET</div>
+<div class="subtitle">Every game costs <span style="color:#ffd700">$0.50 USD</span> · Pay in MONET or SOL</div>
 
 <div class="nav-row">
   <button class="nav-btn" onclick="location.href='index.html'">&#8592; Home</button>
@@ -232,6 +232,37 @@ body::before {
     <div>
       <div class="pot-num" id="pot-balance">— MONET</div>
       <div class="pot-sub">Treasury pot · live balance</div>
+    </div>
+  </div>
+</div>
+
+<!-- Pricing Info Strip -->
+<div id="pricing-strip" style="
+  max-width:700px;margin:0 auto 12px;padding:0 16px;
+">
+  <div style="
+    background:linear-gradient(135deg,rgba(168,85,255,0.10),rgba(0,240,255,0.06));
+    border:1px solid rgba(168,85,255,0.25);border-radius:14px;
+    padding:12px 18px;display:flex;align-items:center;justify-content:center;
+    gap:24px;flex-wrap:wrap;text-align:center;
+    font-family:'Orbitron',sans-serif;
+  ">
+    <div>
+      <div style="font-size:18px;font-weight:800;color:#ffd700">$0.50 <span style="font-size:11px;color:#aaa;font-weight:normal">USD per game</span></div>
+      <div style="font-size:9px;color:#666;margin-top:2px;letter-spacing:1px">ENTRY FEE · ALL MODES</div>
+    </div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
+      <div style="text-align:center">
+        <div style="font-size:11px;color:#a855ff;font-weight:800">💎 MONET</div>
+        <div style="font-size:10px;color:#ccc;margin-top:2px"><span id="strip-monet-fee">—</span> MONET</div>
+        <div style="font-size:8px;color:#555;margin-top:1px">live market rate</div>
+      </div>
+      <div style="color:#333;font-size:18px;align-self:center">·</div>
+      <div style="text-align:center">
+        <div style="font-size:11px;color:#3b82f6;font-weight:800">◎ SOL</div>
+        <div style="font-size:10px;color:#ccc;margin-top:2px">~$0.25 in SOL</div>
+        <div style="font-size:8px;color:#555;margin-top:1px">≈ 0.001 SOL</div>
+      </div>
     </div>
   </div>
 </div>
@@ -336,6 +367,10 @@ body::before {
     <div id="gm-icon" style="font-size:32px;margin-bottom:4px"></div>
     <div id="gm-title" style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:800;background:linear-gradient(90deg,#a855ff,#00f0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent"></div>
     <div style="font-size:10px;color:#555;margin-top:3px;font-family:'Orbitron',sans-serif">SELECT GAME MODE</div>
+    <div style="margin-top:8px;padding:6px 12px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.2);border-radius:8px;display:inline-block">
+      <span style="font-size:10px;color:#ffd700;font-family:'Orbitron',sans-serif;font-weight:800">$0.50 USD entry</span>
+      <span style="font-size:9px;color:#666;margin-left:6px">· <span id="gm-monet-fee">—</span> MONET or ~$0.25 SOL</span>
+    </div>
   </div>
   <div style="display:flex;flex-direction:column;gap:9px" id="gm-modes">
 
@@ -352,16 +387,16 @@ body::before {
       <span class="gm-btn-icon">🤖</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">VS CPU</span>
-        <span class="gm-btn-desc">Expert AI · 5 MONET entry · Win 8 MONET</span>
+        <span class="gm-btn-desc">Expert AI · $0.50 entry · Win double if you beat it</span>
       </span>
-      <span class="gm-btn-badge" style="background:rgba(255,68,136,0.15);color:#ff4488;border-color:#ff448844">5 MONET</span>
+      <span class="gm-btn-badge" style="background:rgba(255,68,136,0.15);color:#ff4488;border-color:#ff448844" id="gm-cpu-badge">$0.50</span>
     </button>
 
     <button class="gm-btn" style="--c:#00f0ff" onclick="goMode('wait')">
       <span class="gm-btn-icon">👥</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">WAIT FOR LIVE PLAYER</span>
-        <span class="gm-btn-desc">Open a challenge · wait for a real opponent to join</span>
+        <span class="gm-btn-desc">$0.50 entry · open a challenge · wait for a real opponent</span>
       </span>
       <span class="gm-btn-badge" style="background:rgba(0,240,255,0.12);color:#00f0ff;border-color:#00f0ff44">LIVE</span>
     </button>
@@ -370,7 +405,7 @@ body::before {
       <span class="gm-btn-icon">⚔️</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">H2H CHALLENGE</span>
-        <span class="gm-btn-desc">Invite a friend · wager MONET · winner takes all</span>
+        <span class="gm-btn-desc">$0.50 entry · challenge a friend · winner takes 80% pot</span>
       </span>
       <span class="gm-btn-badge" style="background:rgba(0,240,255,0.12);color:#00f0ff;border-color:#00f0ff44">1v1</span>
     </button>
@@ -379,7 +414,7 @@ body::before {
       <span class="gm-btn-icon">🏆</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">TOURNAMENT</span>
-        <span class="gm-btn-desc">Create or join a multi-player bracket · top 3 share pot</span>
+        <span class="gm-btn-desc">$0.50 entry · multi-player bracket · top 3 share prize pool</span>
       </span>
       <span class="gm-btn-badge" style="background:rgba(255,215,0,0.12);color:#ffd700;border-color:#ffd70044">PRIZE POOL</span>
     </button>
@@ -398,6 +433,30 @@ body::before {
 </div>
 
 <script>
+// ── Dynamic pricing — fetch MONET fee and populate strip + modal ──────────────
+let _arcadeEntryFee = null;
+async function loadEntryFee() {
+  try {
+    const r = await fetch('/api/monet-price');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (d.entryFeeMonet > 0) {
+      _arcadeEntryFee = d.entryFeeMonet;
+      const fmt = d.entryFeeMonet.toLocaleString();
+      // Update pricing strip
+      const stripEl = document.getElementById('strip-monet-fee');
+      if (stripEl) stripEl.textContent = fmt;
+      // Update modal fee display
+      const gmEl = document.getElementById('gm-monet-fee');
+      if (gmEl) gmEl.textContent = fmt;
+      // Update VS CPU badge
+      const cpuBadge = document.getElementById('gm-cpu-badge');
+      if (cpuBadge) cpuBadge.textContent = fmt + ' M';
+    }
+  } catch(_) {}
+}
+loadEntryFee();
+
 // ── Modal state ──────────────────────────────────────────────────────────────
 let _curHref = '', _curGame = '';
 
