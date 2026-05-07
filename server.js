@@ -708,7 +708,7 @@ app.post('/api/tournament/register', async (req, res) => {
   } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
   t.players.push({ wallet, txId, paymentType: paymentType || 'monet', score: null, submittedAt: null, rank: null });
-  const pot = calcPot(t.players.length);
+  const pot = calcPot(t.players.length, t.entryFee || ENTRY_FEE);
   t.prizePool = pot.net;
   t.rake      = pot.rake;
 
@@ -972,6 +972,46 @@ async function retryPendingClaims() {
 setInterval(retryPendingClaims, 90_000);
 // Also run once 15 s after boot so fresh deploys pick up any queued claims fast
 setTimeout(retryPendingClaims, 15_000);
+
+// ─── Auto-refund expired open challenges ──────────────────────────────────────
+// Runs every 5 minutes. Any challenge that is still 'open' but past its
+// expiresAt gets marked 'expired' and a full entry-fee refund is queued for P1.
+function refundExpiredChallenges() {
+  const challenges = dbRead('challenges');
+  const claims     = dbRead('claims');
+  const now        = Date.now();
+  let changed = false;
+
+  for (const c of challenges) {
+    if (c.status !== 'open' || now <= c.expiresAt) continue;
+    c.status = 'expired';
+    changed  = true;
+
+    // Only queue a refund if one hasn't been created yet for this challenge
+    const alreadyQueued = claims.some(cl => cl.refId === c.id && cl.type === 'challenge_expired_refund');
+    if (!alreadyQueued && c.player1?.wallet && c.player1.txId !== 'practice-mode') {
+      const amount = c.entryFee || ENTRY_FEE;
+      claims.push({
+        id:        'refund_' + c.code,
+        type:      'challenge_expired_refund',
+        refId:     c.id,
+        wallet:    c.player1.wallet,
+        amount,
+        status:    'pending',
+        error:     `Challenge ${c.code} expired with no opponent — full entry-fee refund`,
+        createdAt: now,
+      });
+      console.log(`[REFUND] Queued ${amount} MONET refund for ${c.player1.wallet.slice(0,8)}… (challenge ${c.code} expired)`);
+    }
+  }
+
+  if (changed) {
+    dbWrite('challenges', challenges);
+    dbWrite('claims', claims);
+  }
+}
+setInterval(refundExpiredChallenges, 5 * 60_000);
+setTimeout(refundExpiredChallenges, 5_000);
 
 // ─── SOL entry fee info ───────────────────────────────────────────────────────
 app.get('/api/sol-entry-fee', (_req, res) => {

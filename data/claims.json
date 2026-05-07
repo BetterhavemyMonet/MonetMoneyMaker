@@ -1,0 +1,22 @@
+[
+  {
+    "id": "refund_W23XTH",
+    "type": "challenge_expired_refund",
+    "refId": "moqc92kyjbsp",
+    "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
+    "amount": 5,
+    "status": "pending",
+    "error": "Challenge W23XTH expired with no opponent — full entry-fee refund",
+    "createdAt": 1778179200000
+  },
+  {
+    "id": "refund_H77BJE",
+    "type": "challenge_expired_refund",
+    "refId": "morr54j9ti6g",
+    "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
+    "amount": 5,
+    "status": "pending",
+    "error": "Challenge H77BJE expired with no opponent — full entry-fee refund",
+    "createdAt": 1778179200000
+  }
+]
