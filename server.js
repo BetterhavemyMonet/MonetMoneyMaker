@@ -1013,6 +1013,40 @@ function refundExpiredChallenges() {
 setInterval(refundExpiredChallenges, 5 * 60_000);
 setTimeout(refundExpiredChallenges, 5_000);
 
+// ─── Admin: server-side process all pending claims ────────────────────────────
+// Protected by ADMIN_TOKEN env var. Attempts sendPayout for every pending claim.
+// Returns per-claim results so the UI can show pass/fail without wallet signing.
+app.post('/api/admin/process-claims', async (req, res) => {
+  const token = (req.headers['x-admin-token'] || '').trim();
+  const expected = (process.env.ADMIN_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    return res.status(401).json({ error: 'Invalid admin token' });
+  }
+
+  const claims = dbRead('claims');
+  const pending = claims.filter(c => c.status === 'pending');
+  if (!pending.length) return res.json({ ok: true, processed: 0, results: [] });
+
+  const results = [];
+  for (const claim of pending) {
+    try {
+      claim.payoutTxId   = await sendPayout(claim.wallet, claim.amount);
+      claim.status       = 'paid';
+      claim.processedAt  = Date.now();
+      delete claim.error;
+      results.push({ id: claim.id, wallet: claim.wallet, amount: claim.amount, ok: true, txId: claim.payoutTxId });
+      console.log(`[ADMIN] ✓ paid ${claim.wallet.slice(0,8)}… ${claim.amount} MONET`);
+    } catch(e) {
+      claim.error       = e.message;
+      claim.lastRetryAt = Date.now();
+      results.push({ id: claim.id, wallet: claim.wallet, amount: claim.amount, ok: false, error: e.message });
+      console.warn(`[ADMIN] ✗ ${claim.id} failed: ${e.message}`);
+    }
+  }
+  dbWrite('claims', claims);
+  res.json({ ok: true, processed: pending.length, results });
+});
+
 // ─── SOL entry fee info ───────────────────────────────────────────────────────
 app.get('/api/sol-entry-fee', (_req, res) => {
   res.json({ ok: true, lamports: SOL_ENTRY_LAMPORTS, sol: SOL_ENTRY_LAMPORTS / 1e9, approxUsd: 0.25 });

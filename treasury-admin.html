@@ -21,29 +21,55 @@ body::before {
   pointer-events: none;
   z-index: 0;
 }
-.page { position: relative; z-index: 1; padding-bottom: 50px; }
-.wallet-bar { max-width: 680px; margin: 0 auto 12px; padding: 10px 16px; background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
-.nav-row { display: flex; justify-content: center; gap: 10px; margin: 8px 0 18px; flex-wrap: wrap; }
+.page { position: relative; z-index: 1; padding-bottom: 60px; max-width: 720px; margin: 0 auto; padding-top: 24px; }
+h2 { text-align: center; font-family: 'Orbitron', sans-serif; font-size: 22px; color: #a855ff; margin: 0 0 14px; letter-spacing: 3px; }
+.nav-row { display: flex; justify-content: center; gap: 10px; margin: 0 0 22px; flex-wrap: wrap; }
 .nav-btn { padding: 7px 18px; border-radius: 8px; border: 2px solid #a855ff; background: transparent; color: #a855ff; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
 .nav-btn:hover { background: #a855ff; color: #000; }
 
-/* Lock screen */
-#lock-screen {
-  max-width: 480px; margin: 60px auto; text-align: center;
-  background: rgba(0,0,0,0.5); border: 1px solid #a855ff44;
-  border-radius: 16px; padding: 40px 28px;
+/* ── PIN box ── */
+.pin-box {
+  background: rgba(0,0,0,0.55); border: 1px solid #a855ff44;
+  border-radius: 14px; padding: 20px 22px; margin-bottom: 20px;
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
 }
-#lock-screen h3 { font-size: 16px; color: #a855ff; margin-bottom: 8px; }
-#lock-screen p  { color: #888; font-size: 12px; margin-bottom: 20px; line-height: 1.7; }
-#lock-addr { font-size: 10px; font-family: monospace; color: #555; word-break: break-all; margin-top: 8px; }
+.pin-box label { font-family: 'Orbitron', sans-serif; font-size: 11px; color: #888; white-space: nowrap; }
+.pin-input {
+  flex: 1; min-width: 160px;
+  background: rgba(255,255,255,0.06); border: 1px solid #a855ff55;
+  border-radius: 8px; padding: 9px 14px;
+  color: #fff; font-family: monospace; font-size: 14px; letter-spacing: 2px;
+  outline: none;
+}
+.pin-input:focus { border-color: #a855ff; }
+.pin-go-btn {
+  padding: 10px 22px; border-radius: 9px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #a855ff, #7c3aed);
+  color: #fff; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
+  white-space: nowrap;
+}
+.pin-go-btn:hover { filter: brightness(1.15); }
+.pin-go-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+.pin-status { width: 100%; font-size: 11px; margin: 0; padding: 0; }
+.pin-status.ok    { color: #00ff9d; }
+.pin-status.err   { color: #ff4488; }
+.pin-status.info  { color: #888; }
 
-/* Stats bar */
-.stats-bar {
-  max-width: 680px; margin: 0 auto 20px;
-  display: flex; gap: 12px; flex-wrap: wrap;
+/* ── Server process button ── */
+.server-btn {
+  width: 100%; padding: 14px; border-radius: 12px; border: none; cursor: pointer;
+  background: linear-gradient(135deg, #00ff9d, #00c97b);
+  color: #000; font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 800;
+  margin-bottom: 22px; letter-spacing: 1px;
+  transition: filter .15s, opacity .15s;
 }
+.server-btn:hover    { filter: brightness(1.1); }
+.server-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ── Stats bar ── */
+.stats-bar { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
 .stat-card {
-  flex: 1; min-width: 130px;
+  flex: 1; min-width: 120px;
   background: rgba(0,0,0,0.45); border: 1px solid #a855ff33;
   border-radius: 12px; padding: 14px 16px; text-align: center;
 }
@@ -53,9 +79,9 @@ body::before {
 .stat-card .value.yellow { color: #ffd700; }
 .stat-card .value.red    { color: #ff4488; }
 
-/* Section */
+/* ── Section ── */
 .section {
-  max-width: 680px; margin: 0 auto 24px;
+  margin-bottom: 24px;
   background: rgba(0,0,0,0.4); border: 1px solid #a855ff22;
   border-radius: 14px; overflow: hidden;
 }
@@ -67,7 +93,7 @@ body::before {
 .section-header h3 { font-size: 13px; color: #a855ff; margin: 0; }
 .section-body { padding: 4px 0; }
 
-/* Claim rows */
+/* ── Claim rows ── */
 .claim-row {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 18px; border-bottom: 1px solid #ffffff08;
@@ -86,26 +112,25 @@ body::before {
 .claim-wallet { font-family: monospace; font-size: 11px; color: #aaa; flex: 1; min-width: 120px; }
 .claim-amount { font-family: 'Orbitron', sans-serif; font-size: 13px; font-weight: 800; color: #ffd700; white-space: nowrap; }
 .claim-age    { font-size: 10px; color: #555; white-space: nowrap; }
-.pay-btn {
-  padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer;
-  background: linear-gradient(135deg, #a855ff, #7c3aed);
-  color: #fff; font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 800;
-  white-space: nowrap;
-  transition: opacity .15s, filter .15s;
-}
-.pay-btn:hover    { filter: brightness(1.2); }
-.pay-btn:disabled { opacity: 0.4; cursor: not-allowed; }
-.pay-btn.done  { background: #1a3a2a; border: 1px solid #00ff9d44; color: #00ff9d; cursor: default; }
-.pay-btn.error { background: #3a1a1a; border: 1px solid #ff448844; color: #ff4488; cursor: default; }
+.claim-result { font-size: 10px; white-space: nowrap; }
+.claim-result.ok  { color: #00ff9d; }
+.claim-result.err { color: #ff4488; }
 
-/* Pay-all button */
-.pay-all-btn {
-  padding: 9px 22px; border-radius: 10px; border: none; cursor: pointer;
-  background: linear-gradient(135deg, #00ff9d, #00c97b);
-  color: #000; font-family: 'Orbitron', sans-serif; font-size: 11px; font-weight: 800;
+/* Wallet-sign fallback PAY button */
+.pay-btn {
+  padding: 7px 14px; border-radius: 8px; border: 1px solid #a855ff55; cursor: pointer;
+  background: transparent; color: #a855ff;
+  font-family: 'Orbitron', sans-serif; font-size: 10px; font-weight: 800;
+  white-space: nowrap; transition: background .15s, opacity .15s;
 }
-.pay-all-btn:hover    { filter: brightness(1.1); }
-.pay-all-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.pay-btn:hover    { background: rgba(168,85,255,0.18); }
+.pay-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+.pay-btn.done  { border-color: #00ff9d44; color: #00ff9d; cursor: default; }
+.pay-btn.error { border-color: #ff448844; color: #ff4488; cursor: default; }
+
+/* Wallet bar */
+.wallet-row { margin-bottom: 16px; }
+.wallet-bar { padding: 10px 16px; background: rgba(0,0,0,0.4); border-radius: 10px; border: 1px solid #333; display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
 
 /* Paid row */
 .paid-row .claim-wallet { color: #555; }
@@ -122,7 +147,7 @@ body::before {
   background: #1a2a1a; border: 1px solid #00ff9d44; border-radius: 10px;
   padding: 10px 20px; color: #00ff9d; font-family: 'Orbitron', sans-serif;
   font-size: 11px; z-index: 9999; opacity: 0;
-  transition: opacity .3s; pointer-events: none;
+  transition: opacity .3s; pointer-events: none; white-space: nowrap;
 }
 #toast.error { background: #2a1a1a; border-color: #ff448844; color: #ff4488; }
 #toast.show  { opacity: 1; }
@@ -131,64 +156,78 @@ body::before {
 <body>
 <div class="page">
   <h2>TREASURY ADMIN</h2>
-  <div class="wallet-bar" id="walletBar"></div>
+
   <div class="nav-row">
     <a class="nav-btn" href="index.html">&#8592; Home</a>
     <a class="nav-btn" href="arcade.html">&#127918; Arcade</a>
   </div>
 
-  <!-- Pay-lock notice — shown when treasury wallet is NOT connected -->
-  <div id="pay-notice" style="max-width:680px;margin:0 auto 16px;padding:12px 18px;background:rgba(255,100,0,0.1);border:1px solid rgba(255,100,0,0.3);border-radius:10px;text-align:center;font-size:12px;color:#ff9955;display:block">
-    &#128274; Connect the treasury wallet <span style="font-family:monospace;font-size:10px;color:#ff6400">ot1CyXF…nRxs</span> to Phantom to enable payouts.
+  <!-- ── Admin PIN ── -->
+  <div class="pin-box">
+    <label>ADMIN PIN</label>
+    <input class="pin-input" id="pinInput" type="password" placeholder="Enter admin PIN…" autocomplete="off">
+    <button class="pin-go-btn" id="pinBtn" onclick="serverProcessAll()">PROCESS ALL &#9654;</button>
+    <p class="pin-status info" id="pinStatus">Enter your admin PIN then click PROCESS ALL to pay all pending claims server-side — no wallet needed.</p>
   </div>
 
-  <!-- Admin panel — always visible -->
-  <div id="admin-panel">
-
-    <!-- Stats -->
-    <div class="stats-bar">
-      <div class="stat-card">
-        <div class="label">TREASURY MONET</div>
-        <div class="value yellow" id="stat-balance">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">PENDING PAYOUTS</div>
-        <div class="value red" id="stat-pending">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">PENDING MONET</div>
-        <div class="value red" id="stat-pending-amt">—</div>
-      </div>
-      <div class="stat-card">
-        <div class="label">PAID TODAY</div>
-        <div class="value green" id="stat-paid">—</div>
-      </div>
+  <!-- ── Stats ── -->
+  <div class="stats-bar">
+    <div class="stat-card">
+      <div class="label">PENDING PAYOUTS</div>
+      <div class="value red" id="stat-pending">—</div>
     </div>
-
-    <!-- Pending claims -->
-    <div class="section">
-      <div class="section-header">
-        <h3>&#9888; PENDING PAYOUTS</h3>
-        <button class="pay-all-btn" id="payAllBtn" onclick="payAll()" disabled>PAY ALL</button>
-      </div>
-      <div class="section-body" id="pendingList">
-        <div class="empty">Loading…</div>
-      </div>
+    <div class="stat-card">
+      <div class="label">PENDING MONET</div>
+      <div class="value red" id="stat-pending-amt">—</div>
     </div>
-
-    <!-- Recent paid -->
-    <div class="section">
-      <div class="section-header">
-        <h3>&#10003; RECENTLY PAID</h3>
-        <span id="paid-count" style="font-size:11px;color:#555"></span>
-      </div>
-      <div class="section-body" id="paidList">
-        <div class="empty">Loading…</div>
-      </div>
+    <div class="stat-card">
+      <div class="label">PAID TODAY</div>
+      <div class="value green" id="stat-paid">—</div>
     </div>
+    <div class="stat-card">
+      <div class="label">PAID TOTAL</div>
+      <div class="value yellow" id="stat-paid-total">—</div>
+    </div>
+  </div>
 
-  </div><!-- /admin-panel -->
-</div><!-- /page -->
+  <!-- ── Pending claims ── -->
+  <div class="section">
+    <div class="section-header">
+      <h3>&#9888; PENDING PAYOUTS</h3>
+      <span id="wallet-pay-hint" style="font-size:10px;color:#555">or connect treasury wallet below to sign individually</span>
+    </div>
+    <div class="section-body" id="pendingList">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Recent paid ── -->
+  <div class="section">
+    <div class="section-header">
+      <h3>&#10003; RECENTLY PAID</h3>
+      <span id="paid-count" style="font-size:11px;color:#555"></span>
+    </div>
+    <div class="section-body" id="paidList">
+      <div class="empty">Loading…</div>
+    </div>
+  </div>
+
+  <!-- ── Wallet signing fallback ── -->
+  <div class="section" style="border-color:#333">
+    <div class="section-header" style="background:rgba(0,0,0,0.3)">
+      <h3 style="color:#555;font-size:12px">&#128273; WALLET SIGNING FALLBACK</h3>
+    </div>
+    <div style="padding:16px 18px">
+      <p style="font-size:11px;color:#666;margin:0 0 12px;line-height:1.7">
+        If server-side processing fails (treasury key mismatch), connect the treasury wallet
+        <span style="font-family:monospace;color:#555;font-size:10px">ot1CyXF…nRxs</span>
+        in Phantom to sign payouts directly from your browser.
+      </p>
+      <div class="wallet-bar" id="walletBar"></div>
+    </div>
+  </div>
+
+</div>
 
 <div id="toast"></div>
 
@@ -199,35 +238,26 @@ const TREASURY = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
 
 renderWalletBar('walletBar');
 
-// ── Auth gate — controls pay-lock notice + button availability only ────────────
-function checkAccess() {
-  const isTreasury = WalletState.connected && WalletState.address === TREASURY;
-  const notice     = document.getElementById('pay-notice');
-  if (notice) notice.style.display = isTreasury ? 'none' : 'block';
-
-  // Enable/disable all pay buttons
-  document.querySelectorAll('.pay-btn, .pay-all-btn').forEach(btn => {
-    btn.disabled = !isTreasury || btn.id === 'payAllBtn' && _allClaims.filter(c => c.status === 'pending').length === 0;
-  });
-
-  if (isTreasury) {
-    document.getElementById('stat-balance').textContent =
-      WalletState.monetBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' MONET';
-  }
+// ── Wallet-signing gate (for individual PAY buttons only) ──────────────────
+function isTreasuryConnected() {
+  return WalletState.connected && WalletState.address === TREASURY;
 }
 
-document.addEventListener('walletConnected',    checkAccess);
-document.addEventListener('walletDisconnected', checkAccess);
-document.addEventListener('balanceUpdated',     () => {
-  document.getElementById('stat-balance').textContent =
-    WalletState.monetBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' MONET';
-});
+function refreshPayBtnState() {
+  const ok = isTreasuryConnected();
+  document.querySelectorAll('.pay-btn[data-claim-id]').forEach(btn => {
+    if (!btn.classList.contains('done') && !btn.classList.contains('error')) {
+      btn.disabled = !ok;
+      btn.title = ok ? '' : 'Connect treasury wallet to use individual pay';
+    }
+  });
+}
 
-// ── Load claims ───────────────────────────────────────────────────────────────
+document.addEventListener('walletConnected',    refreshPayBtnState);
+document.addEventListener('walletDisconnected', refreshPayBtnState);
+
+// ── Load & render claims ───────────────────────────────────────────────────
 let _allClaims = [];
-
-// Load claims immediately on page load — no wallet required to view
-loadAll();
 
 async function loadAll() {
   try {
@@ -236,14 +266,22 @@ async function loadAll() {
     _allClaims = d.claims || [];
     renderClaims();
   } catch(e) {
-    document.getElementById('pendingList').innerHTML = `<div class="empty">Failed to load claims: ${e.message}</div>`;
+    document.getElementById('pendingList').innerHTML =
+      `<div class="empty">Failed to load claims: ${e.message}</div>`;
   }
+}
+
+function claimTypeLabel(type) {
+  if (!type) return { key: 'solo', label: 'SOLO' };
+  if (type.includes('refund'))  return { key: 'refund',      label: 'REFUND' };
+  if (type === 'challenge_expired_refund') return { key: 'refund', label: 'REFUND' };
+  return { key: type, label: type.toUpperCase() };
 }
 
 function timeAgo(ts) {
   const s = Math.floor((Date.now() - ts) / 1000);
-  if (s < 60)  return s + 's ago';
-  if (s < 3600) return Math.floor(s/60) + 'm ago';
+  if (s < 60)    return s + 's ago';
+  if (s < 3600)  return Math.floor(s/60) + 'm ago';
   if (s < 86400) return Math.floor(s/3600) + 'h ago';
   return Math.floor(s/86400) + 'd ago';
 }
@@ -254,19 +292,14 @@ function renderClaims() {
                             .sort((a,b) => (b.processedAt||0) - (a.processedAt||0))
                             .slice(0, 30);
 
-  // Stats
-  const pendingAmt = pending.reduce((s,c) => s + (c.amount||0), 0);
-  const today = Date.now() - 86400000;
-  const paidToday = paid.filter(c => (c.processedAt||0) > today).length;
+  const pendingAmt  = pending.reduce((s,c) => s + (c.amount||0), 0);
+  const today       = Date.now() - 86400000;
+  const paidToday   = paid.filter(c => (c.processedAt||0) > today).length;
 
   document.getElementById('stat-pending').textContent     = pending.length;
   document.getElementById('stat-pending-amt').textContent = pendingAmt.toFixed(2) + ' MONET';
   document.getElementById('stat-paid').textContent        = paidToday;
-  document.getElementById('stat-balance').textContent     =
-    WalletState.monetBalance.toLocaleString(undefined, {maximumFractionDigits: 2}) + ' MONET';
-
-  const payAllBtn = document.getElementById('payAllBtn');
-  payAllBtn.disabled = pending.length === 0;
+  document.getElementById('stat-paid-total').textContent  = paid.length;
 
   // Pending list
   const pendingEl = document.getElementById('pendingList');
@@ -274,17 +307,17 @@ function renderClaims() {
     pendingEl.innerHTML = '<div class="empty">&#10003; No pending payouts</div>';
   } else {
     pendingEl.innerHTML = pending.map(c => {
-      const isRefund  = (c.type||'').includes('refund');
-      const typeKey   = isRefund ? 'refund' : (c.type || 'solo');
-      const typeLabel = isRefund ? 'REFUND' : typeKey.toUpperCase();
+      const { key, label } = claimTypeLabel(c.type);
       return `
       <div class="claim-row" id="row-${c.id}">
-        <span class="claim-type type-${typeKey}">${typeLabel}</span>
+        <span class="claim-type type-${key}">${label}</span>
         <span class="claim-wallet" title="${c.wallet}">${c.wallet.slice(0,6)}…${c.wallet.slice(-4)}</span>
-        <span class="claim-amount">${(c.amount||0).toFixed(2)} MONET</span>
+        <span class="claim-amount">${(c.amount||0).toFixed(2)} M</span>
         <span class="claim-age">${timeAgo(c.createdAt||0)}</span>
-        <button class="pay-btn" id="btn-${c.id}" disabled onclick="paySingle('${c.id}','${c.wallet}',${c.amount})">
-          PAY &#9654;
+        <span class="claim-result" id="result-${c.id}"></span>
+        <button class="pay-btn" data-claim-id="${c.id}" id="btn-${c.id}" disabled
+                onclick="walletPaySingle('${c.id}','${c.wallet}',${c.amount})">
+          WALLET PAY
         </button>
       </div>`;
     }).join('');
@@ -297,14 +330,12 @@ function renderClaims() {
     paidEl.innerHTML = '<div class="empty">No paid claims yet</div>';
   } else {
     paidEl.innerHTML = paid.map(c => {
-      const isRefund  = (c.type||'').includes('refund');
-      const typeKey   = isRefund ? 'refund' : (c.type || 'solo');
-      const typeLabel = isRefund ? 'REFUND' : typeKey.toUpperCase();
+      const { key, label } = claimTypeLabel(c.type);
       return `
       <div class="claim-row paid-row">
-        <span class="claim-type type-${typeKey}">${typeLabel}</span>
+        <span class="claim-type type-${key}">${label}</span>
         <span class="claim-wallet" title="${c.wallet}">${c.wallet.slice(0,6)}…${c.wallet.slice(-4)}</span>
-        <span class="claim-amount">${(c.amount||0).toFixed(2)} MONET</span>
+        <span class="claim-amount">${(c.amount||0).toFixed(2)} M</span>
         <span class="claim-age">${timeAgo(c.processedAt||c.createdAt||0)}</span>
         ${c.payoutTxId
           ? `<a class="tx-link" href="https://solscan.io/tx/${c.payoutTxId}" target="_blank" rel="noopener">
@@ -316,12 +347,87 @@ function renderClaims() {
     }).join('');
   }
 
-  // Sync pay-button states after every render
-  checkAccess();
+  refreshPayBtnState();
 }
 
-// ── Pay single claim ──────────────────────────────────────────────────────────
-async function paySingle(claimId, wallet, amount) {
+// ── Server-side process all (PIN-protected) ───────────────────────────────
+async function serverProcessAll() {
+  const pin    = document.getElementById('pinInput').value.trim();
+  const status = document.getElementById('pinStatus');
+  const btn    = document.getElementById('pinBtn');
+
+  if (!pin) { status.className = 'pin-status err'; status.textContent = 'Enter your admin PIN first.'; return; }
+
+  btn.disabled = true;
+  status.className = 'pin-status info';
+  status.textContent = 'Processing…';
+
+  try {
+    const r = await fetch('/api/admin/process-claims', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': pin },
+    });
+    const d = await r.json();
+
+    if (r.status === 401) {
+      status.className = 'pin-status err';
+      status.textContent = 'Incorrect PIN. Check your ADMIN_TOKEN environment variable.';
+      btn.disabled = false;
+      return;
+    }
+
+    if (!r.ok) {
+      status.className = 'pin-status err';
+      status.textContent = 'Server error: ' + (d.error || r.status);
+      btn.disabled = false;
+      return;
+    }
+
+    const results = d.results || [];
+    const ok  = results.filter(x => x.ok).length;
+    const fail = results.filter(x => !x.ok).length;
+
+    // Show per-claim results inline
+    results.forEach(x => {
+      const el = document.getElementById('result-' + x.id);
+      if (el) {
+        el.className = 'claim-result ' + (x.ok ? 'ok' : 'err');
+        el.textContent = x.ok ? '✓ paid' : '✗ ' + (x.error || 'failed');
+      }
+    });
+
+    if (d.processed === 0) {
+      status.className = 'pin-status ok';
+      status.textContent = '✓ No pending payouts — all clear!';
+    } else if (fail === 0) {
+      status.className = 'pin-status ok';
+      status.textContent = `✓ All ${ok} payout${ok > 1 ? 's' : ''} sent successfully!`;
+      showToast(`${ok} payout${ok > 1 ? 's' : ''} processed`);
+      setTimeout(loadAll, 2000);
+    } else if (ok > 0) {
+      status.className = 'pin-status info';
+      status.textContent = `${ok} succeeded, ${fail} failed — treasury key may be mismatched. Use wallet signing below.`;
+    } else {
+      status.className = 'pin-status err';
+      status.textContent = `All ${fail} payouts failed — treasury key mismatch. Use wallet signing below.`;
+      showToast('Server key mismatch — use wallet signing', true);
+    }
+  } catch(e) {
+    status.className = 'pin-status err';
+    status.textContent = 'Request failed: ' + e.message;
+  }
+
+  btn.disabled = false;
+}
+
+// Allow Enter key in PIN input
+document.getElementById('pinInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') serverProcessAll();
+});
+
+// ── Wallet-signing fallback: pay single claim ──────────────────────────────
+async function walletPaySingle(claimId, wallet, amount) {
+  if (!isTreasuryConnected()) { showToast('Connect treasury wallet first', true); return; }
   const btn = document.getElementById('btn-' + claimId);
   if (!btn || btn.disabled) return;
   btn.disabled = true;
@@ -329,55 +435,23 @@ async function paySingle(claimId, wallet, amount) {
 
   try {
     const txId = await treasuryPayout(wallet, amount, claimId, step => {
-      btn.textContent = step === 'signing' ? 'Signing…'
-                      : step === 'confirming' ? 'Confirming…'
-                      : 'Sending…';
+      btn.textContent = step === 'signing' ? 'Signing…' : step === 'confirming' ? 'Confirming…' : 'Sending…';
     });
     btn.className = 'pay-btn done';
     btn.textContent = '✓ PAID';
-    showToast(`Paid ${amount} MONET → ${wallet.slice(0,8)}…`);
-    // Update local state and re-render after short delay
     const claim = _allClaims.find(c => c.id === claimId);
     if (claim) { claim.status = 'paid'; claim.payoutTxId = txId; claim.processedAt = Date.now(); }
+    showToast(`Paid ${amount} MONET → ${wallet.slice(0,8)}…`);
     setTimeout(renderClaims, 1500);
   } catch(e) {
     btn.className = 'pay-btn error';
     btn.textContent = 'FAILED';
-    btn.disabled = false;
-    setTimeout(() => { btn.className = 'pay-btn'; btn.textContent = 'PAY ▶'; btn.disabled = false; }, 3000);
+    setTimeout(() => { btn.className = 'pay-btn'; btn.textContent = 'WALLET PAY'; btn.disabled = !isTreasuryConnected(); }, 3000);
     showToast(e.message, true);
-    console.error('[TreasuryAdmin] paySingle failed:', e);
   }
 }
 
-// ── Pay all pending ───────────────────────────────────────────────────────────
-async function payAll() {
-  const pending = _allClaims.filter(c => c.status === 'pending');
-  if (!pending.length) return;
-
-  const payAllBtn = document.getElementById('payAllBtn');
-  payAllBtn.disabled = true;
-  payAllBtn.textContent = `PAYING 0/${pending.length}…`;
-
-  let done = 0;
-  for (const claim of pending) {
-    try {
-      await paySingle(claim.id, claim.wallet, claim.amount);
-      done++;
-      payAllBtn.textContent = `PAYING ${done}/${pending.length}…`;
-    } catch(_) {}
-    // Small gap between transactions to avoid blockhash staleness
-    await new Promise(r => setTimeout(r, 1200));
-  }
-
-  payAllBtn.textContent = `DONE (${done}/${pending.length})`;
-  setTimeout(() => {
-    payAllBtn.textContent = 'PAY ALL';
-    payAllBtn.disabled = _allClaims.filter(c => c.status === 'pending').length === 0;
-  }, 3000);
-}
-
-// ── Toast ─────────────────────────────────────────────────────────────────────
+// ── Toast ──────────────────────────────────────────────────────────────────
 let _toastTimer;
 function showToast(msg, isError = false) {
   const el = document.getElementById('toast');
@@ -387,10 +461,11 @@ function showToast(msg, isError = false) {
   _toastTimer = setTimeout(() => { el.className = ''; }, 4000);
 }
 
-// ── Auto-refresh pending every 30 s ──────────────────────────────────────────
-setInterval(() => {
-  if (WalletState.connected && WalletState.address === TREASURY) loadAll();
-}, 30000);
+// ── Auto-refresh every 30 s ────────────────────────────────────────────────
+setInterval(loadAll, 30000);
+
+// ── Initial load ───────────────────────────────────────────────────────────
+loadAll();
 </script>
 </body>
 </html>

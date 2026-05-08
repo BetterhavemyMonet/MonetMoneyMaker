@@ -66,3 +66,8 @@ run = ["bash", "-c", "NODE_ENV=production node server.js"]
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 60000
+
+[userenv]
+
+[userenv.shared]
+ADMIN_TOKEN = "71HOUJDVZu_23cFQ"
