@@ -3,7 +3,7 @@
 
 const MONET_CONFIG = {
   MINT:         '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
-  TREASURY:     'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs',
+  TREASURY:     'BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z',
   ENTRY_FEE:    5,      // updated dynamically by fetchEntryFee()
   ENTRY_FEE_USD: 0.50,  // target USD value per entry
   PAYOUT_RATE:  0.80,

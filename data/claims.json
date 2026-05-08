@@ -6,9 +6,9 @@
     "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
     "amount": 5,
     "status": "pending",
-    "error": "unknown signer: BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z",
+    "error": "Simulation failed. \nMessage: Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.. \nLogs: \n[]. \nCatch the `SendTransactionError` and call `getLogs()` on it for full details.",
     "createdAt": 1778179200000,
-    "lastRetryAt": 1778211539463
+    "lastRetryAt": 1778211804122
   },
   {
     "id": "refund_H77BJE",
@@ -17,8 +17,8 @@
     "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
     "amount": 5,
     "status": "pending",
-    "error": "unknown signer: BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z",
+    "error": "Simulation failed. \nMessage: Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.. \nLogs: \n[]. \nCatch the `SendTransactionError` and call `getLogs()` on it for full details.",
     "createdAt": 1778179200000,
-    "lastRetryAt": 1778211539690
+    "lastRetryAt": 1778211804649
   }
 ]

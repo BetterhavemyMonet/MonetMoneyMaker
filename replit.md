@@ -4,7 +4,7 @@ A Web3 Solana arcade with MONET token payment gating. Players pay 5 MONET to ent
 
 ## Token Details
 - **MONET Mint:** `6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b`
-- **Treasury:** `ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs`
+- **Treasury:** `BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z`
 
 ## Tech Stack
 

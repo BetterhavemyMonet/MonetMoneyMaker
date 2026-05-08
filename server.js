@@ -19,7 +19,7 @@ app.use(express.json());
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 const MINT_ADDRESS    = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
-const TREASURY_ADDR   = 'ot1CyXFDUdTpSp3reSdgCPfLvivHfcSmi5c6yjnnRxs';
+const TREASURY_ADDR   = 'BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z';
 const ENTRY_FEE       = 5;   // fallback only — dynamic fee targets $0.50 USD
 const TARGET_USD      = 0.50; // entry fee target in USD
 const PRICE_CACHE_MS  = 5 * 60 * 1000; // cache MONET price for 5 minutes
