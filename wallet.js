@@ -464,6 +464,26 @@ async function refreshBalances() {
       WalletState.solBalance   = data.sol   ?? WalletState.solBalance;
       WalletState.hasMonetAta  = data.hasAta ?? WalletState.hasMonetAta;
       updated = true;
+
+      // Auto-create MONET token account if the wallet doesn't have one yet.
+      // Treasury pays the ~0.002 SOL rent — completely transparent to the user.
+      if (!data.hasAta && WalletState.address) {
+        fetch('/api/create-token-account', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ wallet: WalletState.address }),
+        })
+          .then(r => r.json())
+          .then(d => {
+            if (d.created) {
+              console.log('[MONET] Token account created for', WalletState.address?.slice(0, 8));
+              WalletState.hasMonetAta = true;
+              // Re-fetch balance so UI reflects the new account
+              setTimeout(refreshBalances, 3000);
+            }
+          })
+          .catch(() => {});
+      }
     }
     // 503 = all RPCs down with no cache — keep whatever balance we already have
   } catch(_) {}

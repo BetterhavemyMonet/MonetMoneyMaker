@@ -5,10 +5,12 @@
     "refId": "moqc92kyjbsp",
     "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
     "amount": 5,
-    "status": "pending",
-    "error": "Simulation failed. \nMessage: Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.. \nLogs: \n[]. \nCatch the `SendTransactionError` and call `getLogs()` on it for full details.",
+    "status": "paid",
     "createdAt": 1778179200000,
-    "lastRetryAt": 1778211804122
+    "lastRetryAt": 1778212327816,
+    "note": "reset — prior txs failed on-chain (ProgramAccountNotFound)",
+    "payoutTxId": "2c7czgXJ7uBkQkbqALfmgdQMxVWRPe9VmfostA7GGrHA9eEdbFKBnwHBAp2PVCpvBxwxdiNeKd47mdDqYnpbCpBx",
+    "processedAt": 1778212735386
   },
   {
     "id": "refund_H77BJE",
@@ -16,9 +18,11 @@
     "refId": "morr54j9ti6g",
     "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
     "amount": 5,
-    "status": "pending",
-    "error": "Simulation failed. \nMessage: Transaction simulation failed: Attempt to debit an account but found no record of a prior credit.. \nLogs: \n[]. \nCatch the `SendTransactionError` and call `getLogs()` on it for full details.",
+    "status": "paid",
     "createdAt": 1778179200000,
-    "lastRetryAt": 1778211804649
+    "lastRetryAt": 1778212328398,
+    "note": "reset — prior txs failed on-chain (ProgramAccountNotFound)",
+    "payoutTxId": "4eCKbA6FhyHapCVW1iDU9DCXHcDRGdatMq1kA7XyRMK1M963MTaqZpUBWjQkYjcBwFAL8MXRup7gfvMEqtwQS5Ch",
+    "processedAt": 1778212737557
   }
 ]

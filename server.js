@@ -171,34 +171,57 @@ async function sendPayout(toAddress, amount) {
   const mint     = new PublicKey(MINT_ADDRESS);
   const treasury = new PublicKey(TREASURY_ADDR);
   const winner   = new PublicKey(toAddress);
-  const srcATA   = getATA(mint, treasury);
-  const dstATA   = getATA(mint, winner);
   const rawAmt   = Math.round(amount * Math.pow(10, DECIMALS));
 
-  // Phase 1: build + send (15 s per RPC). Once sendRawTransaction succeeds,
-  // the transaction is on-chain — do NOT retry sending on a new RPC to avoid
-  // double-pays. Capture the sig and break out immediately.
+  // Phase 1: build + send. Look up actual token accounts via getParsedTokenAccountsByOwner
+  // rather than computing with getATA — handles non-standard account addresses correctly.
   let sig = null;
   await withRpc(async conn => {
+    // Find the treasury's actual MONET token account
+    const srcAccounts = await conn.getParsedTokenAccountsByOwner(treasury, { mint });
+    if (!srcAccounts.value.length) throw new Error('Treasury has no MONET token account');
+    const srcATA = new PublicKey(srcAccounts.value[0].pubkey);
+
+    // Find or prepare the winner's MONET token account
+    const dstAccounts = await conn.getParsedTokenAccountsByOwner(winner, { mint });
+
     const tx = new Transaction();
     tx.feePayer = treasury;
     const { blockhash, lastValidBlockHeight } = await conn.getLatestBlockhash();
-    tx.recentBlockhash  = blockhash;
+    tx.recentBlockhash      = blockhash;
     tx.lastValidBlockHeight = lastValidBlockHeight;
-    const dstInfo = await conn.getAccountInfo(dstATA);
-    if (!dstInfo) tx.add(makeCreateATAIx(treasury, dstATA, winner, mint));
+
+    let dstATA;
+    if (dstAccounts.value.length) {
+      dstATA = new PublicKey(dstAccounts.value[0].pubkey);
+    } else {
+      // Recipient has no MONET account — create a standard ATA (treasury pays rent)
+      dstATA = getATA(mint, winner);
+      tx.add(makeCreateATAIx(treasury, dstATA, winner, mint));
+    }
+
     tx.add(makeTransferIx(srcATA, dstATA, treasury, rawAmt));
     tx.sign(kp);
-    sig = await conn.sendRawTransaction(tx.serialize());
+    sig = await conn.sendRawTransaction(tx.serialize(), { skipPreflight: true });
+    console.log(`[PAYOUT] sent ${amount} MONET → ${toAddress.slice(0,8)}… sig: ${sig.slice(0,12)}…`);
   });
 
-  // Phase 2: confirm with a 60 s window. If it times out the tx is still
-  // in-flight and will confirm; return the sig so callers mark it paid and
-  // the auto-retry skips resending.
-  try {
-    await withRpc(conn => conn.confirmTransaction(sig, 'confirmed'), 60_000);
-  } catch(e) {
-    console.warn(`[PAYOUT] confirmTransaction ${sig?.slice(0,12)}… timed out (${e.message}) — tx is in-flight, returning sig`);
+  // Phase 2: poll for confirmation (public RPCs don't support signatureSubscribe WebSocket).
+  // Poll every 2 s for up to 60 s — tx is in-flight and will confirm regardless.
+  for (let attempt = 0; attempt < 30; attempt++) {
+    await new Promise(r => setTimeout(r, 2000));
+    try {
+      const status = await withRpc(conn => conn.getSignatureStatus(sig));
+      const conf = status?.value?.confirmationStatus;
+      if (conf === 'confirmed' || conf === 'finalized') {
+        console.log(`[PAYOUT] confirmed (${conf}) sig: ${sig.slice(0,12)}…`);
+        break;
+      }
+      if (status?.value?.err) throw new Error(`Transaction failed on-chain: ${JSON.stringify(status.value.err)}`);
+    } catch(e) {
+      if (e.message.startsWith('Transaction failed')) throw e;
+      // RPC error — keep polling
+    }
   }
   return sig;
 }
