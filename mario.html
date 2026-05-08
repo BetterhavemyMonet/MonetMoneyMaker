@@ -1209,7 +1209,8 @@ function drawWon(){
   ctx.fillStyle='#ffd700'; ctx.fillText('LEVEL CLEAR!',GW/2,GH/2-60);
   ctx.shadowBlur=0;
   ctx.font='10px "Press Start 2P",monospace';
-  ctx.fillStyle='#00ff9d'; ctx.fillText('★ 8 MONET EARNED! ★',GW/2,GH/2-24);
+  const _winAmt = Math.round((window.MONET_CONFIG?.ENTRY_FEE||5) * 2 * 0.9);
+  ctx.fillStyle='#00ff9d'; ctx.fillText(`\u2605 ${_winAmt} MONET EARNED! \u2605`,GW/2,GH/2-24);
   ctx.fillStyle='#fff'; ctx.fillText('Score: '+String(score).padStart(6,'0'),GW/2,GH/2+10);
   ctx.fillText('Coins: '+coinCt,GW/2,GH/2+32);
   ctx.fillStyle='#888'; ctx.font='8px "Press Start 2P",monospace';

@@ -220,8 +220,8 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
     <div class="card">
       <div class="card-title">&#9876; CREATE 1v1 CHALLENGE</div>
       <div class="prize-box h2h-box">
-        <div class="big" id="h2h-pot-display">9 MONET</div>
-        <div class="sub">Prize pot · 90% of 2&#215; entry fee · winner takes all</div>
+        <div class="big" id="h2h-pot-display">90% of pot</div>
+        <div class="sub">Winner takes 90% of both entry fees · house keeps 10%</div>
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
       <div class="game-opts" id="h2h-game-opts">
@@ -258,8 +258,8 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
     <div class="card">
       <div class="card-title">&#129302; PLAY vs CPU</div>
       <div class="prize-box cpu-box" id="cpu-prize-box">
-        <div class="big" id="cpu-prize-amt">6 MONET</div>
-        <div class="sub" id="cpu-prize-sub">Prize pot if you win · Easy difficulty</div>
+        <div class="big" id="cpu-prize-amt">Win 80% back</div>
+        <div class="sub" id="cpu-prize-sub">Beat the CPU · Easy difficulty · house matches your entry</div>
       </div>
       <div style="font-size:11px;color:#888;margin-bottom:8px">Pick your game:</div>
       <div class="game-opts" id="cpu-game-opts">
@@ -365,7 +365,7 @@ function rebuildWagerOptions() {
     return `<div class="game-opt${i===0?' active':''}" data-wager="${amt}" onclick="selectH2HWager(this)">$${usd} <span style="font-size:9px;opacity:0.7">(${amt} MONET)</span></div>`;
   }).join('');
   const pot = (_dynFee * 2 * 0.9).toFixed(1);
-  document.getElementById('h2h-pot-display').textContent = pot + ' MONET';
+  document.getElementById('h2h-pot-display').textContent = `Win ~${pot} MONET (90% of pot)`;
   document.getElementById('h2h-create-btn').textContent = `PAY ${_dynFee} MONET ≈$0.50 & CREATE CHALLENGE`;
 }
 
@@ -400,7 +400,7 @@ function selectH2HWager(el) {
   selectedH2HWager = Number(el.dataset.wager);
   const pot = (selectedH2HWager * 2 * 0.9).toFixed(1);
   const usdAmt = _dynFee > 0 ? '$' + (selectedH2HWager / _dynFee * 0.50).toFixed(2) : '≈$0.50';
-  document.getElementById('h2h-pot-display').textContent = pot + ' MONET';
+  document.getElementById('h2h-pot-display').textContent = `Win ~${pot} MONET (90% of pot)`;
   document.getElementById('h2h-create-btn').textContent = `PAY ${usdAmt} (${selectedH2HWager} MONET) & CREATE CHALLENGE`;
 }
 
@@ -411,18 +411,21 @@ function selectDiff(el) {
   updateCpuHint();
 }
 
-const CPU_PAYOUTS = { easy: 6, medium: 7, hard: 9, expert: 8 };
-const DIFF_LABELS  = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
+// CPU payout multipliers of base entry fee (matches server CPU_PAYOUT logic)
+const CPU_PAYOUT_MULT = { easy: 1.2, medium: 1.4, hard: 1.8, expert: 1.6 };
+const DIFF_LABELS     = { easy: 'Easy', medium: 'Medium', hard: 'Hard', expert: 'Expert' };
 
 function updateCpuHint() {
   const r    = CPU_RANGES[selectedDiff]?.[selectedCPUGame];
-  const pot  = CPU_PAYOUTS[selectedDiff] ?? 9;
+  const mult = CPU_PAYOUT_MULT[selectedDiff] ?? 1.6;
+  const pot  = Math.round(_dynFee * mult * 10) / 10;
+  const pct  = Math.round(mult * 100);
   const hint = document.getElementById('cpu-range-hint');
   const amt  = document.getElementById('cpu-prize-amt');
   const sub  = document.getElementById('cpu-prize-sub');
   if (hint && r) hint.textContent = `CPU score target: ${r[0].toLocaleString()} \u2013 ${r[1].toLocaleString()} pts`;
-  if (amt) amt.textContent = `${pot} MONET`;
-  if (sub) sub.textContent = `Prize pot if you win · ${DIFF_LABELS[selectedDiff]} difficulty`;
+  if (amt) amt.textContent = `Win ${pct}% back (~${pot} MONET)`;
+  if (sub) sub.textContent = `Beat the CPU · ${DIFF_LABELS[selectedDiff]} difficulty · house matches entry`;
 }
 
 // ── Lobby ──────────────────────────────────────────────────────────────────

@@ -225,7 +225,7 @@
         <button class="lb-mode-card cpu" onclick="window._lbCpuExpert()">
           <span class="lb-mc-icon">🤖</span>
           <div class="lb-mc-name">CPU EXPERT</div>
-          <div class="lb-mc-sub">${_baseFee} MONET or ~$0.25 SOL<br>Win ${CPU_WIN_PAYOUT} MONET</div>
+          <div class="lb-mc-sub">≈$0.50 entry · Win 80% back<br>(~${CPU_WIN_PAYOUT} MONET if you win)</div>
         </button>
         <button class="lb-mode-card live" onclick="window._lbJoinLive()">
           <span class="lb-mc-icon">⚡</span>
@@ -303,7 +303,7 @@
         ${WAGER_PRESETS.map(v => {
           const usd = MONET_CONFIG?._priceUsd ? '$' + (v * MONET_CONFIG._priceUsd).toFixed(2) : '';
           return `<button class="lb-wager-btn${v === _selectedWager ? ' selected' : ''}"
-            onclick="window._lbSelectWager(${v})">${v} MONET${usd ? `<br><span style="font-size:8px;opacity:0.6">${usd}</span>` : ''}</button>`;
+            onclick="window._lbSelectWager(${v})">${usd || (v+' MONET')}<br><span style="font-size:8px;opacity:0.6">${usd ? v+' MONET' : 'Win 90%'}</span></button>`;
         }).join('')}
       </div>
       <div class="lb-pot-info" id="lb-pot-info"></div>
