@@ -340,6 +340,34 @@ let selectedH2HGame  = 'pacman';
 let selectedH2HWager = 5;
 let selectedCPUGame  = 'frogger';
 let selectedDiff     = 'easy';
+let _dynFee          = 5; // updated from /api/monet-price
+
+async function fetchDynFee() {
+  try {
+    const d = await fetch('/api/monet-price').then(r => r.json());
+    if (d.entryFee && d.entryFee > 0) {
+      _dynFee = d.entryFee;
+      selectedH2HWager = _dynFee;
+      rebuildWagerOptions();
+      const cpuBtn = document.getElementById('cpu-start-btn');
+      if (cpuBtn) cpuBtn.textContent = `PAY ${_dynFee} MONET ≈$0.50 & PLAY vs CPU`;
+    }
+  } catch(e) { /* keep default */ }
+}
+
+function rebuildWagerOptions() {
+  const container = document.getElementById('h2h-wager-opts');
+  if (!container) return;
+  const multiples = [1, 2, 5, 10];
+  container.innerHTML = multiples.map((m, i) => {
+    const amt = Math.round(_dynFee * m);
+    const usd = (0.50 * m).toFixed(2);
+    return `<div class="game-opt${i===0?' active':''}" data-wager="${amt}" onclick="selectH2HWager(this)">$${usd} <span style="font-size:9px;opacity:0.7">(${amt} MONET)</span></div>`;
+  }).join('');
+  const pot = (_dynFee * 2 * 0.9).toFixed(1);
+  document.getElementById('h2h-pot-display').textContent = pot + ' MONET';
+  document.getElementById('h2h-create-btn').textContent = `PAY ${_dynFee} MONET ≈$0.50 & CREATE CHALLENGE`;
+}
 
 const CPU_RANGES = {
   easy:   { frogger:[100,350],    snake:[6,16],    pacman:[1000,3500],    pong:[2,4], dino:[300,900],    invaders:[500,1500],    mario:[800,2000],    fighter:[100,300]    },

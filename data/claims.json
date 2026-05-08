@@ -6,8 +6,9 @@
     "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
     "amount": 5,
     "status": "pending",
-    "error": "Challenge W23XTH expired with no opponent — full entry-fee refund",
-    "createdAt": 1778179200000
+    "error": "unknown signer: BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z",
+    "createdAt": 1778179200000,
+    "lastRetryAt": 1778211539463
   },
   {
     "id": "refund_H77BJE",
@@ -16,7 +17,8 @@
     "wallet": "4XLMxP5s2o8W4dxhhCMHWpJxquXBNy6wN12jb3eCBt6X",
     "amount": 5,
     "status": "pending",
-    "error": "Challenge H77BJE expired with no opponent — full entry-fee refund",
-    "createdAt": 1778179200000
+    "error": "unknown signer: BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z",
+    "createdAt": 1778179200000,
+    "lastRetryAt": 1778211539690
   }
 ]

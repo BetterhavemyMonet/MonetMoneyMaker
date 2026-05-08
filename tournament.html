@@ -205,7 +205,7 @@ function renderTourneyCard(t) {
 
       ${t.status === 'registration' ? `
         ${!isIn ? `
-          <button class="btn-gold btn-full" onclick="joinTourney('${t.id}','${t.game}')">PAY 5 MONET &amp; REGISTER &#9658;</button>
+          <button class="btn-gold btn-full" onclick="joinTourney('${t.id}','${t.game}')">PAY ${t.entryFee||5} MONET ≈$0.50 &amp; REGISTER &#9658;</button>
         ` : `
           <div style="color:#00ff9d;font-size:11px;margin-top:8px">&#10003; Registered — waiting for tournament to start</div>
           ${t.players.length >= t.minPlayers ? `
