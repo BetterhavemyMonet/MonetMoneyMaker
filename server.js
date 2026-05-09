@@ -14,10 +14,45 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR   = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// ─── Stripe ───────────────────────────────────────────────────────────────────
-const _stripe = process.env.STRIPE_SECRET_KEY
-  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
-  : null;
+// ─── Stripe (Replit connector — sandbox in dev, live in production) ───────────
+async function _getStripeCredentials() {
+  const hostname     = process.env.REPLIT_CONNECTORS_HOSTNAME;
+  const xReplitToken = process.env.REPL_IDENTITY
+    ? 'repl ' + process.env.REPL_IDENTITY
+    : process.env.WEB_REPL_RENEWAL
+      ? 'depl ' + process.env.WEB_REPL_RENEWAL
+      : null;
+
+  // Fallback: honour plain env vars if Replit connector isn't available
+  if (!hostname || !xReplitToken) {
+    const sk = process.env.STRIPE_SECRET_KEY;
+    const pk = process.env.STRIPE_PUBLISHABLE_KEY;
+    if (!sk || !pk) throw new Error('Stripe not configured');
+    return { secretKey: sk, publishableKey: pk };
+  }
+
+  const env = process.env.REPLIT_DEPLOYMENT === '1' ? 'production' : 'development';
+  const url = new URL(`https://${hostname}/api/v2/connection`);
+  url.searchParams.set('include_secrets',  'true');
+  url.searchParams.set('connector_names',  'stripe');
+  url.searchParams.set('environment',      env);
+
+  const resp = await fetch(url.toString(), {
+    headers: { Accept: 'application/json', 'X-Replit-Token': xReplitToken },
+  });
+  const data   = await resp.json();
+  const conn   = data.items?.[0];
+  if (!conn?.settings?.secret || !conn?.settings?.publishable) {
+    throw new Error(`Stripe ${env} connection not found`);
+  }
+  return { secretKey: conn.settings.secret, publishableKey: conn.settings.publishable };
+}
+
+// Never cache — always call this to get a fresh client (per Replit guidelines)
+async function _getStripeClient() {
+  const { secretKey } = await _getStripeCredentials();
+  return new Stripe(secretKey, { apiVersion: '2024-06-20' });
+}
 
 const CARD_SESSION_TTL = 60 * 60 * 1000; // 1 hour
 
@@ -43,13 +78,14 @@ app.use(cors({ origin: '*' }));
 
 // Stripe webhook — raw body MUST come before express.json()
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
-  if (!_stripe) return res.status(503).json({ error: 'Stripe not configured' });
   const sig = req.headers['stripe-signature'];
   if (!sig) return res.status(400).json({ error: 'Missing stripe-signature header' });
   try {
+    const stripe = await _getStripeClient().catch(() => null);
+    if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
     const secret = process.env.STRIPE_WEBHOOK_SECRET;
     const event  = secret
-      ? _stripe.webhooks.constructEvent(req.body, sig, secret)
+      ? stripe.webhooks.constructEvent(req.body, sig, secret)
       : JSON.parse(req.body.toString());
     if (event.type === 'payment_intent.succeeded') {
       const pi    = event.data.object;
@@ -554,18 +590,21 @@ app.get('/api/account-exists/:address', async (req, res) => {
 });
 
 // ─── Routes: Stripe card payments ─────────────────────────────────────────────
-app.get('/api/stripe/config', (_req, res) => {
-  if (!_stripe) return res.json({ ok: false, publishableKey: null, reason: 'Stripe not configured' });
-  const pk = process.env.STRIPE_PUBLISHABLE_KEY || '';
-  res.json({ ok: !!pk, publishableKey: pk || null });
+app.get('/api/stripe/config', async (_req, res) => {
+  try {
+    const { publishableKey } = await _getStripeCredentials();
+    res.json({ ok: true, publishableKey });
+  } catch(e) {
+    res.json({ ok: false, publishableKey: null, reason: e.message });
+  }
 });
 
 app.post('/api/stripe/create-payment-intent', async (req, res) => {
-  if (!_stripe) return res.status(503).json({ error: 'Card payments not configured. Please contact support.' });
   try {
+    const stripe       = await _getStripeClient();
     const game         = (req.body.game || 'game').toLowerCase();
     const sessionToken = crypto.randomUUID();
-    const pi = await _stripe.paymentIntents.create({
+    const pi = await stripe.paymentIntents.create({
       amount:   50,          // $0.50 USD in cents
       currency: 'usd',
       metadata: { game, sessionToken, source: 'monet-arcade' },
@@ -584,7 +623,7 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
 });
 
 app.post('/api/card-session/validate', async (req, res) => {
-  const { token, paymentIntentId } = req.body;
+  const { token } = req.body;
   if (!token) return res.status(400).json({ error: 'token required' });
   try {
     const sessions = getCardSessions();
@@ -593,15 +632,12 @@ app.post('/api/card-session/validate', async (req, res) => {
     if (Date.now() > s.expiresAt) return res.status(410).json({ error: 'Session expired' });
 
     // If not yet confirmed by webhook, verify directly with Stripe API
-    if (!s.confirmed && _stripe) {
+    if (!s.confirmed) {
       try {
-        const pi = await _stripe.paymentIntents.retrieve(s.paymentIntentId);
+        const stripe = await _getStripeClient();
+        const pi = await stripe.paymentIntents.retrieve(s.paymentIntentId);
         if (pi.status === 'succeeded') { s.confirmed = true; saveCardSessions(sessions); }
       } catch(_) {}
-    }
-    if (!s.confirmed && !_stripe) {
-      // Stripe not configured — trust client (dev mode only)
-      s.confirmed = true; saveCardSessions(sessions);
     }
     if (!s.confirmed) return res.status(402).json({ error: 'Payment not confirmed yet' });
 
