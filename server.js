@@ -1327,8 +1327,9 @@ app.post('/api/buy-monet/create-checkout-session', async (req, res) => {
 
     const origin = `${req.protocol}://${req.headers.host}`;
     const checkoutSession = await stripe.checkout.sessions.create({
-      ui_mode:    'embedded',
-      mode:       'payment',
+      ui_mode:              'embedded',
+      mode:                 'payment',
+      payment_method_types: ['card'],
       line_items: [{
         price_data: {
           currency:     'usd',
