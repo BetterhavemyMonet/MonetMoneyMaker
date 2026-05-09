@@ -31,21 +31,34 @@ async function _getStripeCredentials() {
     return { secretKey: sk, publishableKey: pk };
   }
 
-  const env = process.env.REPLIT_DEPLOYMENT === '1' ? 'production' : 'development';
-  const url = new URL(`https://${hostname}/api/v2/connection`);
-  url.searchParams.set('include_secrets',  'true');
-  url.searchParams.set('connector_names',  'stripe');
-  url.searchParams.set('environment',      env);
+  const fetchConn = async (env) => {
+    const url = new URL(`https://${hostname}/api/v2/connection`);
+    url.searchParams.set('include_secrets',  'true');
+    url.searchParams.set('connector_names',  'stripe');
+    url.searchParams.set('environment',      env);
+    const resp = await fetch(url.toString(), {
+      headers: { Accept: 'application/json', 'X-Replit-Token': xReplitToken },
+    });
+    const data = await resp.json();
+    return data.items?.[0];
+  };
 
-  const resp = await fetch(url.toString(), {
-    headers: { Accept: 'application/json', 'X-Replit-Token': xReplitToken },
-  });
-  const data   = await resp.json();
-  const conn   = data.items?.[0];
-  if (!conn?.settings?.secret || !conn?.settings?.publishable) {
-    throw new Error(`Stripe ${env} connection not found`);
+  // Try production first (when deployed), fall back to development
+  const envOrder = process.env.REPLIT_DEPLOYMENT === '1'
+    ? ['production', 'development']
+    : ['development'];
+
+  let conn;
+  for (const env of envOrder) {
+    conn = await fetchConn(env);
+    if (conn?.settings?.secret) break;
   }
-  return { secretKey: conn.settings.secret, publishableKey: conn.settings.publishable };
+
+  if (!conn?.settings?.secret) throw new Error('Stripe connection not found');
+  // publishable key may be in different fields depending on connector version
+  const publishableKey = conn.settings.publishable || conn.settings.publishableKey
+    || conn.settings.pk || conn.settings.public_key || '';
+  return { secretKey: conn.settings.secret, publishableKey };
 }
 
 // Never cache — always call this to get a fresh client (per Replit guidelines)
