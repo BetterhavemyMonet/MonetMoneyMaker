@@ -459,7 +459,7 @@ async function loadLobby(force) {
           </div>
           <div style="text-align:right">
             <div style="font-size:13px;font-weight:800;color:#ffd700">${c.pot} MONET</div>
-            <div style="font-size:9px;color:#555">${c.entryFee||5} MONET entry</div>
+            <div style="font-size:9px;color:#555">≈$0.50 entry (${c.entryFee||5} MONET)</div>
           </div>
           <div style="font-size:9px;color:${expiring?'#ff4488':'#555'};margin-left:8px">${timeLeft}m left</div>
         </div>
@@ -568,7 +568,7 @@ async function lookupChallenge() {
         <div><span class="ch-status st-${c.status}">${c.status.toUpperCase()}</span></div>
         ${c.player1?.score !== null ? `<div style="font-size:10px;color:#888;margin-top:6px">P1 score: ${c.player1.score}</div>` : ''}
         ${c.status === 'open' ? `
-          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY ${c.entryFee||5} MONET &amp; ACCEPT CHALLENGE</button>
+          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY ≈$0.50 (${c.entryFee||5} MONET) &amp; ACCEPT</button>
         ` : c.status === 'active' ? `
           <button class="btn-green btn-full" style="margin-top:10px" onclick="location.href='/${c.game}.html?challenge=${c.code}'">PLAY YOUR TURN &#9658;</button>
         ` : c.status === 'complete' ? `

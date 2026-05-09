@@ -421,7 +421,7 @@
           return `<div class="lb-live-item" onclick="window._lbJoinChallenge('${c.code}')">
             <div>
               <div style="color:#fff;font-weight:800">${c.code}</div>
-              <div style="color:#888;font-size:9px;margin-top:2px">${short} · ${c.entryFee} MONET each</div>
+              <div style="color:#888;font-size:9px;margin-top:2px">${short} · ≈$0.50 each (${c.entryFee} MONET)</div>
             </div>
             <div style="text-align:right">
               <div style="color:#ffd700;font-weight:800;font-size:12px">${pot} MONET</div>
@@ -463,7 +463,7 @@
           return `<div class="lb-tourney-item" onclick="window._lbJoinTournament('${t.id}', ${t.entryFee})">
             <div>
               <div style="color:#fff;font-weight:800;font-size:11px">${t.title}</div>
-              <div style="color:#888;font-size:9px;margin-top:2px">${t.players.length}/${t.maxPlayers} players · ${t.entryFee} MONET entry</div>
+              <div style="color:#888;font-size:9px;margin-top:2px">${t.players.length}/${t.maxPlayers} players · ≈$0.50 entry (${t.entryFee} MONET)</div>
             </div>
             <div style="text-align:right">
               <div style="color:#ffd700;font-weight:800;font-size:11px">${t.prizePool.toFixed(1)} POT</div>

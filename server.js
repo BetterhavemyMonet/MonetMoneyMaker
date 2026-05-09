@@ -3,18 +3,70 @@ import cors from 'cors';
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import crypto from 'crypto';
 import {
   Connection, PublicKey, Transaction, TransactionInstruction,
   Keypair, SystemProgram,
 } from '@solana/web3.js';
+import Stripe from 'stripe';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR   = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
+// ─── Stripe ───────────────────────────────────────────────────────────────────
+const _stripe = process.env.STRIPE_SECRET_KEY
+  ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' })
+  : null;
+
+const CARD_SESSION_TTL = 60 * 60 * 1000; // 1 hour
+
+function getCardSessions() {
+  const f = path.join(DATA_DIR, 'card-sessions.json');
+  if (!fs.existsSync(f)) return [];
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return []; }
+}
+function saveCardSessions(data) {
+  fs.writeFileSync(path.join(DATA_DIR, 'card-sessions.json'), JSON.stringify(data, null, 2));
+}
+function createCardSession(game, paymentIntentId) {
+  const token    = crypto.randomUUID();
+  const sessions = getCardSessions().filter(s => Date.now() < s.expiresAt);
+  sessions.push({ token, game, paymentIntentId, createdAt: Date.now(), expiresAt: Date.now() + CARD_SESSION_TTL, confirmed: false });
+  saveCardSessions(sessions);
+  return token;
+}
+
 const app = express();
 
 app.use(cors({ origin: '*' }));
+
+// Stripe webhook — raw body MUST come before express.json()
+app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
+  if (!_stripe) return res.status(503).json({ error: 'Stripe not configured' });
+  const sig = req.headers['stripe-signature'];
+  if (!sig) return res.status(400).json({ error: 'Missing stripe-signature header' });
+  try {
+    const secret = process.env.STRIPE_WEBHOOK_SECRET;
+    const event  = secret
+      ? _stripe.webhooks.constructEvent(req.body, sig, secret)
+      : JSON.parse(req.body.toString());
+    if (event.type === 'payment_intent.succeeded') {
+      const pi    = event.data.object;
+      const token = pi.metadata?.sessionToken;
+      if (token) {
+        const sessions = getCardSessions();
+        const s = sessions.find(s => s.token === token);
+        if (s) { s.confirmed = true; saveCardSessions(sessions); }
+      }
+    }
+    res.json({ received: true });
+  } catch(e) {
+    console.error('[STRIPE] Webhook error:', e.message);
+    res.status(400).json({ error: e.message });
+  }
+});
+
 app.use(express.json());
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -496,6 +548,64 @@ app.get('/api/account-exists/:address', async (req, res) => {
   try {
     const info = await withRpc(conn => conn.getAccountInfo(new PublicKey(req.params.address)));
     res.json({ ok: true, exists: !!info });
+  } catch(e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ─── Routes: Stripe card payments ─────────────────────────────────────────────
+app.get('/api/stripe/config', (_req, res) => {
+  if (!_stripe) return res.json({ ok: false, publishableKey: null, reason: 'Stripe not configured' });
+  const pk = process.env.STRIPE_PUBLISHABLE_KEY || '';
+  res.json({ ok: !!pk, publishableKey: pk || null });
+});
+
+app.post('/api/stripe/create-payment-intent', async (req, res) => {
+  if (!_stripe) return res.status(503).json({ error: 'Card payments not configured. Please contact support.' });
+  try {
+    const game         = (req.body.game || 'game').toLowerCase();
+    const sessionToken = crypto.randomUUID();
+    const pi = await _stripe.paymentIntents.create({
+      amount:   50,          // $0.50 USD in cents
+      currency: 'usd',
+      metadata: { game, sessionToken, source: 'monet-arcade' },
+    });
+    // Pre-create card session (confirmed once payment webhook fires)
+    createCardSession(game, pi.id);
+    // Patch the stored session with the token we already embedded in metadata
+    const sessions = getCardSessions();
+    const s = sessions.find(s => s.paymentIntentId === pi.id);
+    if (s) { s.token = sessionToken; saveCardSessions(sessions); }
+    res.json({ ok: true, clientSecret: pi.client_secret, sessionToken });
+  } catch(e) {
+    console.error('[STRIPE] create-payment-intent error:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/card-session/validate', async (req, res) => {
+  const { token, paymentIntentId } = req.body;
+  if (!token) return res.status(400).json({ error: 'token required' });
+  try {
+    const sessions = getCardSessions();
+    let s = sessions.find(s => s.token === token);
+    if (!s) return res.status(404).json({ error: 'Session not found' });
+    if (Date.now() > s.expiresAt) return res.status(410).json({ error: 'Session expired' });
+
+    // If not yet confirmed by webhook, verify directly with Stripe API
+    if (!s.confirmed && _stripe) {
+      try {
+        const pi = await _stripe.paymentIntents.retrieve(s.paymentIntentId);
+        if (pi.status === 'succeeded') { s.confirmed = true; saveCardSessions(sessions); }
+      } catch(_) {}
+    }
+    if (!s.confirmed && !_stripe) {
+      // Stripe not configured — trust client (dev mode only)
+      s.confirmed = true; saveCardSessions(sessions);
+    }
+    if (!s.confirmed) return res.status(402).json({ error: 'Payment not confirmed yet' });
+
+    res.json({ ok: true, game: s.game, expiresAt: s.expiresAt });
   } catch(e) {
     res.status(500).json({ error: e.message });
   }

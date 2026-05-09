@@ -1173,6 +1173,15 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
         ` : `
           <button id="pg-connect-btn" onclick="pgConnect()">CONNECT WALLET</button>
         `}
+        <div style="display:flex;align-items:center;gap:8px;margin-top:14px;font-family:Orbitron,sans-serif;font-size:9px;color:#333;letter-spacing:1px">
+          <div style="flex:1;height:1px;background:#1a1a2a"></div>OR<div style="flex:1;height:1px;background:#1a1a2a"></div>
+        </div>
+        <button id="pg-card-btn" onclick="pgPayCard()" style="margin-top:10px;width:100%;padding:11px;border-radius:12px;border:1px solid #22c55e;cursor:pointer;background:rgba(34,197,94,0.08);color:#22c55e;font-family:Orbitron,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px">
+          &#128179; PAY $0.50 WITH CARD
+        </button>
+        <button id="pg-transak-btn" onclick="pgOpenTransak()" style="margin-top:8px;width:100%;padding:9px;border-radius:10px;border:1px solid #3b82f633;cursor:pointer;background:rgba(59,130,246,0.05);color:#3b82f6;font-family:Orbitron,sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px">
+          &#127974; FUND WALLET WITH CARD
+        </button>
         <div id="pg-spinner">
           <div id="pg-spinner-ring"></div>
           <div id="pg-spinner-label">CHECKING WALLET...</div>
@@ -1374,11 +1383,145 @@ async function pgPaySOL() {
   }
 }
 
-window.pgConnect = pgConnect;
-window.pgPay     = pgPay;
-window.pgPaySOL  = pgPaySOL;
-window.pgRetry   = pgRetry;
-window.pgBack    = pgBack;
+// ─── Card payment (Stripe) ────────────────────────────────────────────────────
+async function pgPayCard() {
+  const box = document.getElementById('pg-box');
+  if (!box) return;
+  const gameName = window._pgGameName || 'game';
+
+  box.innerHTML = `
+    <div id="pg-star">&#128179;</div>
+    <div id="pg-title">PAY WITH CARD</div>
+    <div id="pg-game">${gameName.toUpperCase()}</div>
+    <div style="color:#888;font-size:11px;margin:6px 0 16px">$0.50 USD · No crypto wallet needed</div>
+    <div id="pg-card-form-wrap" style="width:100%;text-align:left">
+      <div style="color:#888;font-size:11px;text-align:center">Loading payment form…</div>
+    </div>
+    <div id="pg-err" style="color:#ff4488;font-size:11px;margin-top:8px;min-height:16px"></div>
+    <button onclick="window._pgRenderGate&&window._pgRenderGate()" style="margin-top:10px;background:none;border:none;color:#555;font-family:Orbitron,sans-serif;font-size:10px;cursor:pointer">&#8592; Back</button>
+    <button id="pg-back" onclick="pgBack()">&#8592; Back to Arcade</button>
+  `;
+
+  try {
+    // 1. Check Stripe is configured
+    const cfg = await fetch('/api/stripe/config').then(r => r.json());
+    if (!cfg.publishableKey) throw new Error('Card payments are not yet configured — please use MONET or SOL.');
+
+    // 2. Create payment intent on server
+    const piRes = await fetch('/api/stripe/create-payment-intent', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ game: gameName }),
+    }).then(r => r.json());
+    if (piRes.error) throw new Error(piRes.error);
+
+    // 3. Load Stripe.js from CDN if not already loaded
+    if (!window.Stripe) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://js.stripe.com/v3/';
+        s.onload = resolve;
+        s.onerror = () => reject(new Error('Failed to load Stripe.js'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // 4. Mount Stripe Elements
+    const stripeInst = window.Stripe(cfg.publishableKey);
+    const elements   = stripeInst.elements({ clientSecret: piRes.clientSecret, appearance: {
+      theme: 'night',
+      variables: { colorPrimary: '#a855ff', colorBackground: '#0a0a14', colorText: '#e5e7eb', fontFamily: 'Orbitron, sans-serif' }
+    }});
+    const payEl = elements.create('payment');
+    const wrap  = document.getElementById('pg-card-form-wrap');
+    if (!wrap) return;
+    wrap.innerHTML = '<div id="stripe-payment-el"></div>';
+    payEl.mount('#stripe-payment-el');
+
+    window._stripeInst      = stripeInst;
+    window._stripeElements  = elements;
+    window._cardSessionToken = piRes.sessionToken;
+    window._cardGameName    = gameName;
+
+    // 5. Show submit button
+    wrap.insertAdjacentHTML('beforeend', `
+      <button id="pg-card-submit" onclick="pgCardSubmit()"
+        style="margin-top:14px;width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+               background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;
+               font-family:Orbitron,sans-serif;font-size:13px;font-weight:800;letter-spacing:0.5px;
+               box-shadow:0 4px 20px #22c55e44">
+        PAY $0.50 NOW &#8594;
+      </button>
+    `);
+  } catch(e) {
+    const errEl = document.getElementById('pg-err');
+    if (errEl) errEl.textContent = e.message;
+  }
+}
+
+async function pgCardSubmit() {
+  const btn = document.getElementById('pg-card-submit');
+  const err = document.getElementById('pg-err');
+  if (btn) { btn.disabled = true; btn.textContent = 'PROCESSING…'; }
+  if (err) err.textContent = '';
+
+  try {
+    const { error } = await window._stripeInst.confirmPayment({
+      elements: window._stripeElements,
+      confirmParams: { return_url: location.href },
+      redirect: 'if_required',
+    });
+    if (error) throw new Error(error.message);
+
+    // Validate payment server-side
+    const r = await fetch('/api/card-session/validate', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: window._cardSessionToken }),
+    }).then(r => r.json());
+    if (!r.ok) throw new Error(r.error || 'Payment validation failed');
+
+    // Store session so hasValidSession() passes
+    sessionStorage.setItem('game_session', JSON.stringify({
+      game: window._cardGameName, paidAt: Date.now(), method: 'card', token: window._cardSessionToken,
+    }));
+
+    document.getElementById('pg-overlay')?.remove();
+    if (window._pgOnSuccess) window._pgOnSuccess('card-payment');
+  } catch(e) {
+    if (err) err.textContent = e.message;
+    if (btn) { btn.disabled = false; btn.textContent = 'PAY $0.50 NOW →'; }
+  }
+}
+
+// ─── Transak on-ramp modal ────────────────────────────────────────────────────
+function pgOpenTransak() {
+  const walletAddr = window.WalletState?.address || '';
+  const url = `https://global.transak.com/?network=solana&cryptoCurrencyCode=SOL&defaultCryptoCurrency=SOL${walletAddr ? '&walletAddress=' + encodeURIComponent(walletAddr) : ''}`;
+
+  if (document.getElementById('transak-modal')) return;
+  const modal = document.createElement('div');
+  modal.id = 'transak-modal';
+  modal.style.cssText = 'position:fixed;inset:0;z-index:999999;background:rgba(2,4,10,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center';
+  modal.innerHTML = `
+    <div style="width:min(430px,96vw);border-radius:18px;overflow:hidden;background:#0a0a14;border:1px solid #a855ff44;box-shadow:0 0 40px #a855ff22">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid #ffffff0d;background:#080810">
+        <span style="font-family:Orbitron,sans-serif;font-size:12px;color:#a855ff;font-weight:800">&#127974; FUND WALLET WITH CARD</span>
+        <button onclick="document.getElementById('transak-modal').remove()"
+          style="background:none;border:1px solid #333;border-radius:6px;color:#888;font-size:14px;width:28px;height:28px;cursor:pointer;line-height:1">&#10005;</button>
+      </div>
+      <iframe src="${url}" style="width:100%;height:560px;border:none" allow="camera;microphone;payment;clipboard-write"></iframe>
+    </div>
+  `;
+  document.body.appendChild(modal);
+}
+
+window.pgConnect     = pgConnect;
+window.pgPay         = pgPay;
+window.pgPaySOL      = pgPaySOL;
+window.pgRetry       = pgRetry;
+window.pgBack        = pgBack;
+window.pgPayCard     = pgPayCard;
+window.pgCardSubmit  = pgCardSubmit;
+window.pgOpenTransak = pgOpenTransak;
 
 // ─── CPU target badge ─────────────────────────────────────────────────────────
 function showCpuTarget(cpuScore, difficulty) {
