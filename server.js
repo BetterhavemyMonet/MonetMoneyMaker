@@ -1255,6 +1255,98 @@ app.post('/api/admin/process-claims', async (req, res) => {
   res.json({ ok: true, processed: pending.length, results });
 });
 
+// ─── Buy MONET with card ──────────────────────────────────────────────────────
+const BUY_PACKAGES_USD = [10, 20, 50, 100];
+const BUY_SESSION_TTL  = 2 * 60 * 60 * 1000; // 2 hours
+
+function getBuySessions() {
+  const f = path.join(DATA_DIR, 'buy-sessions.json');
+  if (!fs.existsSync(f)) return [];
+  try { return JSON.parse(fs.readFileSync(f, 'utf8')); } catch { return []; }
+}
+function saveBuySessions(data) {
+  fs.writeFileSync(path.join(DATA_DIR, 'buy-sessions.json'), JSON.stringify(data, null, 2));
+}
+
+app.post('/api/buy-monet/create-intent', async (req, res) => {
+  try {
+    const { usdAmount, walletAddress } = req.body;
+    const usd = Number(usdAmount);
+    if (!BUY_PACKAGES_USD.includes(usd))
+      return res.status(400).json({ error: 'Invalid amount. Choose 10, 20, 50, or 100.' });
+    if (!walletAddress)
+      return res.status(400).json({ error: 'walletAddress required' });
+
+    const stripe      = await _getStripeClient();
+    const priceUsd    = await getMonetPrice();
+    const monetAmount = priceUsd ? Math.floor(usd / priceUsd) : 0;
+    const sessionToken = crypto.randomUUID();
+
+    const pi = await stripe.paymentIntents.create({
+      amount:   usd * 100,
+      currency: 'usd',
+      metadata: { sessionToken, walletAddress, usdAmount: String(usd), monetAmount: String(monetAmount), source: 'monet-buy' },
+    });
+
+    const sessions = getBuySessions().filter(s => Date.now() < s.expiresAt);
+    sessions.push({
+      token: sessionToken, walletAddress,
+      usdAmount: usd, monetAmount,
+      paymentIntentId: pi.id,
+      createdAt: Date.now(), expiresAt: Date.now() + BUY_SESSION_TTL,
+      confirmed: false, paid: false,
+    });
+    saveBuySessions(sessions);
+
+    console.log(`[BUY] intent created $${usd} → ${monetAmount} MONET → ${walletAddress.slice(0,8)}…`);
+    res.json({ ok: true, clientSecret: pi.client_secret, sessionToken, monetAmount, priceUsd });
+  } catch(e) {
+    console.error('[BUY-MONET] create-intent:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/api/buy-monet/confirm', async (req, res) => {
+  const { sessionToken } = req.body;
+  if (!sessionToken) return res.status(400).json({ error: 'sessionToken required' });
+  try {
+    const sessions = getBuySessions();
+    const s = sessions.find(s => s.token === sessionToken);
+    if (!s)                      return res.status(404).json({ error: 'Session not found' });
+    if (Date.now() > s.expiresAt) return res.status(410).json({ error: 'Session expired' });
+    if (s.paid) return res.json({ ok: true, alreadyPaid: true, monetAmount: s.monetAmount, txId: s.txId || null, queued: s.queued || false });
+
+    // Verify with Stripe directly
+    const stripe = await _getStripeClient();
+    const pi = await stripe.paymentIntents.retrieve(s.paymentIntentId);
+    if (pi.status !== 'succeeded')
+      return res.status(402).json({ error: `Payment not confirmed (status: ${pi.status})` });
+
+    s.confirmed = true;
+    const { monetAmount, walletAddress } = s;
+
+    let txId = null; let queued = false;
+    try {
+      txId = await sendPayout(walletAddress, monetAmount);
+      s.paid = true; s.txId = txId;
+      console.log(`[BUY] payout sent ${monetAmount} MONET → ${walletAddress.slice(0,8)}… tx:${txId.slice(0,12)}…`);
+    } catch(pe) {
+      // Treasury key not set or payout failed — queue the claim
+      const claims = dbRead('claims');
+      claims.push({ id: crypto.randomUUID(), wallet: walletAddress, amount: monetAmount,
+        reason: `card-buy $${s.usdAmount}`, createdAt: new Date().toISOString(), sessionToken });
+      dbWrite('claims', claims);
+      s.paid = true; s.queued = true; queued = true;
+      console.warn(`[BUY] payout queued (${pe.message}) ${monetAmount} MONET → ${walletAddress.slice(0,8)}…`);
+    }
+    saveBuySessions(sessions);
+    res.json({ ok: true, monetAmount, txId, queued });
+  } catch(e) {
+    console.error('[BUY-MONET] confirm:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ─── SOL entry fee info ───────────────────────────────────────────────────────
 app.get('/api/sol-entry-fee', async (_req, res) => {
   const lam = await getDynamicSolLamports();

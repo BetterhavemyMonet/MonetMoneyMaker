@@ -83,6 +83,94 @@ body::before {
   text-align:center; font-family:'Orbitron',sans-serif;
 }
 .rpc-badge { text-align:center; font-size:10px; color:#444; padding:6px; font-family:monospace; }
+
+/* ── Buy MONET section ──────────────────────────────────────────────── */
+.buy-section {
+  max-width:500px; margin:0 auto 24px;
+  background:rgba(0,0,0,0.5);
+  border:1px solid #a855ff44;
+  border-radius:16px; padding:20px;
+}
+.buy-section h3 {
+  font-family:'Orbitron',sans-serif; font-size:14px;
+  color:#a855ff; margin:0 0 4px; letter-spacing:1px;
+}
+.buy-subtitle {
+  font-size:11px; color:#666; font-family:'Orbitron',sans-serif;
+  margin-bottom:16px;
+}
+.buy-packages {
+  display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px;
+}
+.buy-pkg {
+  border:1px solid #333; border-radius:12px;
+  padding:14px 10px; text-align:center; cursor:pointer;
+  background:rgba(255,255,255,0.03);
+  transition:border-color .15s,background .15s;
+  position:relative;
+}
+.buy-pkg:hover { border-color:#a855ff88; background:rgba(168,85,255,0.07); }
+.buy-pkg.selected {
+  border-color:#a855ff; background:rgba(168,85,255,0.13);
+  box-shadow:0 0 16px #a855ff33;
+}
+.buy-pkg .usd {
+  font-family:'Orbitron',sans-serif; font-size:20px;
+  font-weight:800; color:#fff;
+}
+.buy-pkg .monet-amt {
+  font-size:11px; color:#a855ff; margin-top:4px;
+  font-family:'Orbitron',sans-serif; font-weight:700;
+}
+.buy-pkg .monet-sub {
+  font-size:9px; color:#555; margin-top:2px;
+}
+.buy-pkg .best-val {
+  position:absolute; top:-8px; left:50%; transform:translateX(-50%);
+  background:linear-gradient(90deg,#a855ff,#7c3aed);
+  color:#fff; font-size:8px; font-family:'Orbitron',sans-serif;
+  padding:2px 8px; border-radius:20px; font-weight:800;
+  white-space:nowrap;
+}
+.buy-wallet-note {
+  text-align:center; padding:14px;
+  font-family:'Orbitron',sans-serif; font-size:11px; color:#666;
+}
+#buy-pay-btn {
+  width:100%; padding:13px; border-radius:12px;
+  border:none; cursor:pointer;
+  background:linear-gradient(135deg,#a855ff,#7c3aed);
+  color:#fff; font-family:'Orbitron',sans-serif;
+  font-size:12px; font-weight:800; letter-spacing:.5px;
+  margin-top:4px;
+  transition:filter .15s;
+}
+#buy-pay-btn:hover { filter:brightness(1.15); }
+#buy-pay-btn:disabled { opacity:.4; cursor:not-allowed; filter:none; }
+#buy-stripe-wrap { margin-top:14px; }
+#buy-stripe-el { background:rgba(255,255,255,0.04); border-radius:8px; padding:12px; }
+#buy-result {
+  text-align:center; padding:20px 10px;
+}
+.buy-success-icon { font-size:40px; margin-bottom:10px; }
+.buy-success-title {
+  font-family:'Orbitron',sans-serif; font-size:16px;
+  color:#22c55e; margin-bottom:6px; font-weight:800;
+}
+.buy-success-amt {
+  font-family:'Orbitron',sans-serif; font-size:22px;
+  color:#a855ff; font-weight:800; margin:8px 0;
+}
+.buy-success-sub { font-size:11px; color:#888; margin-top:4px; }
+.buy-tx-link { font-size:10px; color:#3b82f6; margin-top:8px; display:block; }
+.buy-error {
+  color:#ef4444; font-size:11px; font-family:'Orbitron',sans-serif;
+  text-align:center; margin-top:10px;
+}
+.buy-price-note {
+  font-size:10px; color:#555; text-align:center; margin-top:10px;
+  font-family:monospace;
+}
 </style>
 </head>
 <body>
@@ -105,6 +193,58 @@ body::before {
     <a class="nav-btn" href="arcade.html">&#127918; Arcade</a>
     <a class="nav-btn" href="portfolio.html">&#128188; Portfolio</a>
     <a class="nav-btn" href="index.html">&#8592; Home</a>
+  </div>
+
+  <!-- ── Buy MONET with Card ───────────────────────────────────────────── -->
+  <div class="buy-section">
+    <h3>&#128179; BUY MONET WITH CARD</h3>
+    <div class="buy-subtitle">Purchase MONET directly &mdash; sent to your wallet instantly</div>
+
+    <div class="buy-packages" id="buy-packages">
+      <div class="buy-pkg" data-usd="10" onclick="buySelectPkg(this)">
+        <div class="usd">$10</div>
+        <div class="monet-amt" id="buy-monet-10">— MONET</div>
+        <div class="monet-sub">loading price…</div>
+      </div>
+      <div class="buy-pkg" data-usd="20" onclick="buySelectPkg(this)">
+        <div class="usd">$20</div>
+        <div class="monet-amt" id="buy-monet-20">— MONET</div>
+        <div class="monet-sub">loading price…</div>
+      </div>
+      <div class="buy-pkg" data-usd="50" onclick="buySelectPkg(this)">
+        <div class="usd">$50</div>
+        <div class="monet-amt" id="buy-monet-50">— MONET</div>
+        <div class="monet-sub">loading price…</div>
+      </div>
+      <div class="buy-pkg" data-usd="100" onclick="buySelectPkg(this)">
+        <div class="best-val">&#11088; BEST VALUE</div>
+        <div class="usd">$100</div>
+        <div class="monet-amt" id="buy-monet-100">— MONET</div>
+        <div class="monet-sub">loading price…</div>
+      </div>
+    </div>
+
+    <div id="buy-wallet-gate" class="buy-wallet-note" style="display:none">
+      &#128274; Connect your wallet above to receive MONET
+    </div>
+
+    <div id="buy-checkout" style="display:none">
+      <button id="buy-pay-btn" onclick="buyStartPayment()">PAY $— WITH CARD</button>
+      <div id="buy-stripe-wrap" style="display:none">
+        <div id="buy-stripe-el"></div>
+        <button id="buy-submit-btn" onclick="buySubmitPayment()"
+          style="width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
+                 background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;
+                 font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;
+                 letter-spacing:.5px;margin-top:12px"
+          disabled>COMPLETE PURCHASE</button>
+      </div>
+      <div id="buy-err" class="buy-error" style="display:none"></div>
+    </div>
+
+    <div id="buy-result" style="display:none"></div>
+
+    <div class="buy-price-note" id="buy-price-note"></div>
   </div>
 
   <p class="swap-hint">Swap SOL &#8646; MONET using Jupiter</p>
@@ -134,6 +274,197 @@ renderWalletBar('walletBar');
 
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
+
+// ── Buy MONET with Card ───────────────────────────────────────────────────────
+let _buyPriceUsd    = null;
+let _buySelectedUsd = null;
+let _buyStripeInst  = null;
+let _buyElements    = null;
+let _buySessionTok  = null;
+let _buyMonetAmt    = null;
+
+async function buyLoadPrice() {
+  try {
+    const d = await fetch('/api/monet-price').then(r => r.json());
+    _buyPriceUsd = d.priceUsd;
+    const pkgs = [10, 20, 50, 100];
+    pkgs.forEach(usd => {
+      const monet = _buyPriceUsd ? Math.floor(usd / _buyPriceUsd) : 0;
+      const el = document.getElementById('buy-monet-' + usd);
+      if (el) {
+        el.textContent = monet > 0 ? monet.toLocaleString() + ' MONET' : '— MONET';
+        el.nextElementSibling.textContent = monet > 0
+          ? '≈ ' + (monet / 1000).toFixed(0) + 'K tokens'
+          : '';
+      }
+    });
+    if (_buyPriceUsd) {
+      const note = document.getElementById('buy-price-note');
+      if (note) note.textContent = `Live price: 1 MONET = $${_buyPriceUsd.toExponential(3)} USD`;
+    }
+  } catch(e) { console.warn('[BUY] price load failed', e); }
+  buyUpdateGate();
+}
+
+function buyUpdateGate() {
+  const gate     = document.getElementById('buy-wallet-gate');
+  const checkout = document.getElementById('buy-checkout');
+  const connected = WalletState && WalletState.connected;
+  if (!_buySelectedUsd) { if(gate) gate.style.display='none'; if(checkout) checkout.style.display='none'; return; }
+  if (!connected) {
+    if (gate)     { gate.style.display='block'; }
+    if (checkout) { checkout.style.display='none'; }
+  } else {
+    if (gate)     { gate.style.display='none'; }
+    if (checkout) {
+      checkout.style.display='block';
+      const btn = document.getElementById('buy-pay-btn');
+      if (btn) btn.textContent = `PAY $${_buySelectedUsd} WITH CARD`;
+    }
+  }
+}
+
+function buySelectPkg(el) {
+  document.querySelectorAll('.buy-pkg').forEach(p => p.classList.remove('selected'));
+  el.classList.add('selected');
+  _buySelectedUsd = Number(el.dataset.usd);
+  // Reset checkout state
+  const wrap = document.getElementById('buy-stripe-wrap');
+  const err  = document.getElementById('buy-err');
+  if (wrap) wrap.style.display = 'none';
+  if (err)  { err.style.display = 'none'; err.textContent = ''; }
+  _buyStripeInst = null; _buyElements = null; _buySessionTok = null;
+  buyUpdateGate();
+}
+
+async function buyStartPayment() {
+  const btn = document.getElementById('buy-pay-btn');
+  const err  = document.getElementById('buy-err');
+  if (err) { err.style.display='none'; err.textContent=''; }
+  if (!WalletState.connected) return;
+  if (!_buySelectedUsd) return;
+
+  btn.disabled = true;
+  btn.textContent = 'LOADING…';
+
+  try {
+    // 1. Get Stripe publishable key
+    const cfg = await fetch('/api/stripe/config').then(r => r.json());
+    if (!cfg.ok || !cfg.publishableKey) throw new Error('Card payments not available');
+
+    // 2. Create payment intent + buy session
+    const intent = await fetch('/api/buy-monet/create-intent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usdAmount: _buySelectedUsd, walletAddress: WalletState.address }),
+    }).then(r => r.json());
+    if (!intent.ok) throw new Error(intent.error || 'Failed to create payment intent');
+
+    _buySessionTok = intent.sessionToken;
+    _buyMonetAmt   = intent.monetAmount;
+
+    // 3. Load Stripe.js if needed
+    if (!window.Stripe) {
+      await new Promise((res, rej) => {
+        const s = document.createElement('script');
+        s.src = 'https://js.stripe.com/v3/';
+        s.onload = res; s.onerror = () => rej(new Error('Failed to load Stripe.js'));
+        document.head.appendChild(s);
+      });
+    }
+
+    // 4. Mount Elements
+    _buyStripeInst = window.Stripe(cfg.publishableKey);
+    _buyElements   = _buyStripeInst.elements({
+      clientSecret: intent.clientSecret,
+      appearance: { theme: 'night', variables: { colorPrimary: '#a855ff', borderRadius: '8px' } },
+    });
+    const payEl = _buyElements.create('payment');
+    document.getElementById('buy-stripe-el').innerHTML = '';
+    payEl.mount('#buy-stripe-el');
+    payEl.on('ready', () => {
+      const sub = document.getElementById('buy-submit-btn');
+      if (sub) sub.disabled = false;
+    });
+
+    document.getElementById('buy-stripe-wrap').style.display = 'block';
+    btn.style.display = 'none';
+  } catch(e) {
+    if (err) { err.textContent = e.message; err.style.display = 'block'; }
+    btn.disabled = false;
+    btn.textContent = `PAY $${_buySelectedUsd} WITH CARD`;
+  }
+}
+
+async function buySubmitPayment() {
+  const sub = document.getElementById('buy-submit-btn');
+  const err = document.getElementById('buy-err');
+  if (err) { err.style.display='none'; err.textContent=''; }
+  sub.disabled = true;
+  sub.textContent = 'PROCESSING…';
+
+  try {
+    const returnUrl = window.location.href.split('?')[0] + '?buy=done';
+    const { error } = await _buyStripeInst.confirmPayment({
+      elements: _buyElements,
+      confirmParams: { return_url: returnUrl },
+      redirect: 'if_required',
+    });
+    if (error) throw new Error(error.message);
+
+    // 5. Confirm + trigger payout
+    sub.textContent = 'SENDING MONET…';
+    const confirm = await fetch('/api/buy-monet/confirm', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sessionToken: _buySessionTok }),
+    }).then(r => r.json());
+    if (!confirm.ok) throw new Error(confirm.error || 'Payout failed');
+
+    buyShowSuccess(confirm.monetAmount, confirm.txId, confirm.queued);
+  } catch(e) {
+    if (err) { err.textContent = e.message; err.style.display = 'block'; }
+    sub.disabled = false;
+    sub.textContent = 'COMPLETE PURCHASE';
+  }
+}
+
+function buyShowSuccess(monetAmt, txId, queued) {
+  const result   = document.getElementById('buy-result');
+  const checkout = document.getElementById('buy-checkout');
+  if (checkout) checkout.style.display = 'none';
+  if (result) {
+    result.style.display = 'block';
+    const fmt = Number(monetAmt).toLocaleString();
+    result.innerHTML = `
+      <div class="buy-success-icon">&#127881;</div>
+      <div class="buy-success-title">PURCHASE COMPLETE!</div>
+      <div class="buy-success-amt">${fmt} MONET</div>
+      <div class="buy-success-sub">
+        ${queued
+          ? 'Your MONET will be sent to your wallet shortly (payout queued).'
+          : 'MONET sent to your wallet on-chain!'}
+      </div>
+      ${txId ? `<a class="buy-tx-link" href="https://solscan.io/tx/${txId}" target="_blank" rel="noopener">View transaction ↗</a>` : ''}
+      <button onclick="location.reload()"
+        style="margin-top:16px;padding:10px 28px;border-radius:10px;border:1px solid #a855ff;
+               background:transparent;color:#a855ff;font-family:'Orbitron',sans-serif;
+               font-size:11px;font-weight:800;cursor:pointer">
+        BUY MORE
+      </button>
+    `;
+  }
+  // Refresh balance
+  if (window.refreshBalances) refreshBalances();
+}
+
+// Init on load — retry once after 2s to handle API server startup race
+buyLoadPrice().then(() => {
+  const el = document.getElementById('buy-monet-10');
+  if (!el || el.textContent === '— MONET') setTimeout(buyLoadPrice, 2000);
+});
+document.addEventListener('walletConnected',    buyUpdateGate);
+document.addEventListener('walletDisconnected', buyUpdateGate);
 
 function updateBal() {
   const el = document.getElementById('monetBal');
