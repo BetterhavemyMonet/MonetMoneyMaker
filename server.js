@@ -79,14 +79,19 @@ app.use(cors({ origin: '*' }));
 // Stripe webhook — raw body MUST come before express.json()
 app.post('/api/stripe/webhook', express.raw({ type: 'application/json' }), async (req, res) => {
   const sig = req.headers['stripe-signature'];
+  const secret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!secret) {
+    // Without a webhook secret we cannot verify the signature — reject to prevent
+    // unsigned payload spoofing. Sessions are confirmed lazily via direct Stripe
+    // API lookup in /api/card-session/validate instead.
+    console.warn('[STRIPE] Webhook received but STRIPE_WEBHOOK_SECRET not set — rejecting');
+    return res.status(400).json({ error: 'Webhook secret not configured' });
+  }
   if (!sig) return res.status(400).json({ error: 'Missing stripe-signature header' });
   try {
     const stripe = await _getStripeClient().catch(() => null);
     if (!stripe) return res.status(503).json({ error: 'Stripe not configured' });
-    const secret = process.env.STRIPE_WEBHOOK_SECRET;
-    const event  = secret
-      ? stripe.webhooks.constructEvent(req.body, sig, secret)
-      : JSON.parse(req.body.toString());
+    const event = stripe.webhooks.constructEvent(req.body, sig, secret);
     if (event.type === 'payment_intent.succeeded') {
       const pi    = event.data.object;
       const token = pi.metadata?.sessionToken;
