@@ -14,8 +14,13 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const DATA_DIR   = path.join(__dirname, 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
-// ─── Stripe (Replit connector — sandbox in dev, live in production) ───────────
+// ─── Stripe (env vars take priority; Replit connector as fallback) ───────────
 async function _getStripeCredentials() {
+  // Explicit env vars always win — use these for live/production keys
+  const sk = process.env.STRIPE_SECRET_KEY;
+  const pk = process.env.STRIPE_PUBLISHABLE_KEY;
+  if (sk && pk) return { secretKey: sk, publishableKey: pk };
+
   const hostname     = process.env.REPLIT_CONNECTORS_HOSTNAME;
   const xReplitToken = process.env.REPL_IDENTITY
     ? 'repl ' + process.env.REPL_IDENTITY
@@ -23,13 +28,7 @@ async function _getStripeCredentials() {
       ? 'depl ' + process.env.WEB_REPL_RENEWAL
       : null;
 
-  // Fallback: honour plain env vars if Replit connector isn't available
-  if (!hostname || !xReplitToken) {
-    const sk = process.env.STRIPE_SECRET_KEY;
-    const pk = process.env.STRIPE_PUBLISHABLE_KEY;
-    if (!sk || !pk) throw new Error('Stripe not configured');
-    return { secretKey: sk, publishableKey: pk };
-  }
+  if (!hostname || !xReplitToken) throw new Error('Stripe not configured');
 
   const fetchConn = async (env) => {
     const url = new URL(`https://${hostname}/api/v2/connection`);
