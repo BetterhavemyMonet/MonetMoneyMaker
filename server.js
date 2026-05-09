@@ -117,6 +117,39 @@ const ENTRY_FEE       = 5;   // fallback only — dynamic fee targets $0.50 USD
 const TARGET_USD      = 0.50; // entry fee target in USD
 const PRICE_CACHE_MS  = 5 * 60 * 1000; // cache MONET price for 5 minutes
 
+// ─── Dynamic SOL pricing ───────────────────────────────────────────────────
+let _solPriceUsd = null;
+let _solPriceTs  = 0;
+
+async function fetchSolPrice() {
+  try {
+    const r = await fetch(
+      'https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd',
+      { headers: { 'User-Agent': 'monet-arcade/1.0' } }
+    );
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    const d = await r.json();
+    const p = d?.solana?.usd;
+    if (p > 0) { _solPriceUsd = p; _solPriceTs = Date.now(); }
+  } catch(e) {
+    console.warn('[PRICE] CoinGecko SOL fetch failed:', e.message);
+  }
+  return _solPriceUsd;
+}
+
+async function getSolPrice() {
+  if (_solPriceUsd && Date.now() - _solPriceTs < PRICE_CACHE_MS) return _solPriceUsd;
+  return fetchSolPrice();
+}
+
+// Returns lamports equivalent to TARGET_USD worth of SOL ($0.50)
+// Falls back to 5_000_000 lamports (~$0.50 at ~$100/SOL) if price unavailable
+async function getDynamicSolLamports() {
+  const p = await getSolPrice();
+  if (!p) return 5_000_000;
+  return Math.max(100_000, Math.round((TARGET_USD / p) * 1e9));
+}
+
 // ─── Dynamic MONET pricing ─────────────────────────────────────────────────
 let _monetPriceUsd = null;
 let _monetPriceTs  = 0;
@@ -162,7 +195,7 @@ fetchMonetPrice().then(p => {
 const DECIMALS        = 6;
 const HOUSE_RAKE      = 0.20;
 const CPU_PAYOUT_MAX  = 9;
-const SOL_ENTRY_LAMPORTS = 1_500_000;   // ~0.0015 SOL ≈ $0.25 at ~$167/SOL
+const SOL_ENTRY_LAMPORTS = 5_000_000;   // fallback only — dynamic fee targets $0.50 USD
 const PRIZE_CUTS      = [0.50, 0.30, 0.20];
 const CHALLENGE_TTL   = 24 * 60 * 60 * 1000;
 const TOURNEY_WINDOW  = 60 * 60 * 1000;
@@ -661,19 +694,20 @@ app.get('/api/rpc-url', (_req, res) => {
 // ─── Routes: MONET price / dynamic entry fee ──────────────────────────────
 app.get('/api/monet-price', async (_req, res) => {
   try {
-    const priceUsd     = await getMonetPrice();
-    const entryFeeMonet = priceUsd
-      ? Math.max(1, Math.round(TARGET_USD / priceUsd))
-      : ENTRY_FEE;
+    const [priceUsd, solPriceUsd] = await Promise.all([getMonetPrice(), getSolPrice()]);
+    const entryFeeMonet  = priceUsd   ? Math.max(1, Math.round(TARGET_USD / priceUsd))   : ENTRY_FEE;
+    const solEntryLamports = solPriceUsd ? Math.max(100_000, Math.round((TARGET_USD / solPriceUsd) * 1e9)) : SOL_ENTRY_LAMPORTS;
     res.json({
       ok: true,
       priceUsd,
       entryFeeMonet,
       entryFeeUsd: TARGET_USD,
+      solPriceUsd,
+      solEntryLamports,
       cached: !!(priceUsd && Date.now() - _monetPriceTs < PRICE_CACHE_MS),
     });
   } catch(e) {
-    res.json({ ok: true, priceUsd: null, entryFeeMonet: ENTRY_FEE, entryFeeUsd: TARGET_USD });
+    res.json({ ok: true, priceUsd: null, entryFeeMonet: ENTRY_FEE, entryFeeUsd: TARGET_USD, solPriceUsd: null, solEntryLamports: SOL_ENTRY_LAMPORTS });
   }
 });
 
@@ -1222,8 +1256,9 @@ app.post('/api/admin/process-claims', async (req, res) => {
 });
 
 // ─── SOL entry fee info ───────────────────────────────────────────────────────
-app.get('/api/sol-entry-fee', (_req, res) => {
-  res.json({ ok: true, lamports: SOL_ENTRY_LAMPORTS, sol: SOL_ENTRY_LAMPORTS / 1e9, approxUsd: 0.25 });
+app.get('/api/sol-entry-fee', async (_req, res) => {
+  const lam = await getDynamicSolLamports();
+  res.json({ ok: true, lamports: lam, sol: lam / 1e9, approxUsd: TARGET_USD });
 });
 
 // ─── Monet Maker Shop ─────────────────────────────────────────────────────────

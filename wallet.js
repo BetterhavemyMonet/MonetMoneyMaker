@@ -24,9 +24,13 @@ async function fetchEntryFee() {
       MONET_CONFIG.ENTRY_FEE = d.entryFeeMonet;
       MONET_CONFIG._priceUsd  = d.priceUsd;
       _entryFeeFetched = true;
-      // Notify pay gate if it's already open
-      document.dispatchEvent(new CustomEvent('entryFeeUpdated', { detail: d }));
     }
+    if (d.solEntryLamports && d.solEntryLamports > 0) {
+      MONET_CONFIG.SOL_ENTRY_LAMPORTS = d.solEntryLamports;
+      MONET_CONFIG._solPriceUsd = d.solPriceUsd;
+    }
+    // Notify pay gate if it's already open
+    document.dispatchEvent(new CustomEvent('entryFeeUpdated', { detail: d }));
   } catch(_) {}
 }
 
@@ -716,11 +720,12 @@ window.ensureMonetAccount = ensureMonetAccount;
 window.refreshBalances    = refreshBalances;
 
 // ─── Pay Entry Fee (SOL) ──────────────────────────────────────────────────────
-// Sends native SOL to treasury (~$0.25 worth) as an alternative to MONET.
-const SOL_ENTRY_LAMPORTS = 1_500_000; // 0.0015 SOL ≈ $0.25 at ~$167/SOL
+// Sends native SOL to treasury (~$0.50 worth) as an alternative to MONET.
+// Default lamports updated dynamically via fetchEntryFee() → MONET_CONFIG.SOL_ENTRY_LAMPORTS
+MONET_CONFIG.SOL_ENTRY_LAMPORTS = 5_000_000; // fallback ~$0.50 at ~$100/SOL
 
 async function payEntryFeeSOL(gameName, onProgress, lamports) {
-  const lam    = (lamports && lamports > 0) ? lamports : SOL_ENTRY_LAMPORTS;
+  const lam    = (lamports && lamports > 0) ? lamports : (MONET_CONFIG.SOL_ENTRY_LAMPORTS || 5_000_000);
   const report = (step) => { try { onProgress && onProgress(step); } catch(_) {} };
 
   report('checking');
@@ -1168,7 +1173,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
           <button id="pg-pay-sol-btn" onclick="pgPaySOL()"
             style="margin-top:8px;width:100%;padding:11px;border-radius:12px;border:1px solid ${WalletState.solBalance>=0.003?'#3b82f6':'#333'};cursor:${WalletState.solBalance>=0.003?'pointer':'not-allowed'};background:${WalletState.solBalance>=0.003?'rgba(59,130,246,0.12)':'rgba(255,255,255,0.03)'};color:${WalletState.solBalance>=0.003?'#60a5fa':'#555'};font-family:Orbitron,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px"
             ${WalletState.solBalance>=0.003?'':'disabled'}>
-            ◎ PAY ~$0.25 IN SOL &amp; PLAY${WalletState.solBalance<0.003?' (need ~0.003 SOL)':''}
+            ◎ PAY ~$0.50 IN SOL &amp; PLAY${WalletState.solBalance<0.003?' (need ~0.003 SOL)':''}
           </button>
         ` : `
           <button id="pg-connect-btn" onclick="pgConnect()">CONNECT WALLET</button>
