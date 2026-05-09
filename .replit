@@ -23,6 +23,14 @@ args = "Start application"
 task = "workflow.run"
 args = "API Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Git remote"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Git add"
+
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -46,6 +54,28 @@ waitForPort = 3001
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "Git remote"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "git remote add origin https://github.com/BetterhavemyMonet/MonetMoneyArcade.git git pull origin main --allow-unrelated-histories"
+
+[[workflows.workflow]]
+name = "Git add"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "git add . git commit -m \"sync update\" git push origin main"
+
+[workflows.workflow.metadata]
+isValidation = true
 
 [[ports]]
 localPort = 3001

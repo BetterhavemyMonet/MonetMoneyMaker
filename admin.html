@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Monet Admin — Claims</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#ccc;font-family:'Orbitron',monospace;min-height:100vh;padding:24px 16px}
+h1{font-size:20px;color:#a855ff;text-align:center;margin-bottom:4px;letter-spacing:2px}
+.sub{text-align:center;font-size:10px;color:#444;margin-bottom:24px}
+
+.gate{max-width:420px;margin:80px auto;text-align:center}
+.gate h2{font-size:14px;color:#a855ff;margin-bottom:16px}
+.gate input{
+  width:100%;padding:12px 14px;border-radius:10px;
+  border:1px solid #333;background:#111;color:#fff;
+  font-family:'Orbitron',monospace;font-size:12px;margin-bottom:12px;
+}
+.gate input:focus{outline:none;border-color:#a855ff}
+.gate button{
+  width:100%;padding:13px;border-radius:10px;border:none;cursor:pointer;
+  background:linear-gradient(135deg,#a855ff,#7c3aed);
+  color:#fff;font-family:'Orbitron',monospace;font-size:12px;font-weight:800;
+}
+
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;max-width:960px;margin:0 auto 20px}
+.toolbar select,.toolbar input{
+  padding:8px 12px;border-radius:8px;border:1px solid #333;
+  background:#111;color:#ccc;font-family:'Orbitron',monospace;font-size:10px;
+}
+.btn{padding:9px 18px;border-radius:8px;border:none;cursor:pointer;
+  font-family:'Orbitron',monospace;font-size:10px;font-weight:800;}
+.btn-purple{background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff}
+.btn-green{background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff}
+.btn-red{background:linear-gradient(135deg,#ef4444,#dc2626);color:#fff}
+.btn-gray{background:#222;color:#888;border:1px solid #333}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+
+.stats{display:flex;gap:10px;flex-wrap:wrap;max-width:960px;margin:0 auto 20px}
+.stat{flex:1;min-width:120px;background:#111;border:1px solid #222;border-radius:10px;
+  padding:14px;text-align:center}
+.stat .val{font-size:22px;font-weight:900;color:#a855ff}
+.stat .lbl{font-size:9px;color:#555;margin-top:4px}
+
+.claims-wrap{max-width:960px;margin:0 auto}
+table{width:100%;border-collapse:collapse;font-size:10px}
+th{background:#111;color:#555;padding:8px 10px;text-align:left;border-bottom:1px solid #1e1e1e;font-size:9px;letter-spacing:.5px}
+td{padding:9px 10px;border-bottom:1px solid #111;vertical-align:middle}
+tr:hover td{background:rgba(168,85,255,0.04)}
+.badge{display:inline-block;padding:3px 8px;border-radius:20px;font-size:9px;font-weight:800}
+.badge-pending{background:#422;color:#f87171}
+.badge-paid{background:#042;color:#4ade80}
+.badge-queued{background:#2a1a3e;color:#a855ff}
+.mono{font-family:monospace;font-size:10px;color:#888}
+.short{cursor:pointer;text-decoration:underline dotted;color:#a78bfa}
+.action-cell{display:flex;gap:6px;align-items:center}
+.toast{
+  position:fixed;top:20px;right:20px;
+  background:#1e1e2e;border:1px solid #a855ff44;border-radius:10px;
+  padding:12px 20px;font-size:11px;color:#a855ff;
+  transform:translateX(200%);transition:transform .3s;z-index:999
+}
+.toast.show{transform:none}
+.empty{text-align:center;padding:40px;color:#333;font-size:11px}
+.process-result{max-width:960px;margin:0 auto 20px;background:#0f0f1a;border:1px solid #222;
+  border-radius:10px;padding:14px;font-size:10px;display:none}
+.process-result h4{font-size:11px;color:#a855ff;margin-bottom:8px}
+.pr-row{padding:4px 0;border-bottom:1px solid #111;display:flex;gap:10px}
+.pr-ok{color:#4ade80}.pr-fail{color:#f87171}
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate">
+  <h2>&#128274; ADMIN ACCESS</h2>
+  <input id="tok-input" type="password" placeholder="Enter admin token…" autocomplete="off">
+  <button onclick="gateLogin()">ENTER</button>
+  <div id="gate-err" style="color:#ef4444;font-size:10px;margin-top:10px"></div>
+</div>
+
+<div id="main" style="display:none">
+  <h1>&#9883; MONET ADMIN</h1>
+  <div class="sub">Claims &amp; Payout Management</div>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="toolbar">
+    <select id="filter-status" onchange="renderTable()">
+      <option value="">ALL STATUS</option>
+      <option value="pending">PENDING</option>
+      <option value="paid">PAID</option>
+      <option value="queued">QUEUED</option>
+    </select>
+    <select id="filter-type" onchange="renderTable()">
+      <option value="">ALL TYPES</option>
+      <option value="card-buy">CARD BUY</option>
+      <option value="challenge">CHALLENGE</option>
+      <option value="tournament">TOURNAMENT</option>
+      <option value="cpu">CPU GAME</option>
+    </select>
+    <input id="filter-wallet" placeholder="Filter by wallet…" oninput="renderTable()" style="flex:1;min-width:180px">
+    <button class="btn btn-gray" onclick="loadClaims()">&#8635; REFRESH</button>
+    <button class="btn btn-green" id="process-btn" onclick="processAll()">&#9654; PROCESS ALL PENDING</button>
+  </div>
+
+  <div class="process-result" id="process-result">
+    <h4>PROCESS RESULTS</h4>
+    <div id="process-rows"></div>
+  </div>
+
+  <div class="claims-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>STATUS</th>
+          <th>TYPE / REASON</th>
+          <th>WALLET</th>
+          <th>AMOUNT</th>
+          <th>CREATED</th>
+          <th>TX</th>
+          <th>ACTION</th>
+        </tr>
+      </thead>
+      <tbody id="claims-body"></tbody>
+    </table>
+    <div id="claims-empty" class="empty" style="display:none">No claims match the current filter.</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let ADMIN_TOKEN = '';
+let ALL_CLAIMS  = [];
+
+function gateLogin() {
+  const t = document.getElementById('tok-input').value.trim();
+  if (!t) return;
+  ADMIN_TOKEN = t;
+  fetch('/api/admin/verify', { headers: { 'x-admin-token': t } })
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok) { document.getElementById('gate-err').textContent = 'Invalid token.'; return; }
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('main').style.display = 'block';
+      loadClaims();
+    })
+    .catch(() => { document.getElementById('gate-err').textContent = 'Could not reach server.'; });
+}
+
+async function loadClaims() {
+  const r = await fetch('/api/claims', { headers: { 'x-admin-token': ADMIN_TOKEN } });
+  const d = await r.json();
+  ALL_CLAIMS = d.claims || [];
+  renderStats();
+  renderTable();
+  toast('Claims refreshed');
+}
+
+function renderStats() {
+  const pending = ALL_CLAIMS.filter(c => c.status === 'pending').length;
+  const paid    = ALL_CLAIMS.filter(c => c.status === 'paid').length;
+  const total   = ALL_CLAIMS.reduce((s,c) => s + (c.amount || 0), 0);
+  const paidAmt = ALL_CLAIMS.filter(c => c.status === 'paid').reduce((s,c) => s + (c.amount || 0), 0);
+  document.getElementById('stats').innerHTML = `
+    <div class="stat"><div class="val">${ALL_CLAIMS.length}</div><div class="lbl">TOTAL CLAIMS</div></div>
+    <div class="stat"><div class="val" style="color:#f87171">${pending}</div><div class="lbl">PENDING</div></div>
+    <div class="stat"><div class="val" style="color:#4ade80">${paid}</div><div class="lbl">PAID</div></div>
+    <div class="stat"><div class="val">${total.toLocaleString()}</div><div class="lbl">TOTAL MONET</div></div>
+    <div class="stat"><div class="val" style="color:#4ade80">${paidAmt.toLocaleString()}</div><div class="lbl">MONET PAID OUT</div></div>
+  `;
+}
+
+function renderTable() {
+  const statusF = document.getElementById('filter-status').value;
+  const typeF   = document.getElementById('filter-type').value;
+  const walletF = document.getElementById('filter-wallet').value.toLowerCase().trim();
+
+  let rows = ALL_CLAIMS.filter(c => {
+    if (statusF && c.status !== statusF) return false;
+    if (typeF) {
+      const reason = (c.reason || c.type || '').toLowerCase();
+      if (!reason.includes(typeF)) return false;
+    }
+    if (walletF && !(c.wallet || '').toLowerCase().includes(walletF)) return false;
+    return true;
+  }).sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+
+  const tbody = document.getElementById('claims-body');
+  const empty = document.getElementById('claims-empty');
+
+  if (!rows.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+
+  tbody.innerHTML = rows.map(c => {
+    const statusBadge = c.status === 'paid'
+      ? '<span class="badge badge-paid">PAID</span>'
+      : c.status === 'queued'
+      ? '<span class="badge badge-queued">QUEUED</span>'
+      : '<span class="badge badge-pending">PENDING</span>';
+
+    const reason  = c.reason || c.type || '—';
+    const wallet  = c.wallet || '—';
+    const shortW  = wallet.length > 12 ? wallet.slice(0,6)+'…'+wallet.slice(-4) : wallet;
+    const created = c.createdAt ? new Date(Number(c.createdAt) || c.createdAt).toLocaleString() : '—';
+    const txId    = c.payoutTxId || c.txId || '';
+    const txLink  = txId
+      ? `<a href="https://solscan.io/tx/${txId}" target="_blank" style="color:#3b82f6;font-size:9px">
+           ${txId.slice(0,8)}… ↗</a>`
+      : '<span style="color:#333">—</span>';
+
+    const action = c.status === 'pending'
+      ? `<div class="action-cell">
+           <button class="btn btn-purple" style="font-size:9px;padding:5px 10px" onclick="processSingle('${c.id}')">PAY NOW</button>
+         </div>`
+      : '<span style="color:#333;font-size:9px">—</span>';
+
+    return `<tr>
+      <td>${statusBadge}</td>
+      <td><span style="color:#a855ff">${reason}</span></td>
+      <td><span class="short mono" onclick="navigator.clipboard.writeText('${wallet}');toast('Copied!')" title="${wallet}">${shortW}</span></td>
+      <td style="color:#fff;font-weight:800">${(c.amount||0).toLocaleString()} <span style="color:#555;font-weight:400">MONET</span></td>
+      <td class="mono">${created}</td>
+      <td>${txLink}</td>
+      <td>${action}</td>
+    </tr>`;
+  }).join('');
+}
+
+async function processSingle(claimId) {
+  const r = await fetch('/api/claims/process', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN },
+    body: JSON.stringify({ claimId }),
+  });
+  const d = await r.json();
+  if (d.ok) {
+    toast('Payout sent! Tx: ' + (d.claim.payoutTxId || '').slice(0,12) + '…');
+  } else {
+    toast('Error: ' + (d.error || 'unknown'), true);
+  }
+  await loadClaims();
+}
+
+async function processAll() {
+  const btn = document.getElementById('process-btn');
+  btn.disabled = true;
+  btn.textContent = 'PROCESSING…';
+  try {
+    const r = await fetch('/api/admin/process-claims', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN },
+    });
+    const d = await r.json();
+    const panel = document.getElementById('process-result');
+    const rows  = document.getElementById('process-rows');
+    panel.style.display = 'block';
+    if (!d.results || !d.results.length) {
+      rows.innerHTML = '<div style="color:#555">No pending claims to process.</div>';
+    } else {
+      rows.innerHTML = d.results.map(r => `
+        <div class="pr-row">
+          <span class="${r.ok ? 'pr-ok' : 'pr-fail'}">${r.ok ? '✓' : '✗'}</span>
+          <span class="mono">${(r.wallet||'').slice(0,8)}…</span>
+          <span style="color:#fff">${(r.amount||0).toLocaleString()} MONET</span>
+          <span class="mono">${r.ok ? (r.txId||'').slice(0,14)+'…' : (r.error||'failed')}</span>
+        </div>`).join('');
+    }
+    toast(`Processed ${(d.results||[]).length} claim(s)`);
+    await loadClaims();
+  } catch(e) {
+    toast('Error: ' + e.message, true);
+  }
+  btn.disabled = false;
+  btn.textContent = '▶ PROCESS ALL PENDING';
+}
+
+function toast(msg, err) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.style.borderColor = err ? '#ef444444' : '#a855ff44';
+  el.style.color = err ? '#ef4444' : '#a855ff';
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 3000);
+}
+
+document.getElementById('tok-input').addEventListener('keydown', e => {
+  if (e.key === 'Enter') gateLogin();
+});
+</script>
+</body>
+</html>

@@ -1006,15 +1006,33 @@ async function settleTournament(tourneys, idx) {
   }
 }
 
+// ─── Admin auth helper ────────────────────────────────────────────────────────
+function requireAdmin(req, res) {
+  const token    = (req.headers['x-admin-token'] || '').trim();
+  const expected = (process.env.ADMIN_TOKEN || '').trim();
+  if (!expected || token !== expected) {
+    res.status(401).json({ error: 'Invalid admin token' });
+    return false;
+  }
+  return true;
+}
+
+app.get('/api/admin/verify', (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  res.json({ ok: true });
+});
+
 // ─── Routes: claims ───────────────────────────────────────────────────────────
 app.get('/api/claims', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const { wallet } = req.query;
   let list = dbRead('claims');
   if (wallet) list = list.filter(c => c.wallet === wallet);
   res.json({ ok: true, claims: list });
 });
 
-app.get('/api/claims/pending', (_req, res) => {
+app.get('/api/claims/pending', (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const claims = dbRead('claims').filter(c => c.status === 'pending');
   res.json({ ok: true, claims, count: claims.length });
 });
@@ -1043,6 +1061,7 @@ app.post('/api/payout/complete', async (req, res) => {
 });
 
 app.post('/api/claims/process', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
   const { claimId } = req.body;
   const claims = dbRead('claims');
   const idx = claims.findIndex(c => c.id === claimId);
