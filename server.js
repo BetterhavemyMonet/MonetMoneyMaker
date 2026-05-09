@@ -1287,6 +1287,104 @@ function saveBuySessions(data) {
   fs.writeFileSync(path.join(DATA_DIR, 'buy-sessions.json'), JSON.stringify(data, null, 2));
 }
 
+// Embedded Checkout Session (primary flow)
+app.post('/api/buy-monet/create-checkout-session', async (req, res) => {
+  try {
+    const { usdAmount, walletAddress } = req.body;
+    const usd = Number(usdAmount);
+    if (!BUY_PACKAGES_USD.includes(usd))
+      return res.status(400).json({ error: 'Invalid amount. Choose 10, 20, 50, or 100.' });
+    if (!walletAddress)
+      return res.status(400).json({ error: 'walletAddress required' });
+
+    const stripe      = await _getStripeClient();
+    const priceUsd    = await getMonetPrice();
+    const monetAmount = priceUsd ? Math.floor(usd / priceUsd) : 0;
+    const sessionToken = crypto.randomUUID();
+
+    // Store buy session first so return_url can reference it
+    const sessions = getBuySessions().filter(s => Date.now() < s.expiresAt);
+    const buyEntry = {
+      token: sessionToken, walletAddress,
+      usdAmount: usd, monetAmount,
+      createdAt: Date.now(), expiresAt: Date.now() + BUY_SESSION_TTL,
+      confirmed: false, paid: false,
+    };
+    sessions.push(buyEntry);
+    saveBuySessions(sessions);
+
+    const origin = `${req.protocol}://${req.headers.host}`;
+    const checkoutSession = await stripe.checkout.sessions.create({
+      ui_mode:    'embedded',
+      mode:       'payment',
+      line_items: [{
+        price_data: {
+          currency:     'usd',
+          unit_amount:  usd * 100,
+          product_data: {
+            name:        `${monetAmount.toLocaleString()} MONET Tokens`,
+            description: `$${usd} USD at live market rate — sent to your Solana wallet`,
+          },
+        },
+        quantity: 1,
+      }],
+      return_url: `${origin}/exchange.html?session_id={CHECKOUT_SESSION_ID}&buy_token=${sessionToken}`,
+      metadata:   { sessionToken, walletAddress, usdAmount: String(usd), monetAmount: String(monetAmount) },
+    });
+
+    buyEntry.stripeSessionId = checkoutSession.id;
+    saveBuySessions(sessions);
+
+    console.log(`[BUY] checkout session $${usd} → ${monetAmount} MONET → ${walletAddress.slice(0,8)}…`);
+    res.json({ ok: true, clientSecret: checkoutSession.client_secret, sessionToken, monetAmount, priceUsd });
+  } catch(e) {
+    console.error('[BUY-MONET] create-checkout-session:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Called from return_url after Stripe redirects back
+app.get('/api/buy-monet/session-status', async (req, res) => {
+  const { session_id, buy_token } = req.query;
+  if (!session_id && !buy_token) return res.status(400).json({ error: 'session_id or buy_token required' });
+  try {
+    const sessions = getBuySessions();
+    const s = sessions.find(s =>
+      (buy_token  && s.token          === buy_token)  ||
+      (session_id && s.stripeSessionId === session_id)
+    );
+    if (!s) return res.status(404).json({ error: 'Session not found' });
+    if (s.paid) return res.json({ ok: true, status: 'paid', monetAmount: s.monetAmount, txId: s.txId || null, queued: s.queued || false });
+
+    const stripe   = await _getStripeClient();
+    const csession = await stripe.checkout.sessions.retrieve(s.stripeSessionId || session_id);
+    if (csession.payment_status !== 'paid')
+      return res.json({ ok: true, status: csession.payment_status, monetAmount: s.monetAmount });
+
+    s.confirmed = true;
+    const { monetAmount, walletAddress } = s;
+    let txId = null; let queued = false;
+    try {
+      txId = await sendPayout(walletAddress, monetAmount);
+      s.paid = true; s.txId = txId;
+      console.log(`[BUY] payout sent ${monetAmount} MONET → ${walletAddress.slice(0,8)}… tx:${txId.slice(0,12)}…`);
+    } catch(pe) {
+      const claims = dbRead('claims');
+      claims.push({ id: crypto.randomUUID(), wallet: walletAddress, amount: monetAmount,
+        reason: `card-buy $${s.usdAmount}`, createdAt: new Date().toISOString(), sessionToken: s.token });
+      dbWrite('claims', claims);
+      s.paid = true; s.queued = true; queued = true;
+      console.warn(`[BUY] payout queued ${monetAmount} MONET → ${walletAddress.slice(0,8)}…`);
+    }
+    saveBuySessions(sessions);
+    res.json({ ok: true, status: 'paid', monetAmount, txId, queued });
+  } catch(e) {
+    console.error('[BUY-MONET] session-status:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// Legacy PaymentIntent flow (kept for backward compat)
 app.post('/api/buy-monet/create-intent', async (req, res) => {
   try {
     const { usdAmount, walletAddress } = req.body;

@@ -229,17 +229,21 @@ body::before {
     </div>
 
     <div id="buy-checkout" style="display:none">
-      <button id="buy-pay-btn" onclick="buyStartPayment()">PAY $— WITH CARD</button>
-      <div id="buy-stripe-wrap" style="display:none">
-        <div id="buy-stripe-el"></div>
-        <button id="buy-submit-btn" onclick="buySubmitPayment()"
-          style="width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;
-                 background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;
-                 font-family:'Orbitron',sans-serif;font-size:12px;font-weight:800;
-                 letter-spacing:.5px;margin-top:12px"
-          disabled>COMPLETE PURCHASE</button>
-      </div>
+      <button id="buy-pay-btn" onclick="buyOpenCheckout()">PAY $— WITH CARD</button>
       <div id="buy-err" class="buy-error" style="display:none"></div>
+    </div>
+
+    <!-- Stripe Embedded Checkout mounts here -->
+    <div id="buy-embedded-wrap" style="display:none;margin-top:16px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-family:'Orbitron',sans-serif;font-size:10px;color:#a855ff">SECURE CHECKOUT</span>
+        <button onclick="buyCloseCheckout()"
+          style="background:none;border:1px solid #333;color:#888;border-radius:6px;
+                 padding:4px 10px;cursor:pointer;font-size:10px;font-family:'Orbitron',sans-serif">
+          ✕ CANCEL
+        </button>
+      </div>
+      <div id="buy-embedded-checkout"></div>
     </div>
 
     <div id="buy-result" style="display:none"></div>
@@ -275,33 +279,25 @@ renderWalletBar('walletBar');
 const MONET_MINT = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const SOL_MINT   = 'So11111111111111111111111111111111111111112';
 
-// ── Buy MONET with Card ───────────────────────────────────────────────────────
+// ── Buy MONET with Card (Stripe Embedded Checkout) ────────────────────────────
 let _buyPriceUsd    = null;
 let _buySelectedUsd = null;
-let _buyStripeInst  = null;
-let _buyElements    = null;
-let _buySessionTok  = null;
-let _buyMonetAmt    = null;
+let _buyCheckout    = null; // Stripe EmbeddedCheckout instance
 
 async function buyLoadPrice() {
   try {
     const d = await fetch('/api/monet-price').then(r => r.json());
     _buyPriceUsd = d.priceUsd;
-    const pkgs = [10, 20, 50, 100];
-    pkgs.forEach(usd => {
+    [10, 20, 50, 100].forEach(usd => {
       const monet = _buyPriceUsd ? Math.floor(usd / _buyPriceUsd) : 0;
       const el = document.getElementById('buy-monet-' + usd);
       if (el) {
         el.textContent = monet > 0 ? monet.toLocaleString() + ' MONET' : '— MONET';
-        el.nextElementSibling.textContent = monet > 0
-          ? '≈ ' + (monet / 1000).toFixed(0) + 'K tokens'
-          : '';
+        el.nextElementSibling.textContent = monet > 0 ? '≈ ' + Math.round(monet/1000) + 'K tokens' : '';
       }
     });
-    if (_buyPriceUsd) {
-      const note = document.getElementById('buy-price-note');
-      if (note) note.textContent = `Live price: 1 MONET = $${_buyPriceUsd.toExponential(3)} USD`;
-    }
+    const note = document.getElementById('buy-price-note');
+    if (note && _buyPriceUsd) note.textContent = `Live price: 1 MONET = $${_buyPriceUsd.toExponential(3)} USD`;
   } catch(e) { console.warn('[BUY] price load failed', e); }
   buyUpdateGate();
 }
@@ -310,14 +306,18 @@ function buyUpdateGate() {
   const gate     = document.getElementById('buy-wallet-gate');
   const checkout = document.getElementById('buy-checkout');
   const connected = WalletState && WalletState.connected;
-  if (!_buySelectedUsd) { if(gate) gate.style.display='none'; if(checkout) checkout.style.display='none'; return; }
+  if (!_buySelectedUsd) {
+    if (gate)     gate.style.display = 'none';
+    if (checkout) checkout.style.display = 'none';
+    return;
+  }
   if (!connected) {
-    if (gate)     { gate.style.display='block'; }
-    if (checkout) { checkout.style.display='none'; }
+    if (gate)     gate.style.display = 'block';
+    if (checkout) checkout.style.display = 'none';
   } else {
-    if (gate)     { gate.style.display='none'; }
+    if (gate)     gate.style.display = 'none';
     if (checkout) {
-      checkout.style.display='block';
+      checkout.style.display = 'block';
       const btn = document.getElementById('buy-pay-btn');
       if (btn) btn.textContent = `PAY $${_buySelectedUsd} WITH CARD`;
     }
@@ -328,42 +328,23 @@ function buySelectPkg(el) {
   document.querySelectorAll('.buy-pkg').forEach(p => p.classList.remove('selected'));
   el.classList.add('selected');
   _buySelectedUsd = Number(el.dataset.usd);
-  // Reset checkout state
-  const wrap = document.getElementById('buy-stripe-wrap');
-  const err  = document.getElementById('buy-err');
-  if (wrap) wrap.style.display = 'none';
-  if (err)  { err.style.display = 'none'; err.textContent = ''; }
-  _buyStripeInst = null; _buyElements = null; _buySessionTok = null;
+  buyCloseCheckout();
+  const err = document.getElementById('buy-err');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
   buyUpdateGate();
 }
 
-async function buyStartPayment() {
+async function buyOpenCheckout() {
   const btn = document.getElementById('buy-pay-btn');
-  const err  = document.getElementById('buy-err');
-  if (err) { err.style.display='none'; err.textContent=''; }
-  if (!WalletState.connected) return;
-  if (!_buySelectedUsd) return;
+  const err = document.getElementById('buy-err');
+  if (err) { err.style.display = 'none'; err.textContent = ''; }
+  if (!WalletState.connected || !_buySelectedUsd) return;
 
   btn.disabled = true;
   btn.textContent = 'LOADING…';
 
   try {
-    // 1. Get Stripe publishable key
-    const cfg = await fetch('/api/stripe/config').then(r => r.json());
-    if (!cfg.ok || !cfg.publishableKey) throw new Error('Card payments not available');
-
-    // 2. Create payment intent + buy session
-    const intent = await fetch('/api/buy-monet/create-intent', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ usdAmount: _buySelectedUsd, walletAddress: WalletState.address }),
-    }).then(r => r.json());
-    if (!intent.ok) throw new Error(intent.error || 'Failed to create payment intent');
-
-    _buySessionTok = intent.sessionToken;
-    _buyMonetAmt   = intent.monetAmount;
-
-    // 3. Load Stripe.js if needed
+    // 1. Load Stripe.js
     if (!window.Stripe) {
       await new Promise((res, rej) => {
         const s = document.createElement('script');
@@ -373,21 +354,24 @@ async function buyStartPayment() {
       });
     }
 
-    // 4. Mount Elements
-    _buyStripeInst = window.Stripe(cfg.publishableKey);
-    _buyElements   = _buyStripeInst.elements({
-      clientSecret: intent.clientSecret,
-      appearance: { theme: 'night', variables: { colorPrimary: '#a855ff', borderRadius: '8px' } },
-    });
-    const payEl = _buyElements.create('payment');
-    document.getElementById('buy-stripe-el').innerHTML = '';
-    payEl.mount('#buy-stripe-el');
-    payEl.on('ready', () => {
-      const sub = document.getElementById('buy-submit-btn');
-      if (sub) sub.disabled = false;
-    });
+    // 2. Get publishable key
+    const cfg = await fetch('/api/stripe/config').then(r => r.json());
+    if (!cfg.ok || !cfg.publishableKey) throw new Error('Card payments not configured');
 
-    document.getElementById('buy-stripe-wrap').style.display = 'block';
+    // 3. Create Checkout Session on server
+    const d = await fetch('/api/buy-monet/create-checkout-session', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ usdAmount: _buySelectedUsd, walletAddress: WalletState.address }),
+    }).then(r => r.json());
+    if (!d.ok) throw new Error(d.error || 'Failed to create checkout session');
+
+    // 4. Mount Stripe Embedded Checkout
+    const stripe = window.Stripe(cfg.publishableKey);
+    _buyCheckout = await stripe.initEmbeddedCheckout({ clientSecret: d.clientSecret });
+    document.getElementById('buy-embedded-checkout').innerHTML = '';
+    _buyCheckout.mount('#buy-embedded-checkout');
+    document.getElementById('buy-embedded-wrap').style.display = 'block';
     btn.style.display = 'none';
   } catch(e) {
     if (err) { err.textContent = e.message; err.style.display = 'block'; }
@@ -396,43 +380,21 @@ async function buyStartPayment() {
   }
 }
 
-async function buySubmitPayment() {
-  const sub = document.getElementById('buy-submit-btn');
-  const err = document.getElementById('buy-err');
-  if (err) { err.style.display='none'; err.textContent=''; }
-  sub.disabled = true;
-  sub.textContent = 'PROCESSING…';
-
-  try {
-    const returnUrl = window.location.href.split('?')[0] + '?buy=done';
-    const { error } = await _buyStripeInst.confirmPayment({
-      elements: _buyElements,
-      confirmParams: { return_url: returnUrl },
-      redirect: 'if_required',
-    });
-    if (error) throw new Error(error.message);
-
-    // 5. Confirm + trigger payout
-    sub.textContent = 'SENDING MONET…';
-    const confirm = await fetch('/api/buy-monet/confirm', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ sessionToken: _buySessionTok }),
-    }).then(r => r.json());
-    if (!confirm.ok) throw new Error(confirm.error || 'Payout failed');
-
-    buyShowSuccess(confirm.monetAmount, confirm.txId, confirm.queued);
-  } catch(e) {
-    if (err) { err.textContent = e.message; err.style.display = 'block'; }
-    sub.disabled = false;
-    sub.textContent = 'COMPLETE PURCHASE';
-  }
+function buyCloseCheckout() {
+  if (_buyCheckout) { try { _buyCheckout.destroy(); } catch {} _buyCheckout = null; }
+  const wrap = document.getElementById('buy-embedded-wrap');
+  const btn  = document.getElementById('buy-pay-btn');
+  if (wrap) wrap.style.display = 'none';
+  if (btn)  { btn.style.display = 'block'; btn.disabled = false; }
 }
 
 function buyShowSuccess(monetAmt, txId, queued) {
+  buyCloseCheckout();
   const result   = document.getElementById('buy-result');
   const checkout = document.getElementById('buy-checkout');
+  const pkgs     = document.getElementById('buy-packages');
   if (checkout) checkout.style.display = 'none';
+  if (pkgs)     pkgs.style.display     = 'none';
   if (result) {
     result.style.display = 'block';
     const fmt = Number(monetAmt).toLocaleString();
@@ -441,24 +403,51 @@ function buyShowSuccess(monetAmt, txId, queued) {
       <div class="buy-success-title">PURCHASE COMPLETE!</div>
       <div class="buy-success-amt">${fmt} MONET</div>
       <div class="buy-success-sub">
-        ${queued
-          ? 'Your MONET will be sent to your wallet shortly (payout queued).'
-          : 'MONET sent to your wallet on-chain!'}
+        ${queued ? 'Your MONET will be sent to your wallet shortly.' : 'MONET sent to your wallet on-chain!'}
       </div>
       ${txId ? `<a class="buy-tx-link" href="https://solscan.io/tx/${txId}" target="_blank" rel="noopener">View transaction ↗</a>` : ''}
-      <button onclick="location.reload()"
+      <button onclick="location.href=location.pathname"
         style="margin-top:16px;padding:10px 28px;border-radius:10px;border:1px solid #a855ff;
                background:transparent;color:#a855ff;font-family:'Orbitron',sans-serif;
-               font-size:11px;font-weight:800;cursor:pointer">
-        BUY MORE
-      </button>
+               font-size:11px;font-weight:800;cursor:pointer">BUY MORE</button>
     `;
   }
-  // Refresh balance
   if (window.refreshBalances) refreshBalances();
 }
 
-// Init on load — retry once after 2s to handle API server startup race
+// ── Handle return from Stripe (session_id + buy_token in URL) ────────────────
+(async () => {
+  const params     = new URLSearchParams(window.location.search);
+  const session_id = params.get('session_id');
+  const buy_token  = params.get('buy_token');
+  if (!session_id && !buy_token) return;
+
+  // Clean URL immediately
+  history.replaceState({}, '', window.location.pathname);
+
+  // Show loading state in result area
+  const result = document.getElementById('buy-result');
+  if (result) {
+    result.style.display = 'block';
+    result.innerHTML = `<div style="text-align:center;padding:20px;font-family:'Orbitron',sans-serif;font-size:11px;color:#a855ff">CONFIRMING PAYMENT…</div>`;
+  }
+
+  try {
+    const qs = new URLSearchParams();
+    if (session_id) qs.set('session_id', session_id);
+    if (buy_token)  qs.set('buy_token',  buy_token);
+    const d = await fetch('/api/buy-monet/session-status?' + qs).then(r => r.json());
+    if (d.status === 'paid') {
+      buyShowSuccess(d.monetAmount, d.txId, d.queued);
+    } else {
+      if (result) result.innerHTML = `<div class="buy-error" style="display:block;text-align:center">Payment status: ${d.status}. Please contact support if funds were charged.</div>`;
+    }
+  } catch(e) {
+    if (result) result.innerHTML = `<div class="buy-error" style="display:block;text-align:center">Could not verify payment: ${e.message}</div>`;
+  }
+})();
+
+// Init on load — retry once after 2s to handle API startup race
 buyLoadPrice().then(() => {
   const el = document.getElementById('buy-monet-10');
   if (!el || el.textContent === '— MONET') setTimeout(buyLoadPrice, 2000);
