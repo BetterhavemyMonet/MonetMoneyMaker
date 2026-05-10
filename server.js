@@ -1309,9 +1309,19 @@ app.post('/api/buy-monet/create-checkout-session', async (req, res) => {
     if (!walletAddress)
       return res.status(400).json({ error: 'walletAddress required' });
 
-    const stripe      = await _getStripeClient();
-    const priceUsd    = await getMonetPrice();
-    const monetAmount = priceUsd ? Math.floor(usd / priceUsd) : 0;
+    const stripe = await _getStripeClient();
+
+    // Fetch price — retry once if cold cache returns null
+    let priceUsd = await getMonetPrice();
+    if (!priceUsd) {
+      await new Promise(r => setTimeout(r, 2500));
+      priceUsd = await fetchMonetPrice();
+    }
+    if (!priceUsd) return res.status(503).json({ error: 'MONET price unavailable — please try again in a moment' });
+
+    const monetAmount = Math.floor(usd / priceUsd);
+    if (monetAmount <= 0) return res.status(503).json({ error: 'Could not calculate MONET amount — please try again' });
+
     const sessionToken = crypto.randomUUID();
 
     // Store buy session first so return_url can reference it
@@ -1397,6 +1407,33 @@ app.get('/api/buy-monet/session-status', async (req, res) => {
   }
 });
 
+// ─── Admin: manual correction payout ─────────────────────────────────────────
+app.post('/api/admin/manual-payout', async (req, res) => {
+  if (!requireAdmin(req, res)) return;
+  const { wallet, amount, reason } = req.body;
+  if (!wallet || !amount || Number(amount) <= 0)
+    return res.status(400).json({ error: 'wallet and positive amount required' });
+  try {
+    const monetAmount = Number(amount);
+    let txId = null; let queued = false;
+    try {
+      txId = await sendPayout(wallet, monetAmount);
+      console.log(`[ADMIN] manual payout ${monetAmount} MONET → ${wallet.slice(0,8)}… tx:${txId.slice(0,12)}…`);
+    } catch(pe) {
+      const claims = dbRead('claims');
+      claims.push({ id: crypto.randomUUID(), wallet, amount: monetAmount,
+        reason: reason || 'admin-manual-correction', createdAt: new Date().toISOString(), status: 'pending' });
+      dbWrite('claims', claims);
+      queued = true;
+      console.warn(`[ADMIN] manual payout queued ${monetAmount} MONET → ${wallet.slice(0,8)}…`);
+    }
+    res.json({ ok: true, wallet, monetAmount, txId, queued });
+  } catch(e) {
+    console.error('[ADMIN] manual-payout:', e.message);
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // Legacy PaymentIntent flow (kept for backward compat)
 app.post('/api/buy-monet/create-intent', async (req, res) => {
   try {
@@ -1407,9 +1444,15 @@ app.post('/api/buy-monet/create-intent', async (req, res) => {
     if (!walletAddress)
       return res.status(400).json({ error: 'walletAddress required' });
 
-    const stripe      = await _getStripeClient();
-    const priceUsd    = await getMonetPrice();
-    const monetAmount = priceUsd ? Math.floor(usd / priceUsd) : 0;
+    const stripe = await _getStripeClient();
+    let priceUsd = await getMonetPrice();
+    if (!priceUsd) {
+      await new Promise(r => setTimeout(r, 2500));
+      priceUsd = await fetchMonetPrice();
+    }
+    if (!priceUsd) return res.status(503).json({ error: 'MONET price unavailable — please try again' });
+    const monetAmount = Math.floor(usd / priceUsd);
+    if (monetAmount <= 0) return res.status(503).json({ error: 'Could not calculate MONET amount' });
     const sessionToken = crypto.randomUUID();
 
     const pi = await stripe.paymentIntents.create({

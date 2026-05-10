@@ -128,6 +128,30 @@ tr:hover td{background:rgba(168,85,255,0.04)}
     </table>
     <div id="claims-empty" class="empty" style="display:none">No claims match the current filter.</div>
   </div>
+
+  <!-- Manual Correction Payout -->
+  <div style="max-width:960px;margin:24px auto 0;background:#0f0f1a;border:1px solid #a855ff33;border-radius:12px;padding:18px">
+    <div style="font-family:'Orbitron',sans-serif;font-size:11px;color:#a855ff;margin-bottom:12px">&#9881; MANUAL CORRECTION PAYOUT</div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end">
+      <div style="flex:2;min-width:200px">
+        <div style="font-size:9px;color:#555;margin-bottom:4px;font-family:'Orbitron',sans-serif">WALLET ADDRESS</div>
+        <input id="mp-wallet" placeholder="Solana wallet address…"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid #333;background:#111;color:#ccc;font-family:monospace;font-size:11px">
+      </div>
+      <div style="flex:1;min-width:120px">
+        <div style="font-size:9px;color:#555;margin-bottom:4px;font-family:'Orbitron',sans-serif">MONET AMOUNT</div>
+        <input id="mp-amount" type="number" placeholder="e.g. 92850"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid #333;background:#111;color:#ccc;font-family:monospace;font-size:11px">
+      </div>
+      <div style="flex:1;min-width:140px">
+        <div style="font-size:9px;color:#555;margin-bottom:4px;font-family:'Orbitron',sans-serif">REASON (optional)</div>
+        <input id="mp-reason" placeholder="e.g. correction $20 buy"
+          style="width:100%;padding:9px 12px;border-radius:8px;border:1px solid #333;background:#111;color:#ccc;font-family:monospace;font-size:11px">
+      </div>
+      <button class="btn btn-green" onclick="manualPayout()" style="white-space:nowrap">&#9654; SEND NOW</button>
+    </div>
+    <div id="mp-result" style="margin-top:10px;font-size:10px;font-family:monospace"></div>
+  </div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -276,6 +300,51 @@ async function processAll() {
   }
   btn.disabled = false;
   btn.textContent = '▶ PROCESS ALL PENDING';
+}
+
+async function manualPayout() {
+  const wallet = document.getElementById('mp-wallet').value.trim();
+  const amount = Number(document.getElementById('mp-amount').value);
+  const reason = document.getElementById('mp-reason').value.trim() || 'admin-manual-correction';
+  const res    = document.getElementById('mp-result');
+
+  if (!wallet || !amount || amount <= 0) {
+    res.style.color = '#ef4444';
+    res.textContent = 'Enter a valid wallet address and amount.';
+    return;
+  }
+  res.style.color = '#a855ff';
+  res.textContent = 'Sending…';
+
+  try {
+    const r = await fetch('/api/admin/manual-payout', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': ADMIN_TOKEN },
+      body: JSON.stringify({ wallet, amount, reason }),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      res.style.color = '#4ade80';
+      if (d.queued) {
+        res.textContent = `✓ Queued ${d.monetAmount.toLocaleString()} MONET → ${wallet.slice(0,8)}… (treasury payout key busy — will process next run)`;
+      } else {
+        res.textContent = `✓ Sent ${d.monetAmount.toLocaleString()} MONET → ${wallet.slice(0,8)}… tx: ${(d.txId||'').slice(0,16)}…`;
+      }
+      toast(`Manual payout: ${d.monetAmount.toLocaleString()} MONET sent`);
+      document.getElementById('mp-wallet').value = '';
+      document.getElementById('mp-amount').value = '';
+      document.getElementById('mp-reason').value = '';
+      await loadClaims();
+    } else {
+      res.style.color = '#ef4444';
+      res.textContent = 'Error: ' + (d.error || 'unknown');
+      toast('Payout failed: ' + (d.error || 'unknown'), true);
+    }
+  } catch(e) {
+    res.style.color = '#ef4444';
+    res.textContent = 'Error: ' + e.message;
+    toast('Payout error: ' + e.message, true);
+  }
 }
 
 function toast(msg, err) {
