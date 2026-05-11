@@ -38,10 +38,10 @@
   <div class="ctrl-body">
     <div class="ctrl-dpad">
       <div class="ctrl-dpad-center"></div>
-      <button class="dpad-up"    style="opacity:0.3;pointer-events:none">&#9650;</button>
-      <button class="dpad-down"  style="opacity:0.3;pointer-events:none">&#9660;</button>
-      <button class="dpad-left"  style="opacity:0.3;pointer-events:none">&#9664;</button>
-      <button class="dpad-right" style="opacity:0.3;pointer-events:none">&#9654;</button>
+      <button class="dpad-up"    ontouchstart="dpadStart(0,-1,event)" ontouchend="dpadStop(event)" onmousedown="dpadStart(0,-1)" onmouseup="dpadStop()">&#9650;</button>
+      <button class="dpad-down"  ontouchstart="dpadStart(0,1,event)"  ontouchend="dpadStop(event)" onmousedown="dpadStart(0,1)"  onmouseup="dpadStop()">&#9660;</button>
+      <button class="dpad-left"  ontouchstart="dpadStart(-1,0,event)" ontouchend="dpadStop(event)" onmousedown="dpadStart(-1,0)" onmouseup="dpadStop()">&#9664;</button>
+      <button class="dpad-right" ontouchstart="dpadStart(1,0,event)"  ontouchend="dpadStop(event)" onmousedown="dpadStart(1,0)"  onmouseup="dpadStop()">&#9654;</button>
     </div>
     <div class="ctrl-mid">
       <button class="ctrl-start" ontouchstart="ctrlStart(event)" onmousedown="ctrlStart()">START</button>
@@ -598,6 +598,9 @@ function updateHUD() {
 }
 
 // ─── Input ─────────────────────────────────────────────────────────────────
+const CROSS_SPEED = 7; // px per frame when D-pad/arrow held
+let _dpadDx = 0, _dpadDy = 0, _dpadRaf = null;
+
 function getCanvasPos(clientX, clientY) {
   const r = canvas.getBoundingClientRect();
   return {
@@ -606,20 +609,57 @@ function getCanvasPos(clientX, clientY) {
   };
 }
 
+function _clampCross() {
+  crossX = Math.max(0, Math.min(W, crossX));
+  crossY = Math.max(0, Math.min(H - 65, crossY));
+}
+
+// D-pad continuous movement
+function dpadStart(dx, dy, ev) {
+  if (ev) ev.preventDefault();
+  _dpadDx = dx; _dpadDy = dy;
+  if (_dpadRaf) return;
+  function tick() {
+    if (!_dpadDx && !_dpadDy) { _dpadRaf = null; return; }
+    crossX += _dpadDx * CROSS_SPEED;
+    crossY += _dpadDy * CROSS_SPEED;
+    _clampCross();
+    _dpadRaf = requestAnimationFrame(tick);
+  }
+  _dpadRaf = requestAnimationFrame(tick);
+}
+function dpadStop(ev) {
+  if (ev) ev.preventDefault();
+  _dpadDx = 0; _dpadDy = 0;
+}
+
+// Mouse: move crosshair
 canvas.addEventListener('mousemove', e => {
   const p = getCanvasPos(e.clientX, e.clientY);
   crossX = p.x; crossY = p.y;
+  _clampCross();
 });
 
+// Mouse click: fire at cursor position
 canvas.addEventListener('click', e => {
   const p = getCanvasPos(e.clientX, e.clientY);
+  crossX = p.x; crossY = p.y;
   fire(p.x, p.y);
 });
+
+// Touch on canvas: snap crosshair to tap position then fire on release
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const p = getCanvasPos(e.touches[0].clientX, e.touches[0].clientY);
+  crossX = p.x; crossY = p.y;
+  _clampCross();
+}, { passive: false });
 
 canvas.addEventListener('touchmove', e => {
   e.preventDefault();
   const p = getCanvasPos(e.touches[0].clientX, e.touches[0].clientY);
   crossX = p.x; crossY = p.y;
+  _clampCross();
 }, { passive: false });
 
 canvas.addEventListener('touchend', e => {
@@ -627,20 +667,34 @@ canvas.addEventListener('touchend', e => {
   fire(crossX, crossY);
 }, { passive: false });
 
+// Arrow keys move crosshair; Space fires
+const _keysHeld = {};
+window.addEventListener('keydown', e => {
+  if (_keysHeld[e.code]) return;
+  _keysHeld[e.code] = true;
+  if (e.code === 'Space') {
+    e.preventDefault();
+    if (!gameRunning) showGameLobby('duckhunt', () => startGame());
+    else fire(crossX, crossY);
+  }
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) {
+    e.preventDefault();
+    const dirs = { ArrowUp:[0,-1], ArrowDown:[0,1], ArrowLeft:[-1,0], ArrowRight:[1,0] };
+    const [dx, dy] = dirs[e.code];
+    dpadStart(dx, dy);
+  }
+});
+window.addEventListener('keyup', e => {
+  delete _keysHeld[e.code];
+  if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight'].includes(e.code)) dpadStop();
+});
+
 function ctrlFire(ev) { if (ev) ev.preventDefault(); fire(crossX, crossY); }
 
 function ctrlStart(ev) {
   if (ev) ev.preventDefault();
   if (!gameRunning) showGameLobby('duckhunt', () => startGame());
 }
-
-window.addEventListener('keydown', e => {
-  if (e.code === 'Space') {
-    e.preventDefault();
-    if (!gameRunning) showGameLobby('duckhunt', () => startGame());
-    else fire(crossX, crossY);
-  }
-});
 
 // start render loop immediately (shows background + crosshair before game)
 loop();
