@@ -1,5 +1,5 @@
 // ─── MONET ARCADE WALLET UTILITIES ───────────────────────────────────────────
-// Multi-wallet adapter: Phantom, Solflare, Backpack, Glow, Coin98, Trust
+// Multi-wallet adapter: Phantom, Coinbase Wallet, Solflare, Backpack, Glow, Coin98, Trust
 
 const MONET_CONFIG = {
   MINT:         '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
@@ -61,6 +61,21 @@ const WALLET_DEFS = [
                   : null,
     install:  'https://phantom.app/',
     deeplink: () => `https://phantom.app/ul/browse/${encodeURIComponent(location.href)}?ref=${encodeURIComponent(location.origin)}`,
+  },
+  {
+    name:     'Coinbase Wallet',
+    icon:     'https://images.ctfassets.net/q5ulk4bp65r7/3TBS4oVkD1ghowTqylkAtz/ceeb33e43f8e3e3b4e2baf4c2d46d2e7/product-identity-cb-wallet-logo.svg',
+    detect:   () => {
+      // Extension injects window.coinbaseSolana
+      if (window.coinbaseSolana)                       return window.coinbaseSolana;
+      // Some versions nest under coinbaseWalletExtension
+      if (window.coinbaseWalletExtension?.solana)      return window.coinbaseWalletExtension.solana;
+      // Fallback: generic solana provider flagged by Coinbase
+      if (window.solana?.isCoinbaseWallet)             return window.solana;
+      return null;
+    },
+    install:  'https://www.coinbase.com/wallet',
+    deeplink: () => `https://go.cb-w.com/dapp?cb_url=${encodeURIComponent(location.href)}`,
   },
   {
     name:     'Solflare',
@@ -335,7 +350,7 @@ function showWalletPicker() {
     }
 
     if (available.length === 0 && !isMobile) {
-      buttonsHtml = `<p style="color:#888;font-size:12px">No Solana wallet detected.<br>Install <a href="https://phantom.app" target="_blank" style="color:#a855ff">Phantom</a> or <a href="https://solflare.com" target="_blank" style="color:#a855ff">Solflare</a> to continue.</p>`;
+      buttonsHtml = `<p style="color:#888;font-size:12px">No Solana wallet detected.<br>Install <a href="https://phantom.app" target="_blank" style="color:#a855ff">Phantom</a>, <a href="https://www.coinbase.com/wallet" target="_blank" style="color:#2563eb">Coinbase Wallet</a>, or <a href="https://solflare.com" target="_blank" style="color:#a855ff">Solflare</a> to continue.</p>`;
     }
 
     overlay.innerHTML = `
