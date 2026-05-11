@@ -503,9 +503,8 @@
 
   // ─── Actions ─────────────────────────────────────────────────────────────────
 
-  // PRACTICE — free, skip payment
+  // PRACTICE — free, no wallet required
   async function _doSolo() {
-    try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
     sessionStorage.removeItem('challenge_session');
     _remove();
     if (_onStart) _onStart({ mode: 'solo' });
