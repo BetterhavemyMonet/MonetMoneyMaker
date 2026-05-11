@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Runtime data — contains sensitive info (wallets, sessions, IPs)
+data/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
