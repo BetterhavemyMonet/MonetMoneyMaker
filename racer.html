@@ -22,9 +22,10 @@ body.game-page::before{display:none}
 .cb{height:54px;border-radius:10px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
     -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;font-size:10px;line-height:1.3}
 .cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
-.sl{flex:1.2;background:linear-gradient(135deg,#1a0022,#0d0011);color:#cc44ff;border:1px solid #440066;box-shadow:0 4px 0 #000}
-.sr{flex:1.2;background:linear-gradient(135deg,#1a0022,#0d0011);color:#cc44ff;border:1px solid #440066;box-shadow:0 4px 0 #000}
-.trb{flex:1.6;background:linear-gradient(135deg,#220011,#110008);color:#ff2244;border:1px solid #660022;box-shadow:0 4px 0 #000}
+.sl{flex:1;background:linear-gradient(135deg,#1a0022,#0d0011);color:#cc44ff;border:1px solid #440066;box-shadow:0 4px 0 #000}
+.sr{flex:1;background:linear-gradient(135deg,#1a0022,#0d0011);color:#cc44ff;border:1px solid #440066;box-shadow:0 4px 0 #000}
+.thr{flex:1.3;background:linear-gradient(135deg,#002211,#001108);color:#00ff9d;border:1px solid #006633;box-shadow:0 4px 0 #000;font-size:11px}
+.trb{flex:1.3;background:linear-gradient(135deg,#220011,#110008);color:#ff2244;border:1px solid #660022;box-shadow:0 4px 0 #000;font-size:11px}
 .home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
 </style>
 </head>
@@ -35,9 +36,10 @@ body.game-page::before{display:none}
   <div class="ctrl">
     <div class="cr">
       <button class="cb sl" ontouchstart="steerUp();event.preventDefault()"   onmousedown="steerUp()">◀<br>LEAN<br>LEFT</button>
+      <button class="cb thr" ontouchstart="keys.throttle=true;event.preventDefault()" ontouchend="keys.throttle=false" onmousedown="keys.throttle=true" onmouseup="keys.throttle=false" onmouseleave="keys.throttle=false">⚡<br>GAS</button>
       <button class="cb trb" ontouchstart="keys.turbo=true;event.preventDefault()" ontouchend="keys.turbo=false" onmousedown="keys.turbo=true" onmouseup="keys.turbo=false" onmouseleave="keys.turbo=false">🔥<br>TURBO</button>
-      <button class="cb sr" ontouchstart="steerDown();event.preventDefault()" onmousedown="steerDown()">▶<br>LEAN<br>RIGHT</button>
       <a class="home" href="arcade.html">⌂</a>
+      <button class="cb sr" ontouchstart="steerDown();event.preventDefault()" onmousedown="steerDown()">▶<br>LEAN<br>RIGHT</button>
     </div>
   </div>
 </div>
@@ -68,7 +70,7 @@ function initLanes() {
 }
 
 // ── State ─────────────────────────────────────────────────────────────────────
-const keys = { turbo: false };
+const keys = { throttle: false, turbo: false };
 
 let ply, scrollX, speed, heat, overheated;
 let lives, distance, score, lapBonus;
@@ -198,16 +200,20 @@ function update(dt) {
   if (overheated) {
     heat = Math.max(0, heat - OHEAT_COOL * s);
     speed = Math.max(0.5, speed - 0.07 * s);
-    if (heat <= 0) { overheated = false; speed = 1.2; }
+    if (heat <= 0) { overheated = false; speed = 0.8; }
   } else {
-    // Normal speed control
+    // Speed control — throttle = normal gas, turbo = overheat risk
     const maxSpd = topSpeed();
-    if (keys.turbo) {
-      speed = Math.min(TURBO_MAX, speed + ACCEL * 1.7 * s);
+    if (keys.turbo && !overheated) {
+      speed = Math.min(TURBO_MAX, speed + ACCEL * 1.8 * s);
       heat  = Math.min(100, heat + HEAT_RATE * s);
-      if (heat >= 100) overheated = true;
+      if (heat >= 100) { overheated = true; speed = 0; }
+    } else if (keys.throttle) {
+      speed = Math.min(maxSpd, speed + ACCEL * s);
+      heat  = Math.max(0, heat - COOL_RATE * 0.5 * s);
     } else {
-      speed = Math.min(maxSpd, speed + ACCEL * 0.6 * s);
+      // Coast — decelerate gently
+      speed = Math.max(0.8, speed - ACCEL * 0.4 * s);
       heat  = Math.max(0, heat - COOL_RATE * s);
     }
   }
@@ -501,7 +507,7 @@ function drawHUD() {
   }
   X.strokeStyle = '#222'; X.strokeRect(hx, hy, hw, hh);
   X.fillStyle = overheated ? '#ff4444' : '#666'; X.font = 'bold 6px Orbitron,sans-serif';
-  X.fillText(overheated ? '⚠ OVERHEAT' : 'HEAT', hx, hy + hh + 8);
+  X.fillText(overheated ? '🛑 STALLED' : 'HASH TEMP', hx, hy + hh + 8);
 
   // Oil slip indicator
   if (oilSlip) {
@@ -541,7 +547,7 @@ function drawIdle() {
   X.textAlign = 'center'; X.shadowBlur = 28; X.shadowColor = '#ff2244';
   X.fillText('HASH RACER', W / 2, H / 2 - 16);
   X.shadowBlur = 0; X.fillStyle = '#ffffff55'; X.font = `bold ${Math.min(9, W * 0.026)}px Orbitron,sans-serif`;
-  X.fillText('◀ ▶ STEER BETWEEN LANES · 🔥 TURBO BOOST', W / 2, H / 2 + 6);
+  X.fillText('◀ ▶ STEER · ⚡ GAS (ArrowUp) · 🔥 TURBO overheats!', W / 2, H / 2 + 6);
   X.fillStyle = '#ffffff33'; X.font = `bold ${Math.min(8, W * 0.024)}px Orbitron,sans-serif`;
   X.fillText('rival bikes · oil slicks · speed bumps · potholes', W / 2, H / 2 + 20);
 }
@@ -586,9 +592,11 @@ document.addEventListener('keydown', e => {
   if (phase !== 'play') return;
   if (e.code === 'ArrowLeft'  || e.code === 'KeyA') steerUp();
   if (e.code === 'ArrowRight' || e.code === 'KeyD') steerDown();
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') { e.preventDefault(); keys.throttle = true; }
   if (e.code === 'Space' || e.code === 'KeyZ' || e.code === 'KeyX') { e.preventDefault(); keys.turbo = true; }
 });
 document.addEventListener('keyup', e => {
+  if (e.code === 'ArrowUp' || e.code === 'KeyW') keys.throttle = false;
   if (e.code === 'Space' || e.code === 'KeyZ' || e.code === 'KeyX') keys.turbo = false;
 });
 
