@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Asteroid Dodger — MONET Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<style>
+* { box-sizing: border-box; }
+body.game-page { background: #000; overflow: hidden; }
+body.game-page::before { display: none; }
+#wbar { text-align: center; padding: 3px 12px; background: rgba(0,0,0,0.7); font-size: 11px; position: relative; z-index: 10; }
+.gw { display: flex; flex-direction: column; height: calc(100vh - 28px); }
+#gc { display: block; width: 100%; flex: 1; min-height: 0; image-rendering: crisp-edges; cursor: none; }
+.ctrl { display: flex; justify-content: space-between; align-items: center; padding: 8px 16px; background: rgba(0,0,0,0.85); border-top: 1px solid #113; flex-shrink: 0; gap: 10px; }
+.move-btn { width: 72px; height: 56px; border-radius: 12px; border: none; font-size: 24px; font-weight: 900; cursor: pointer; background: linear-gradient(135deg,#1a1a3a,#0a0a1a); color: #00f0ff; border: 1px solid #224; box-shadow: 0 4px 0 #000; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: manipulation; }
+.move-btn:active { transform: translateY(3px); box-shadow: 0 1px 0 #000; background: linear-gradient(135deg,#0a2040,#061830); }
+.ctrl-mid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+.ctrl-mid a { font-size: 20px; color: #444; text-decoration: none; }
+.ctrl-mid a:hover { color: #888; }
+#score-disp { font-family: 'Orbitron', sans-serif; font-size: 11px; color: #00f0ff; font-weight: 800; text-align: center; white-space: nowrap; }
+</style>
+</head>
+<body class="game-page">
+<div class="wallet-bar" id="wbar"></div>
+<div class="gw">
+  <canvas id="gc"></canvas>
+  <div class="ctrl">
+    <button class="move-btn" id="btn-left"
+      ontouchstart="keys.left=true" ontouchend="keys.left=false"
+      onmousedown="keys.left=true" onmouseup="keys.left=false" onmouseleave="keys.left=false">◀</button>
+    <div class="ctrl-mid">
+      <div id="score-disp">SCORE: 0</div>
+      <a href="arcade.html">⌂</a>
+    </div>
+    <button class="move-btn" id="btn-right"
+      ontouchstart="keys.right=true" ontouchend="keys.right=false"
+      onmousedown="keys.right=true" onmouseup="keys.right=false" onmouseleave="keys.right=false">▶</button>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() {
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W; canvas.height = H;
+}
+window.addEventListener('resize', () => { resize(); });
+resize();
+
+// ── State ──
+const keys = { left: false, right: false };
+let ship, rocks, stars, bullets, explosions;
+let score, level, rockTimer, bulletTimer, lives, gamePhase, frameCount, shieldTimer;
+let sessionActive = false;
+
+function init() {
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W; canvas.height = H;
+  ship = { x: W / 2, y: H - 70, w: 36, h: 44, vx: 0, invT: 0 };
+  rocks = []; bullets = []; explosions = [];
+  stars = Array.from({length: 80}, () => ({
+    x: Math.random() * W, y: Math.random() * H,
+    s: 0.5 + Math.random() * 2, sp: 0.4 + Math.random() * 1.2
+  }));
+  score = 0; level = 1; lives = 3; frameCount = 0;
+  rockTimer = 0; bulletTimer = 0; shieldTimer = 0;
+  gamePhase = 'play';
+}
+
+function spawnRock() {
+  const sz = 18 + Math.random() * 32;
+  const spd = (1.5 + level * 0.4) * (0.8 + Math.random() * 0.6);
+  rocks.push({
+    x: sz + Math.random() * (W - sz * 2),
+    y: -sz,
+    r: sz,
+    vx: (Math.random() - 0.5) * spd * 0.6,
+    vy: spd,
+    rot: 0, rotSpd: (Math.random() - 0.5) * 0.08,
+    pts: Math.floor(10 + (spd * 2)),
+    sides: 5 + Math.floor(Math.random() * 4),
+    hp: sz > 36 ? 2 : 1,
+  });
+}
+
+function spawnExplosion(x, y, color, n) {
+  for (let i = 0; i < n; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 1 + Math.random() * 4;
+    explosions.push({ x, y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, life: 30+Math.random()*20, ml:50, color, size: 2+Math.random()*3 });
+  }
+}
+
+function drawRock(r) {
+  ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.rot);
+  ctx.beginPath();
+  for (let i = 0; i < r.sides; i++) {
+    const a = (i / r.sides) * Math.PI * 2;
+    const rad = r.r * (0.75 + Math.sin(i * 2.3) * 0.25);
+    i === 0 ? ctx.moveTo(Math.cos(a)*rad, Math.sin(a)*rad)
+             : ctx.lineTo(Math.cos(a)*rad, Math.sin(a)*rad);
+  }
+  ctx.closePath();
+  const g = ctx.createRadialGradient(0,0,2,0,0,r.r);
+  g.addColorStop(0,'#6a5a4a'); g.addColorStop(0.5,'#4a3a2e'); g.addColorStop(1,'#2a1e18');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.strokeStyle = '#88664433'; ctx.lineWidth = 1.5; ctx.stroke();
+  // Crater
+  ctx.fillStyle = '#00000033';
+  ctx.beginPath(); ctx.arc(r.r*0.2, -r.r*0.15, r.r*0.22, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawShip() {
+  const s = ship;
+  if (s.invT > 0 && Math.floor(s.invT / 5) % 2 === 1) { ctx.globalAlpha = 0.3; }
+  ctx.save(); ctx.translate(s.x, s.y);
+
+  // Engine glow
+  ctx.save(); ctx.globalAlpha = 0.4 + 0.3 * Math.sin(frameCount * 0.3);
+  const eg = ctx.createRadialGradient(0, 26, 2, 0, 34, 20);
+  eg.addColorStop(0,'#00ccff'); eg.addColorStop(1,'transparent');
+  ctx.fillStyle = eg; ctx.beginPath(); ctx.arc(0, 26, 20, 0, Math.PI*2); ctx.fill();
+  ctx.restore();
+
+  // Body
+  ctx.fillStyle = '#112244';
+  ctx.beginPath();
+  ctx.moveTo(0, -22); ctx.lineTo(14, 20); ctx.lineTo(0, 14); ctx.lineTo(-14, 20); ctx.closePath(); ctx.fill();
+  // Accent
+  ctx.fillStyle = '#00d4ff';
+  ctx.beginPath(); ctx.moveTo(0, -22); ctx.lineTo(5, 2); ctx.lineTo(0, 0); ctx.lineTo(-5, 2); ctx.closePath(); ctx.fill();
+  // Wings
+  ctx.fillStyle = '#1a3a6a';
+  ctx.beginPath(); ctx.moveTo(-14, 20); ctx.lineTo(-22, 28); ctx.lineTo(-8, 14); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(14, 20); ctx.lineTo(22, 28); ctx.lineTo(8, 14); ctx.closePath(); ctx.fill();
+  // Cockpit
+  ctx.fillStyle = '#00eeff66';
+  ctx.beginPath(); ctx.ellipse(0, -8, 5, 8, 0, 0, Math.PI*2); ctx.fill();
+
+  // Shield ring if active
+  if (shieldTimer > 0) {
+    ctx.save(); ctx.globalAlpha = 0.35 + 0.2 * Math.sin(frameCount * 0.2);
+    ctx.strokeStyle = '#00f0ff'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(0, 0, 30, 0, Math.PI*2); ctx.stroke();
+    ctx.restore();
+  }
+
+  ctx.restore();
+  ctx.globalAlpha = 1;
+}
+
+function drawBullet(b) {
+  ctx.save(); ctx.translate(b.x, b.y);
+  ctx.fillStyle = '#00f0ff';
+  ctx.shadowBlur = 8; ctx.shadowColor = '#00f0ff';
+  ctx.beginPath(); ctx.ellipse(0,0,3,7,0,0,Math.PI*2); ctx.fill();
+  ctx.restore();
+}
+
+function drawHUD() {
+  // Score
+  ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 13px Orbitron, sans-serif'; ctx.textAlign = 'left';
+  ctx.shadowBlur = 8; ctx.shadowColor = '#00f0ff44';
+  ctx.fillText('SCORE  ' + score, 12, 22);
+  ctx.shadowBlur = 0;
+  // Lives
+  ctx.textAlign = 'right';
+  ctx.fillStyle = '#ff4444'; ctx.font = 'bold 13px Orbitron, sans-serif';
+  for (let i = 0; i < lives; i++) {
+    ctx.fillText('♥', W - 12 - i * 18, 22);
+  }
+  // Level
+  ctx.textAlign = 'center';
+  ctx.fillStyle = '#ffd70088'; ctx.font = 'bold 10px Orbitron, sans-serif';
+  ctx.fillText('WAVE ' + level, W / 2, 22);
+  ctx.textAlign = 'left';
+  document.getElementById('score-disp').textContent = 'SCORE: ' + score;
+}
+
+function checkCircle(ax, ay, ar, bx, by, br) {
+  const dx = ax-bx, dy = ay-by;
+  return dx*dx+dy*dy < (ar+br)*(ar+br);
+}
+
+let loop;
+function gameLoop() {
+  if (gamePhase !== 'play') return;
+  frameCount++;
+  ctx.clearRect(0,0,W,H);
+
+  // BG
+  const bg = ctx.createLinearGradient(0,0,0,H);
+  bg.addColorStop(0,'#000008'); bg.addColorStop(1,'#000014');
+  ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+
+  // Stars
+  stars.forEach(s => {
+    s.y += s.sp;
+    if (s.y > H) { s.y = 0; s.x = Math.random() * W; }
+    ctx.fillStyle = `rgba(255,255,255,${0.2 + s.s * 0.25})`;
+    ctx.fillRect(s.x, s.y, s.s, s.s);
+  });
+
+  // Level up
+  level = 1 + Math.floor(score / 300);
+  const spawnRate = Math.max(28, 80 - level * 6);
+  rockTimer++;
+  if (rockTimer >= spawnRate) { rockTimer = 0; spawnRock(); if (level > 4 && Math.random() < 0.3) spawnRock(); }
+
+  // Auto-shoot
+  bulletTimer++;
+  if (bulletTimer >= 18) {
+    bulletTimer = 0;
+    bullets.push({ x: ship.x, y: ship.y - 20, vy: -(6 + level * 0.3) });
+    if (level >= 5) bullets.push({ x: ship.x - 10, y: ship.y, vy: -(5 + level * 0.3) });
+    if (level >= 5) bullets.push({ x: ship.x + 10, y: ship.y, vy: -(5 + level * 0.3) });
+  }
+
+  // Ship movement
+  const spd = 5.5;
+  if (keys.left)  { ship.vx = -spd; }
+  else if (keys.right) { ship.vx = spd; }
+  else { ship.vx *= 0.82; }
+  ship.x = Math.max(20, Math.min(W - 20, ship.x + ship.vx));
+  if (ship.invT > 0) ship.invT--;
+  if (shieldTimer > 0) shieldTimer--;
+
+  // Bullets
+  bullets = bullets.filter(b => b.y > -10);
+  bullets.forEach(b => b.y += b.vy);
+
+  // Rocks
+  rocks.forEach(r => {
+    r.x += r.vx; r.y += r.vy;
+    r.rot += r.rotSpd;
+    // Bounce off walls
+    if (r.x - r.r < 0 || r.x + r.r > W) r.vx *= -1;
+  });
+  rocks = rocks.filter(r => r.y - r.r < H + 20);
+
+  // Bullet-rock collisions
+  for (let ri = rocks.length - 1; ri >= 0; ri--) {
+    const r = rocks[ri];
+    for (let bi = bullets.length - 1; bi >= 0; bi--) {
+      const b = bullets[bi];
+      if (checkCircle(r.x, r.y, r.r, b.x, b.y, 4)) {
+        bullets.splice(bi, 1);
+        r.hp--;
+        spawnExplosion(b.x, b.y, '#ff8800', 5);
+        if (r.hp <= 0) {
+          score += r.pts;
+          spawnExplosion(r.x, r.y, '#ff4400', 12);
+          // Split big rocks
+          if (r.r > 28) {
+            for (let k = 0; k < 2; k++) {
+              rocks.push({ x: r.x, y: r.y, r: r.r * 0.55, vx: (Math.random()-0.5)*3, vy: r.vy*0.8+1,
+                rot:0, rotSpd:(Math.random()-0.5)*0.1, pts: r.pts, sides: r.sides, hp:1 });
+            }
+          }
+          rocks.splice(ri, 1);
+        }
+        break;
+      }
+    }
+  }
+
+  // Ship-rock collision
+  if (ship.invT <= 0 && shieldTimer <= 0) {
+    for (let ri = rocks.length - 1; ri >= 0; ri--) {
+      const r = rocks[ri];
+      if (checkCircle(r.x, r.y, r.r, ship.x, ship.y, 18)) {
+        lives--;
+        ship.invT = 120;
+        spawnExplosion(ship.x, ship.y, '#00d4ff', 16);
+        rocks.splice(ri, 1);
+        if (lives <= 0) { gameOver(); return; }
+        break;
+      }
+    }
+  }
+
+  // Explosions
+  explosions = explosions.filter(e => e.life > 0);
+  explosions.forEach(e => {
+    e.x += e.vx; e.y += e.vy; e.life--;
+    ctx.save(); ctx.globalAlpha = e.life / e.ml;
+    ctx.fillStyle = e.color; ctx.shadowBlur = 6; ctx.shadowColor = e.color;
+    ctx.beginPath(); ctx.arc(e.x, e.y, e.size, 0, Math.PI*2); ctx.fill();
+    ctx.restore();
+  });
+
+  rocks.forEach(drawRock);
+  bullets.forEach(drawBullet);
+  drawShip();
+  drawHUD();
+
+  loop = requestAnimationFrame(gameLoop);
+}
+
+function gameOver() {
+  gamePhase = 'over';
+  cancelAnimationFrame(loop);
+
+  // Final frame
+  ctx.fillStyle = 'rgba(0,0,16,0.7)';
+  ctx.fillRect(0,0,W,H);
+
+  if (sessionActive) {
+    arcadeSubmitScore('dodger', score).catch(() => {});
+    sessionActive = false;
+  }
+
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,12,0.95);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  box.innerHTML = `
+    <div style="background:linear-gradient(160deg,#050520,#0a0830);border:2px solid #00d4ff;border-radius:20px;padding:28px 22px;width:min(320px,90vw);text-align:center">
+      <div style="font-size:40px;margin-bottom:8px">💥</div>
+      <div style="font-size:20px;font-weight:900;color:#00d4ff;margin-bottom:14px;letter-spacing:3px">GAME OVER</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff10;font-size:12px">
+        <span style="color:#888">SCORE</span><span style="color:#00d4ff;font-weight:800">${score.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px">
+        <span style="color:#888">WAVE REACHED</span><span style="color:#ffd700;font-weight:800">${level}</span>
+      </div>
+      <button onclick="location.reload()" style="margin-top:16px;width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#00d4ff,#0066aa);color:#000;font-family:Orbitron,sans-serif;font-size:12px;font-weight:900">PLAY AGAIN</button>
+      <button onclick="location.href='arcade.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#666;font-family:Orbitron,sans-serif;font-size:10px">← ARCADE</button>
+    </div>`;
+  document.body.appendChild(box);
+}
+
+// ── Keyboard ──
+document.addEventListener('keydown', e => {
+  if (e.code === 'ArrowLeft'  || e.code === 'KeyA') keys.left  = true;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = true;
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'ArrowLeft'  || e.code === 'KeyA') keys.left  = false;
+  if (e.code === 'ArrowRight' || e.code === 'KeyD') keys.right = false;
+});
+// Touch drag on canvas
+let touchStartX = null;
+canvas.addEventListener('touchstart', e => { e.preventDefault(); touchStartX = e.touches[0].clientX; }, {passive:false});
+canvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (touchStartX === null) return;
+  const dx = e.touches[0].clientX - touchStartX;
+  keys.left  = dx < -8;
+  keys.right = dx > 8;
+}, {passive:false});
+canvas.addEventListener('touchend', e => { e.preventDefault(); keys.left = keys.right = false; touchStartX = null; }, {passive:false});
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderWalletBar('wbar');
+  init();
+  gamePhase = 'idle';
+
+  // Draw idle screen
+  function drawIdle() {
+    if (gamePhase !== 'idle') return;
+    ctx.clearRect(0,0,W,H);
+    const bg = ctx.createLinearGradient(0,0,0,H);
+    bg.addColorStop(0,'#000008'); bg.addColorStop(1,'#000014');
+    ctx.fillStyle = bg; ctx.fillRect(0,0,W,H);
+    stars.forEach(s => { ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.fillRect(s.x, s.y, s.s, s.s); });
+    ship.x = W/2; ship.y = H - 70;
+    drawShip();
+    ctx.fillStyle = '#00f0ff'; ctx.font = 'bold 13px Orbitron, sans-serif';
+    ctx.textAlign = 'center'; ctx.shadowBlur = 12; ctx.shadowColor = '#00f0ff';
+    ctx.fillText('ASTEROID DODGER', W/2, H/2 - 14);
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff66'; ctx.font = 'bold 9px Orbitron, sans-serif';
+    ctx.fillText('dodge rocks · auto-fire · survive waves', W/2, H/2 + 8);
+    requestAnimationFrame(drawIdle);
+  }
+  drawIdle();
+
+  showPayGate('dodger', () => {
+    sessionActive = true;
+    gamePhase = 'play';
+    init();
+    gameLoop();
+  }, { pot: 'Win 80% back', rake: '20%' });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Reaction Blitz — MONET Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<style>
+* { box-sizing: border-box; }
+body.game-page { background: #000; overflow: hidden; touch-action: none; }
+body.game-page::before { display: none; }
+#wbar { text-align: center; padding: 3px 12px; background: rgba(0,0,0,0.7); font-size: 11px; }
+.gw { display: flex; flex-direction: column; height: calc(100vh - 28px); position: relative; }
+#gc { display: block; width: 100%; flex: 1; min-height: 0; }
+.hud-bar { display: flex; justify-content: space-between; align-items: center; padding: 6px 14px; background: rgba(0,0,0,0.85); border-top: 1px solid #201030; flex-shrink: 0; }
+.hud-val { font-family: 'Orbitron', sans-serif; font-size: 14px; font-weight: 900; }
+.hud-lbl { font-family: 'Orbitron', sans-serif; font-size: 8px; color: #555; letter-spacing: 1px; margin-bottom: 1px; }
+#score-v { color: #a855ff; }
+#timer-v { color: #ffd700; }
+#combo-v { color: #00ff9d; }
+</style>
+</head>
+<body class="game-page">
+<div class="wallet-bar" id="wbar"></div>
+<div class="gw">
+  <canvas id="gc"></canvas>
+  <div class="hud-bar">
+    <div style="text-align:left"><div class="hud-lbl">SCORE</div><div class="hud-val" id="score-v">0</div></div>
+    <div style="text-align:center"><a href="arcade.html" style="font-size:20px;color:#444;text-decoration:none">⌂</a></div>
+    <div style="text-align:center"><div class="hud-lbl">TIME</div><div class="hud-val" id="timer-v">30</div></div>
+    <div style="text-align:right"><div class="hud-lbl">COMBO</div><div class="hud-val" id="combo-v">x1</div></div>
+  </div>
+</div>
+<script>
+const canvas = document.getElementById('gc');
+const ctx = canvas.getContext('2d');
+let W, H;
+function resize() {
+  W = canvas.clientWidth; H = canvas.clientHeight;
+  canvas.width = W; canvas.height = H;
+}
+window.addEventListener('resize', resize);
+resize();
+
+const GAME_TIME = 30;
+const TARGET_RADIUS_BASE = 36;
+const COLORS = ['#a855ff','#00f0ff','#ff4400','#00ff9d','#ffd700','#ff88cc'];
+
+let targets, score, combo, maxCombo, timeLeft, phase, frameCount, rafId, timerInterval;
+let sessionActive = false;
+let particles = [];
+
+function init() {
+  targets = []; score = 0; combo = 1; maxCombo = 1; timeLeft = GAME_TIME;
+  phase = 'play'; frameCount = 0; particles = [];
+  resize();
+  spawnTarget();
+  spawnTarget();
+  startTimer();
+  rafId = requestAnimationFrame(loop);
+}
+
+function spawnTarget() {
+  const r  = TARGET_RADIUS_BASE - Math.min(14, Math.floor(score / 120) * 2);
+  const margin = r + 10;
+  const x  = margin + Math.random() * (W - margin * 2);
+  const y  = margin + Math.random() * (H - margin * 2);
+  const color = COLORS[Math.floor(Math.random() * COLORS.length)];
+  const lifeMax = Math.max(60, 140 - Math.floor(score / 80) * 8);
+  targets.push({ x, y, r, color, life: lifeMax, lifeMax, scale: 0.1, growing: true });
+}
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    if (phase !== 'play') { clearInterval(timerInterval); return; }
+    timeLeft--;
+    document.getElementById('timer-v').textContent = timeLeft;
+    if (timeLeft <= 5) document.getElementById('timer-v').style.color = '#ff2200';
+    if (timeLeft <= 0) { clearInterval(timerInterval); endGame(); }
+  }, 1000);
+}
+
+function hit(t, idx) {
+  // Score: base 100, combo multiplier, speed bonus based on how fresh the target is
+  const fresh = (t.life / t.lifeMax);
+  const pts = Math.round(100 * combo * (0.8 + fresh * 0.8));
+  score += pts;
+  combo = Math.min(8, combo + 1);
+  maxCombo = Math.max(maxCombo, combo);
+  // Particles
+  for (let i = 0; i < 14; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const sp = 2 + Math.random() * 5;
+    particles.push({ x: t.x, y: t.y, vx: Math.cos(a)*sp, vy: Math.sin(a)*sp, color: t.color, life: 30+Math.random()*20, ml:50, size: 3+Math.random()*4 });
+  }
+  // Float score text
+  particles.push({ type:'text', x: t.x, y: t.y - 10, text: '+' + pts, color: t.color, life: 35, ml: 35, vy: -1.4 });
+  targets.splice(idx, 1);
+  spawnTarget();
+  document.getElementById('score-v').textContent = score;
+  document.getElementById('combo-v').textContent = 'x' + combo;
+}
+
+function miss() {
+  combo = 1;
+  document.getElementById('combo-v').textContent = 'x1';
+}
+
+function handlePointer(clientX, clientY) {
+  if (phase !== 'play') return;
+  const rect = canvas.getBoundingClientRect();
+  const mx = (clientX - rect.left) * (W / rect.width);
+  const my = (clientY - rect.top)  * (H / rect.height);
+  let hitAny = false;
+  for (let i = targets.length - 1; i >= 0; i--) {
+    const t = targets[i];
+    const dx = mx - t.x, dy = my - t.y;
+    if (dx*dx + dy*dy < t.r * t.r * t.scale * t.scale) {
+      hit(t, i); hitAny = true; break;
+    }
+  }
+  if (!hitAny) miss();
+}
+
+canvas.addEventListener('click', e => handlePointer(e.clientX, e.clientY));
+canvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  Array.from(e.changedTouches).forEach(t => handlePointer(t.clientX, t.clientY));
+}, {passive:false});
+
+function loop() {
+  if (phase !== 'play') return;
+  frameCount++;
+  ctx.clearRect(0,0,W,H);
+
+  // BG
+  ctx.fillStyle = '#050008'; ctx.fillRect(0,0,W,H);
+  // Grid
+  ctx.strokeStyle = '#1a0828'; ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 50) { ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,H); ctx.stroke(); }
+  for (let y = 0; y < H; y += 50) { ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(W,y); ctx.stroke(); }
+
+  // Targets
+  targets.forEach((t, idx) => {
+    t.life--;
+    if (t.scale < 1) t.scale = Math.min(1, t.scale + 0.09);
+
+    if (t.life <= 0) {
+      miss();
+      const replacer = {...t};
+      targets.splice(idx, 1);
+      spawnTarget();
+      return;
+    }
+
+    const sc = t.scale;
+    const frac = t.life / t.lifeMax;
+    ctx.save();
+    ctx.translate(t.x, t.y);
+    ctx.scale(sc, sc);
+
+    // Shrinking outer ring (urgency indicator)
+    ctx.beginPath(); ctx.arc(0, 0, t.r * (0.5 + frac * 0.6), 0, Math.PI*2);
+    ctx.strokeStyle = t.color + '44'; ctx.lineWidth = 3; ctx.stroke();
+
+    // Fill circle
+    const g = ctx.createRadialGradient(0,0,4,0,0,t.r);
+    g.addColorStop(0, t.color + 'cc');
+    g.addColorStop(0.6, t.color + '66');
+    g.addColorStop(1, t.color + '22');
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(0,0,t.r,0,Math.PI*2); ctx.fill();
+    // Bright ring
+    ctx.strokeStyle = t.color; ctx.lineWidth = 2.5;
+    ctx.shadowBlur = 12; ctx.shadowColor = t.color;
+    ctx.beginPath(); ctx.arc(0,0,t.r,0,Math.PI*2); ctx.stroke();
+    ctx.shadowBlur = 0;
+    // Cross hair
+    ctx.strokeStyle = t.color + 'aa'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(-t.r*0.4,0); ctx.lineTo(t.r*0.4,0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0,-t.r*0.4); ctx.lineTo(0,t.r*0.4); ctx.stroke();
+
+    ctx.restore();
+  });
+
+  // Particles
+  particles = particles.filter(p => p.life > 0);
+  particles.forEach(p => {
+    p.life--;
+    if (p.type === 'text') {
+      p.y += p.vy;
+      ctx.save(); ctx.globalAlpha = p.life / p.ml;
+      ctx.fillStyle = p.color; ctx.font = 'bold 16px Orbitron, sans-serif';
+      ctx.textAlign = 'center'; ctx.shadowBlur = 8; ctx.shadowColor = p.color;
+      ctx.fillText(p.text, p.x, p.y); ctx.restore();
+    } else {
+      p.x += p.vx; p.y += p.vy; p.vy += 0.1;
+      ctx.save(); ctx.globalAlpha = p.life / p.ml;
+      ctx.fillStyle = p.color; ctx.shadowBlur = 5; ctx.shadowColor = p.color;
+      ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill(); ctx.restore();
+    }
+  });
+
+  // Combo pulse effect when high
+  if (combo >= 3) {
+    ctx.save(); ctx.globalAlpha = 0.04 * (combo - 2);
+    ctx.fillStyle = '#a855ff'; ctx.fillRect(0,0,W,H);
+    ctx.restore();
+  }
+
+  rafId = requestAnimationFrame(loop);
+}
+
+function endGame() {
+  phase = 'over';
+  cancelAnimationFrame(rafId);
+
+  if (sessionActive) {
+    arcadeSubmitScore('reaction', score).catch(() => {});
+    sessionActive = false;
+  }
+
+  const box = document.createElement('div');
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(5,0,8,0.96);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  box.innerHTML = `
+    <div style="background:linear-gradient(160deg,#0a0010,#140020);border:2px solid #a855ff;border-radius:20px;padding:28px 22px;width:min(320px,90vw);text-align:center">
+      <div style="font-size:40px;margin-bottom:8px">⚡</div>
+      <div style="font-size:20px;font-weight:900;color:#a855ff;margin-bottom:14px;letter-spacing:3px">TIME'S UP!</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff10;font-size:12px">
+        <span style="color:#888">FINAL SCORE</span><span style="color:#a855ff;font-weight:800">${score.toLocaleString()}</span>
+      </div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff10;font-size:12px">
+        <span style="color:#888">MAX COMBO</span><span style="color:#ffd700;font-weight:800">x${maxCombo}</span>
+      </div>
+      <button onclick="location.reload()" style="margin-top:16px;width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;font-family:Orbitron,sans-serif;font-size:12px;font-weight:900">PLAY AGAIN</button>
+      <button onclick="location.href='arcade.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#666;font-family:Orbitron,sans-serif;font-size:10px">← ARCADE</button>
+    </div>`;
+  document.body.appendChild(box);
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderWalletBar('wbar');
+
+  // Idle preview
+  phase = 'idle';
+  function drawIdle() {
+    if (phase !== 'idle') return;
+    ctx.clearRect(0,0,W,H);
+    ctx.fillStyle = '#050008'; ctx.fillRect(0,0,W,H);
+    const t = Date.now() / 1000;
+    COLORS.forEach((c, i) => {
+      const a = (i / COLORS.length) * Math.PI * 2 + t * 0.5;
+      const r = Math.min(W, H) * 0.28;
+      const x = W/2 + Math.cos(a) * r, y = H/2 + Math.sin(a) * r;
+      const pulse = 0.7 + 0.3 * Math.sin(t * 2 + i);
+      ctx.save(); ctx.globalAlpha = pulse;
+      ctx.strokeStyle = c; ctx.lineWidth = 2.5; ctx.shadowBlur = 14; ctx.shadowColor = c;
+      ctx.beginPath(); ctx.arc(x, y, TARGET_RADIUS_BASE * 0.85, 0, Math.PI*2); ctx.stroke();
+      ctx.restore();
+    });
+    ctx.fillStyle = '#a855ff'; ctx.font = 'bold 13px Orbitron, sans-serif';
+    ctx.textAlign = 'center'; ctx.shadowBlur = 14; ctx.shadowColor = '#a855ff';
+    ctx.fillText('REACTION BLITZ', W/2, H/2 - 12);
+    ctx.shadowBlur = 0; ctx.fillStyle = '#ffffff55'; ctx.font = 'bold 9px Orbitron, sans-serif';
+    ctx.fillText('tap targets fast · build combo · 30 sec', W/2, H/2 + 8);
+    requestAnimationFrame(drawIdle);
+  }
+  drawIdle();
+
+  showPayGate('reaction', () => {
+    sessionActive = true;
+    phase = 'starting';
+    init();
+  }, { pot: 'Win 80% back', rake: '20%' });
+});
+</script>
+</body>
+</html>

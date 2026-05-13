@@ -25,9 +25,15 @@ Active games (arcade.html displays in this order):
 5. **Snake** (`snake.html`) — Classic snake
 6. **Space Invaders** (`invaders.html`) — Alien wave shooter
 7. **Pong** (`pong.html`) — vs CPU paddle game
-8. **Level Builder** (links to `dino.html` create tab) — Custom level designer
+8. **Monet Kombat** (`fighter.html`) — MK-style best-of-3 brawler; combos, specials, Finish Him, X-ray effects
+9. **Duck Season** (`duckhunt.html`) — Duck hunt shooter
+10. **Asteroid Dodger** (`dodger.html`) — Space shooter; dodge & auto-fire through waves
+11. **Reaction Blitz** (`reaction.html`) — Tap glowing targets fast; build combo multipliers; 30-sec challenge
+12. **Tap Frenzy** (`tap.html`) — Tap as fast as possible in 20 seconds; graded S/A/B/C
+13. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
 
-**Monet Bros** uses the direct pay-gate pattern (`showPayGate` → `/api/cpu/start` → play → `/api/cpu/submit`).  
+**Monet Bros** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
+**Asteroid Dodger**, **Reaction Blitz**, and **Tap Frenzy** also use `showPayGate` directly (solo-only games).  
 All other games use `showGameLobby()` (lobby.js) which presents Solo or H2H modes before play.
 
 ## Project Structure
