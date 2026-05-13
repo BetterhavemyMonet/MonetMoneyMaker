@@ -98,6 +98,10 @@ function spawnExplosion(x, y, color, n) {
 
 function drawRock(r) {
   ctx.save(); ctx.translate(r.x, r.y); ctx.rotate(r.rot);
+
+  // Outer aura — wide soft glow
+  ctx.shadowBlur = r.r * 1.4;
+  ctx.shadowColor = '#ff6622';
   ctx.beginPath();
   for (let i = 0; i < r.sides; i++) {
     const a = (i / r.sides) * Math.PI * 2;
@@ -109,7 +113,13 @@ function drawRock(r) {
   const g = ctx.createRadialGradient(0,0,2,0,0,r.r);
   g.addColorStop(0,'#6a5a4a'); g.addColorStop(0.5,'#4a3a2e'); g.addColorStop(1,'#2a1e18');
   ctx.fillStyle = g; ctx.fill();
-  ctx.strokeStyle = '#88664433'; ctx.lineWidth = 1.5; ctx.stroke();
+
+  // Inner rim glow
+  ctx.shadowBlur = r.r * 0.6;
+  ctx.shadowColor = '#ff8844';
+  ctx.strokeStyle = '#cc551188'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.shadowBlur = 0;
+
   // Crater
   ctx.fillStyle = '#00000033';
   ctx.beginPath(); ctx.arc(r.r*0.2, -r.r*0.15, r.r*0.22, 0, Math.PI*2); ctx.fill();
