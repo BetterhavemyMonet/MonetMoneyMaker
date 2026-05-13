@@ -289,50 +289,180 @@ function drawCloud(cl) {
   X.restore();
 }
 
-function drawBackground() {
-  // Sky gradient — bright blue
-  const sky = X.createLinearGradient(0, 0, 0, C.height * 0.55);
-  sky.addColorStop(0, '#2196f3');
-  sky.addColorStop(0.6, '#64b5f6');
-  sky.addColorStop(1, '#b3e0ff');
-  X.fillStyle = sky; X.fillRect(0, 0, C.width, C.height * 0.55);
+function drawMMCoin(x, y, r) {
+  // Small decorative gold MM coin
+  const cg = X.createRadialGradient(x - r * 0.3, y - r * 0.3, r * 0.1, x, y, r);
+  cg.addColorStop(0, '#fff9c4'); cg.addColorStop(0.4, '#ffd700'); cg.addColorStop(1, '#e65100');
+  X.fillStyle = cg;
+  X.shadowBlur = r * 0.8; X.shadowColor = '#ffd70099';
+  X.beginPath(); X.arc(x, y, r, 0, Math.PI * 2); X.fill();
+  X.shadowBlur = 0;
+  X.strokeStyle = '#fff176'; X.lineWidth = r * 0.15; X.stroke();
+  X.fillStyle = '#7a4000'; X.font = `bold ${r * 1.1}px Orbitron,sans-serif`;
+  X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('M', x, y);
+  X.textBaseline = 'alphabetic';
+}
 
-  // Clouds
+function drawMMCrate(x, y, w, h) {
+  // Wooden crate with MM branding (like Monet World reference)
+  const grd = X.createLinearGradient(x, y, x, y + h);
+  grd.addColorStop(0, '#a0622a'); grd.addColorStop(0.5, '#7a4a1a'); grd.addColorStop(1, '#4e2e08');
+  X.fillStyle = grd;
+  X.beginPath();
+  if (X.roundRect) X.roundRect(x, y, w, h, 2 * SC);
+  else X.rect(x, y, w, h);
+  X.fill();
+  // Edge highlights
+  X.fillStyle = 'rgba(255,200,100,0.3)';
+  X.fillRect(x, y, w, 2 * SC);
+  X.fillRect(x, y, 2 * SC, h);
+  X.fillStyle = 'rgba(0,0,0,0.3)';
+  X.fillRect(x, y + h - 2 * SC, w, 2 * SC);
+  // Cross braces
+  X.strokeStyle = '#4e2e08'; X.lineWidth = 1.5 * SC;
+  X.beginPath(); X.moveTo(x, y); X.lineTo(x + w, y + h); X.stroke();
+  X.beginPath(); X.moveTo(x + w, y); X.lineTo(x, y + h); X.stroke();
+  // MM badge in center
+  X.fillStyle = '#ffd700';
+  X.font = `bold ${h * 0.4}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.shadowBlur = 4; X.shadowColor = '#ff880066';
+  X.fillText('MM', x + w / 2, y + h / 2);
+  X.shadowBlur = 0; X.textBaseline = 'alphabetic';
+}
+
+function drawBackground() {
+  // ── Sky gradient — rich warm blue ────────────────────────────────────────────
+  const sky = X.createLinearGradient(0, 0, 0, C.height * 0.6);
+  sky.addColorStop(0, '#1565c0');
+  sky.addColorStop(0.45, '#42a5f5');
+  sky.addColorStop(0.8, '#81d4fa');
+  sky.addColorStop(1, '#b3e5fc');
+  X.fillStyle = sky; X.fillRect(0, 0, C.width, C.height * 0.6);
+
+  // ── Distant mountains / cliffs (Monet World vibe) ────────────────────────────
+  X.fillStyle = '#0d47a1aa';
+  X.beginPath();
+  X.moveTo(0, C.height * 0.4);
+  X.lineTo(C.width * 0.12, C.height * 0.22);
+  X.lineTo(C.width * 0.22, C.height * 0.30);
+  X.lineTo(C.width * 0.35, C.height * 0.18);
+  X.lineTo(C.width * 0.5,  C.height * 0.28);
+  X.lineTo(C.width * 0.65, C.height * 0.20);
+  X.lineTo(C.width * 0.78, C.height * 0.32);
+  X.lineTo(C.width * 0.9,  C.height * 0.21);
+  X.lineTo(C.width, C.height * 0.30);
+  X.lineTo(C.width, C.height * 0.6);
+  X.lineTo(0, C.height * 0.6);
+  X.closePath(); X.fill();
+  // Mountain snow/mist
+  X.fillStyle = 'rgba(255,255,255,0.18)';
+  X.beginPath();
+  X.arc(C.width * 0.35, C.height * 0.18, 18 * SC, 0, Math.PI * 2); X.fill();
+  X.beginPath();
+  X.arc(C.width * 0.65, C.height * 0.20, 14 * SC, 0, Math.PI * 2); X.fill();
+
+  // ── Clouds ────────────────────────────────────────────────────────────────────
   clouds.forEach(drawCloud);
 
-  // Jungle tree silhouettes (back layer)
-  X.fillStyle = '#1b5e20';
-  const treeData = [[10,0.5],[30,0.42],[55,0.48],[80,0.38],[110,0.44],[145,0.36],[175,0.43],[210,0.39],[245,0.46],[275,0.40],[305,0.47]];
-  treeData.forEach(([tx, ty]) => {
+  // ── Background jungle trees (far) ────────────────────────────────────────────
+  const farTrees = [[10,0.44],[28,0.38],[52,0.42],[88,0.36],[118,0.40],[155,0.34],[188,0.40],[222,0.37],[258,0.43],[290,0.38],[312,0.44]];
+  farTrees.forEach(([tx, ty]) => {
     const bx = tx * SC, by = C.height * ty;
-    // Trunk
-    X.fillStyle = '#4e342e';
-    X.fillRect(bx - 3 * SC, by, 6 * SC, 20 * SC);
-    // Canopy circles
-    X.fillStyle = '#2e7d32';
-    X.beginPath(); X.arc(bx, by - 4 * SC, 14 * SC, 0, Math.PI * 2); X.fill();
-    X.fillStyle = '#388e3c';
-    X.beginPath(); X.arc(bx - 6 * SC, by + 2 * SC, 10 * SC, 0, Math.PI * 2); X.fill();
-    X.beginPath(); X.arc(bx + 6 * SC, by + 2 * SC, 10 * SC, 0, Math.PI * 2); X.fill();
+    // Palm trunk — slight curve
+    X.strokeStyle = '#3e2005'; X.lineWidth = 4 * SC; X.lineCap = 'round';
+    X.beginPath(); X.moveTo(bx, by + 18 * SC); X.quadraticCurveTo(bx + 3 * SC, by, bx - 2 * SC, by - 4 * SC); X.stroke();
+    // Frond clusters
+    const fColors = ['#1b5e20', '#2e7d32', '#388e3c'];
+    fColors.forEach((fc, fi) => {
+      X.fillStyle = fc;
+      X.beginPath(); X.arc(bx - 2 * SC, by - 4 * SC, (13 - fi * 2) * SC, 0, Math.PI * 2); X.fill();
+    });
     // Highlight
     X.fillStyle = '#43a047';
-    X.beginPath(); X.arc(bx - 2 * SC, by - 8 * SC, 6 * SC, 0, Math.PI * 2); X.fill();
+    X.beginPath(); X.arc(bx - 4 * SC, by - 10 * SC, 5 * SC, 0, Math.PI * 2); X.fill();
+    // Coconuts
+    X.fillStyle = '#5d3a00';
+    X.beginPath(); X.arc(bx + 4 * SC, by - 2 * SC, 2.5 * SC, 0, Math.PI * 2); X.fill();
+    X.beginPath(); X.arc(bx - 6 * SC, by, 2 * SC, 0, Math.PI * 2); X.fill();
   });
 
-  // Ground fill — rich jungle green
-  const groundY = C.height * 0.5;
+  // ── Ground fill — lush jungle floor ──────────────────────────────────────────
+  const groundY = C.height * 0.52;
   const gr = X.createLinearGradient(0, groundY, 0, C.height);
-  gr.addColorStop(0, '#2e7d32');
-  gr.addColorStop(0.1, '#1b5e20');
-  gr.addColorStop(1, '#0a2e0e');
+  gr.addColorStop(0, '#33691e');
+  gr.addColorStop(0.08, '#2e7d32');
+  gr.addColorStop(0.25, '#1b5e20');
+  gr.addColorStop(1, '#0a2810');
   X.fillStyle = gr; X.fillRect(0, groundY, C.width, C.height - groundY);
+  // Ground highlight strip
+  X.fillStyle = 'rgba(100,200,80,0.15)';
+  X.fillRect(0, groundY, C.width, 4 * SC);
 
-  // Construction scaffolding poles
-  X.strokeStyle = '#c0392b'; X.lineWidth = 3 * SC;
-  X.beginPath(); X.moveTo(36 * SC, 0); X.lineTo(36 * SC, GH * SC); X.stroke();
-  X.beginPath(); X.moveTo(284 * SC, 0); X.lineTo(284 * SC, GH * SC); X.stroke();
-  // Diagonal cross-braces
-  X.strokeStyle = '#c0392b66'; X.lineWidth = 1.5 * SC;
+  // ── Decorative MM crates (left side, like Monet World) ───────────────────────
+  const cSC = SC;
+  drawMMCrate(4 * cSC, (GH - 60) * cSC, 20 * cSC, 20 * cSC);
+  drawMMCrate(4 * cSC, (GH - 38) * cSC, 20 * cSC, 18 * cSC);
+  // Right side
+  drawMMCrate((GW - 24) * cSC, (GH - 48) * cSC, 20 * cSC, 20 * cSC);
+
+  // ── Scattered gold coins in background ───────────────────────────────────────
+  const coinPositions = [[260,430],[268,425],[276,432],[270,415]];
+  coinPositions.forEach(([cx, cy]) => drawMMCoin(cx * SC, cy * SC, 5 * SC));
+
+  // ── Stone arch gateway (top area, Monet World aesthetic) ─────────────────────
+  const archCX = GW / 2 * SC, archTopY = 12 * SC;
+  // Arch stones — left pillar
+  const stoneGrad = X.createLinearGradient(archCX - 30 * SC, 0, archCX - 20 * SC, 0);
+  stoneGrad.addColorStop(0, '#5d4037'); stoneGrad.addColorStop(0.5, '#795548'); stoneGrad.addColorStop(1, '#4e342e');
+  X.fillStyle = stoneGrad;
+  X.beginPath();
+  if (X.roundRect) X.roundRect((archCX - 32 * SC), archTopY, 12 * SC, 30 * SC, 2 * SC);
+  else X.rect((archCX - 32 * SC), archTopY, 12 * SC, 30 * SC);
+  X.fill();
+  // Right pillar
+  const stoneGrad2 = X.createLinearGradient(archCX + 20 * SC, 0, archCX + 30 * SC, 0);
+  stoneGrad2.addColorStop(0, '#4e342e'); stoneGrad2.addColorStop(0.5, '#795548'); stoneGrad2.addColorStop(1, '#5d4037');
+  X.fillStyle = stoneGrad2;
+  X.beginPath();
+  if (X.roundRect) X.roundRect(archCX + 20 * SC, archTopY, 12 * SC, 30 * SC, 2 * SC);
+  else X.rect(archCX + 20 * SC, archTopY, 12 * SC, 30 * SC);
+  X.fill();
+  // Arch top (curved stone)
+  X.fillStyle = '#6d4c41';
+  X.beginPath();
+  X.arc(archCX, archTopY + 18 * SC, 26 * SC, Math.PI, 0);
+  X.fill();
+  X.fillStyle = '#795548';
+  X.beginPath();
+  X.arc(archCX, archTopY + 18 * SC, 22 * SC, Math.PI, 0);
+  X.fill();
+  // Arch interior — sky-coloured
+  X.fillStyle = '#42a5f5';
+  X.beginPath();
+  X.arc(archCX, archTopY + 18 * SC, 18 * SC, Math.PI, 0);
+  X.fill();
+  // MM banner on arch
+  X.fillStyle = '#2e7d32';
+  X.fillRect((archCX - 8 * SC), archTopY, 16 * SC, 10 * SC);
+  X.fillStyle = '#ffd700';
+  X.font = `bold ${7 * SC}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.shadowBlur = 6; X.shadowColor = '#ff8800';
+  X.fillText('MM', archCX, archTopY + 5 * SC);
+  X.shadowBlur = 0; X.textBaseline = 'alphabetic';
+  // Stone texture lines on pillars
+  X.strokeStyle = 'rgba(0,0,0,0.2)'; X.lineWidth = SC;
+  for (let sy = archTopY + 8 * SC; sy < archTopY + 30 * SC; sy += 7 * SC) {
+    X.beginPath(); X.moveTo(archCX - 32 * SC, sy); X.lineTo(archCX - 20 * SC, sy); X.stroke();
+    X.beginPath(); X.moveTo(archCX + 20 * SC, sy); X.lineTo(archCX + 32 * SC, sy); X.stroke();
+  }
+
+  // ── Scaffolding poles (jungle-themed, warm red-brown) ────────────────────────
+  X.strokeStyle = '#b71c1c'; X.lineWidth = 3 * SC;
+  X.beginPath(); X.moveTo(36 * SC, 42 * SC); X.lineTo(36 * SC, GH * SC); X.stroke();
+  X.beginPath(); X.moveTo(284 * SC, 42 * SC); X.lineTo(284 * SC, GH * SC); X.stroke();
+  // Cross-braces (subtler)
+  X.strokeStyle = '#b71c1c44'; X.lineWidth = 1.5 * SC;
   for (let yy = 108; yy <= 444; yy += 84) {
     X.beginPath(); X.moveTo(36 * SC, yy * SC); X.lineTo(284 * SC, (yy + 84) * SC); X.stroke();
     X.beginPath(); X.moveTo(284 * SC, yy * SC); X.lineTo(36 * SC, (yy + 84) * SC); X.stroke();
@@ -564,94 +694,244 @@ function drawBarrel(b) {
 function drawPlayer() {
   const px = player.x * SC, py = player.y * SC;
   const cw = CHAR_W * SC, ch = CHAR_H * SC;
-  const cx = px + cw / 2, cy = py + ch / 2;
+  const cx = px + cw / 2;
   const t = SC;
 
   if (player.invTimer > 0 && Math.floor(player.invTimer / 120) % 2 === 1) return;
 
-  const dir = player.facing; // 1=right, -1=left
   const onLad = player.onLadder;
   const walk = Math.sin(player.walkFrame * 0.35);
+  const legSwing = onLad ? 0 : walk * 4;
 
-  X.save(); X.translate(cx, py + ch);
+  // ── All drawing done as right-facing; X.scale(-1,1) flips for left ──────────
+  X.save();
+  X.translate(cx, py + ch);
+  X.scale(player.facing, 1);
 
   // Shadow
   if (player.onGround) {
-    X.fillStyle = 'rgba(0,0,0,0.25)';
+    X.save(); X.scale(player.facing, 1);
+    X.fillStyle = 'rgba(0,0,0,0.22)';
     X.beginPath(); X.ellipse(0, 2 * t, 10 * t, 3 * t, 0, 0, Math.PI * 2); X.fill();
+    X.restore();
   }
 
-  // Legs (walk animation)
-  const legSwing = onLad ? 0 : walk * 5;
-  X.strokeStyle = '#1e88e5'; X.lineWidth = 4 * t; X.lineCap = 'round';
-  X.beginPath(); X.moveTo(-3 * t, -8 * t); X.lineTo((-3 - legSwing) * t, 0); X.stroke();
-  X.beginPath(); X.moveTo(3 * t, -8 * t);  X.lineTo((3 + legSwing) * t, 0);  X.stroke();
-  // Feet
-  X.fillStyle = '#ffd700';
-  X.beginPath(); X.ellipse((-3 - legSwing) * t, 0, 5 * t, 3 * t, 0.2, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.ellipse((3 + legSwing) * t, 0, 5 * t, 3 * t, -0.2, 0, Math.PI * 2); X.fill();
-
-  // Blue hoodie body
-  X.fillStyle = '#1565c0';
-  X.beginPath(); X.ellipse(0, -16 * t, 9 * t, 11 * t, 0, 0, Math.PI * 2); X.fill();
-  // Hoodie pocket
-  X.fillStyle = '#0d47a1';
-  X.fillRect(-4 * t, -18 * t, 8 * t, 5 * t);
-  // MM logo on hoodie
-  X.fillStyle = '#ffd700';
-  X.font = `bold ${5 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
-  X.shadowBlur = 3 * t; X.shadowColor = '#ffd70088';
-  X.fillText('MM', 0, -15.5 * t);
-  X.shadowBlur = 0; X.textBaseline = 'alphabetic';
-
-  // Arms
-  const armSwing = onLad ? walk * 8 : walk * 4;
-  X.strokeStyle = '#1565c0'; X.lineWidth = 4 * t; X.lineCap = 'round';
-  X.beginPath(); X.moveTo(dir > 0 ? 8 * t : -8 * t, -22 * t);
-  X.lineTo((dir > 0 ? 14 : -14) * t + armSwing * t, -16 * t); X.stroke();
-  X.beginPath(); X.moveTo(dir > 0 ? -8 * t : 8 * t, -22 * t);
-  X.lineTo((dir > 0 ? -14 : 14) * t - armSwing * t, -16 * t); X.stroke();
-  // Hands (green)
-  X.fillStyle = '#4caf50';
-  X.beginPath(); X.arc((dir > 0 ? 14 : -14) * t + armSwing * t, -16 * t, 3.5 * t, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.arc((dir > 0 ? -14 : 14) * t - armSwing * t, -16 * t, 3.5 * t, 0, Math.PI * 2); X.fill();
-
-  // Green head
-  X.fillStyle = '#388e3c';
-  X.beginPath(); X.ellipse(0, -30 * t, 9 * t, 9 * t, 0, 0, Math.PI * 2); X.fill();
-  // Face highlight
-  X.fillStyle = '#4caf50';
-  X.beginPath(); X.ellipse(dir * 1.5 * t, -29 * t, 6 * t, 6.5 * t, 0, 0, Math.PI * 2); X.fill();
-
-  // Eyes — big and expressive
-  const eyeOff = dir * 2;
-  X.fillStyle = '#fff';
-  X.beginPath(); X.ellipse((eyeOff - 2) * t, -31 * t, 3 * t, 3.5 * t, 0, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.ellipse((eyeOff + 3) * t, -31 * t, 3 * t, 3.5 * t, 0, 0, Math.PI * 2); X.fill();
-  X.fillStyle = '#1a237e';
-  X.beginPath(); X.arc((eyeOff - 1.5) * t, -30.5 * t, 2 * t, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.arc((eyeOff + 3.5) * t, -30.5 * t, 2 * t, 0, Math.PI * 2); X.fill();
-  X.fillStyle = '#fff';
-  X.beginPath(); X.arc((eyeOff - 1) * t, -31.2 * t, 0.8 * t, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.arc((eyeOff + 4) * t, -31.2 * t, 0.8 * t, 0, Math.PI * 2); X.fill();
-
-  // Smile
-  X.strokeStyle = '#2e7d32'; X.lineWidth = 1.5 * t; X.lineCap = 'round';
-  X.beginPath(); X.arc(eyeOff * t, -27 * t, 3.5 * t, 0.1, Math.PI - 0.1); X.stroke();
-
-  // Green cap / hoodie hood
-  X.fillStyle = '#1565c0';
-  X.beginPath(); X.arc(0, -35 * t, 8 * t, Math.PI, 0); X.fill();
-  // Cap brim
-  X.fillStyle = '#0d47a1';
-  X.beginPath(); X.ellipse(dir * 7 * t, -33 * t, 5 * t, 2.5 * t, dir * 0.2, 0, Math.PI * 2); X.fill();
-
-  // Tail
-  X.strokeStyle = '#388e3c'; X.lineWidth = 4 * t;
+  // ── Tail (behind body, curves up-left for right-facing) ─────────────────────
+  X.strokeStyle = '#2e7d32'; X.lineWidth = 5.5 * t; X.lineCap = 'round';
   X.beginPath();
-  X.moveTo(-dir * 8 * t, -14 * t);
-  X.bezierCurveTo(-dir * 16 * t, -14 * t, -dir * 18 * t, -8 * t, -dir * 14 * t, -4 * t);
+  X.moveTo(-5 * t, -9 * t);
+  X.bezierCurveTo(-13 * t, -8 * t, -17 * t, -3 * t, -13 * t, 3 * t);
   X.stroke();
+  X.strokeStyle = '#388e3c'; X.lineWidth = 3.5 * t;
+  X.beginPath();
+  X.moveTo(-5 * t, -9 * t);
+  X.bezierCurveTo(-13 * t, -8 * t, -17 * t, -3 * t, -13 * t, 3 * t);
+  X.stroke();
+  // Tail tip scale
+  X.fillStyle = '#2e7d32';
+  X.beginPath(); X.ellipse(-13 * t, 3 * t, 3 * t, 2 * t, 0.4, 0, Math.PI * 2); X.fill();
+
+  // ── Legs (blue shorts colour) ─────────────────────────────────────────────────
+  X.fillStyle = '#1a5fb0';
+  X.beginPath(); X.ellipse(-4 * t + legSwing * t * 0.6, -5 * t, 3.5 * t, 5 * t, legSwing * 0.06, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(4 * t - legSwing * t * 0.6, -5 * t, 3.5 * t, 5 * t, -legSwing * 0.06, 0, Math.PI * 2); X.fill();
+
+  // ── Cream clawed feet ─────────────────────────────────────────────────────────
+  const lFx = (-4 - legSwing) * t, rFx = (4 + legSwing) * t;
+  X.fillStyle = '#dfd0a0';
+  X.beginPath(); X.ellipse(lFx, 0, 5.5 * t, 2.8 * t, 0.15, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(rFx, 0, 5.5 * t, 2.8 * t, -0.15, 0, Math.PI * 2); X.fill();
+  // Toe nubs
+  X.fillStyle = '#c8b882';
+  for (let i = 0; i < 3; i++) {
+    X.beginPath(); X.arc(lFx - 4 * t + i * 2.8 * t, -0.5 * t, 1.3 * t, 0, Math.PI * 2); X.fill();
+    X.beginPath(); X.arc(rFx - 4 * t + i * 2.8 * t, -0.5 * t, 1.3 * t, 0, Math.PI * 2); X.fill();
+  }
+
+  // ── Blue shorts ───────────────────────────────────────────────────────────────
+  X.fillStyle = '#1a5fb0';
+  X.beginPath(); X.ellipse(0, -10 * t, 10 * t, 6 * t, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = 'rgba(255,255,255,0.14)';
+  X.beginPath(); X.ellipse(-1 * t, -11.5 * t, 6 * t, 3 * t, -0.1, 0, Math.PI * 2); X.fill();
+
+  // ── Blue hoodie body ──────────────────────────────────────────────────────────
+  X.fillStyle = '#1e6fcc';
+  X.beginPath(); X.ellipse(0, -18 * t, 11 * t, 9 * t, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = 'rgba(255,255,255,0.2)';
+  X.beginPath(); X.ellipse(-2 * t, -20 * t, 7 * t, 5 * t, -0.15, 0, Math.PI * 2); X.fill();
+
+  // ── Cream belly strip ─────────────────────────────────────────────────────────
+  X.fillStyle = '#e8d9aa';
+  X.beginPath(); X.ellipse(0, -14.5 * t, 4.5 * t, 3.5 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // ── Drawstrings on hoodie ─────────────────────────────────────────────────────
+  X.strokeStyle = 'rgba(255,255,255,0.45)'; X.lineWidth = 0.9 * t; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(-2 * t, -24 * t); X.lineTo(-3.5 * t, -18 * t); X.stroke();
+  X.beginPath(); X.moveTo(2 * t, -24 * t); X.lineTo(3.5 * t, -18 * t); X.stroke();
+  // Drawstring bobbles
+  X.fillStyle = '#fff9';
+  X.beginPath(); X.arc(-3.5 * t, -17.5 * t, 1.2 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(3.5 * t, -17.5 * t, 1.2 * t, 0, Math.PI * 2); X.fill();
+
+  // ── MM logo on chest ─────────────────────────────────────────────────────────
+  // Emblem circle
+  X.fillStyle = '#e65100';
+  X.beginPath(); X.arc(0, -20 * t, 5 * t, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#ffd700';
+  X.beginPath(); X.arc(0, -20 * t, 4.2 * t, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#e65100';
+  X.save(); X.scale(player.facing, 1); // unflip for text
+  X.font = `bold ${4.5 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('MM', 0, -20 * t);
+  X.restore(); X.scale(player.facing, 1); // re-apply flip
+
+  // ── Back arm ─────────────────────────────────────────────────────────────────
+  const armSwing = onLad ? walk * 7 : walk * 3;
+  X.strokeStyle = '#1458a8'; X.lineWidth = 5 * t; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(-8 * t, -21 * t); X.lineTo((-12 - armSwing * 2) * t, -16 * t); X.stroke();
+  X.fillStyle = '#388e3c';
+  X.beginPath(); X.arc((-12 - armSwing * 2) * t, -16 * t, 3.5 * t, 0, Math.PI * 2); X.fill();
+  // Scale bump on back hand
+  X.fillStyle = '#2e7d32';
+  for (let i = 0; i < 3; i++) {
+    X.beginPath(); X.arc((-14 - armSwing * 2 + i * 1.5) * t, -16.5 * t, 0.9 * t, 0, Math.PI * 2); X.fill();
+  }
+
+  // ── Front arm holding MM coin ─────────────────────────────────────────────────
+  X.strokeStyle = '#1e6fcc'; X.lineWidth = 5.5 * t; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(8 * t, -21 * t); X.lineTo((13 + armSwing * 2) * t, -16 * t); X.stroke();
+  // Gold MM coin
+  const cX = (13 + armSwing * 2) * t, cY = -16 * t;
+  const cg = X.createRadialGradient(cX - SC, cY - SC * 0.8, SC * 0.3, cX, cY, 4.5 * t);
+  cg.addColorStop(0, '#fff9c4'); cg.addColorStop(0.4, '#ffd700'); cg.addColorStop(1, '#e65100');
+  X.fillStyle = cg;
+  X.shadowBlur = 6; X.shadowColor = '#ffd70088';
+  X.beginPath(); X.arc(cX, cY, 4.5 * t, 0, Math.PI * 2); X.fill();
+  X.shadowBlur = 0;
+  X.strokeStyle = '#fff176'; X.lineWidth = 0.8 * t; X.stroke();
+  // Coin MM text
+  X.fillStyle = '#7a4000';
+  X.save(); X.scale(player.facing, 1);
+  X.font = `bold ${4 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('MM', player.facing * cX, cY);
+  X.restore(); X.scale(player.facing, 1);
+  // Coin shine
+  X.fillStyle = 'rgba(255,255,255,0.4)';
+  X.beginPath(); X.ellipse(cX - 1.5 * t, cY - 1.5 * t, 2.2 * t, 1.5 * t, -0.6, 0, Math.PI * 2); X.fill();
+  // Green fist holding coin
+  X.fillStyle = '#4caf50';
+  X.beginPath(); X.arc(cX, cY + 3.5 * t, 3.5 * t, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#388e3c';
+  for (let i = 0; i < 3; i++) {
+    X.beginPath(); X.arc((cX - 2.5 * t + i * 2 * t), cY + 2.5 * t, 0.9 * t, 0, Math.PI * 2); X.fill();
+  }
+
+  // ── Round chibi head ─────────────────────────────────────────────────────────
+  // Head shadow
+  X.fillStyle = 'rgba(0,0,0,0.1)';
+  X.beginPath(); X.ellipse(1 * t, -25 * t, 10 * t, 3 * t, 0, 0, Math.PI * 2); X.fill();
+  // Head base (dark green)
+  X.fillStyle = '#2e7d32';
+  X.beginPath(); X.ellipse(0, -31 * t, 10.5 * t, 10.5 * t, 0, 0, Math.PI * 2); X.fill();
+  // Scale bumps on top of head
+  X.fillStyle = '#266329';
+  for (let i = 0; i < 5; i++) {
+    X.beginPath(); X.arc((-5 + i * 2.5) * t, -40 * t, 1.4 * t, 0, Math.PI * 2); X.fill();
+  }
+  // Head highlight (bright green, shifted toward snout side)
+  X.fillStyle = '#4caf50';
+  X.beginPath(); X.ellipse(2.5 * t, -32 * t, 8 * t, 8 * t, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#66bb6a';
+  X.beginPath(); X.ellipse(2 * t, -33.5 * t, 5 * t, 5 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // ── Croc snout (wide, horizontal, pointing right) ────────────────────────────
+  // Upper jaw
+  X.fillStyle = '#4caf50';
+  X.beginPath(); X.ellipse(11 * t, -28 * t, 9 * t, 5 * t, -0.12, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#66bb6a'; // snout highlight
+  X.beginPath(); X.ellipse(10 * t, -30 * t, 6 * t, 3 * t, -0.1, 0, Math.PI * 2); X.fill();
+  // Nostrils
+  X.fillStyle = '#1b5e20';
+  X.beginPath(); X.ellipse(16 * t, -30.5 * t, 1.3 * t, 0.9 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(14 * t, -30.5 * t, 1.2 * t, 0.8 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // Open mouth — red interior
+  X.fillStyle = '#b71c1c';
+  X.beginPath(); X.ellipse(11 * t, -25 * t, 8 * t, 4.5 * t, -0.1, 0, Math.PI * 2); X.fill();
+  // Pink tongue
+  X.fillStyle = '#e57373';
+  X.beginPath(); X.ellipse(11 * t, -24 * t, 5 * t, 2.5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#ef9a9a';
+  X.beginPath(); X.ellipse(11 * t, -24.5 * t, 3 * t, 1.5 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // Upper teeth
+  X.fillStyle = '#fff';
+  [[6,-29.5,2.2,3],[8.5,-29.5,2.2,3],[11,-29.5,2,2.5],[13.5,-29.5,1.8,2.2]].forEach(([tx,ty,tw,th]) => {
+    X.beginPath();
+    X.moveTo(tx * t, ty * t);
+    X.lineTo((tx + tw) * t, ty * t);
+    X.lineTo((tx + tw * 0.5) * t, (ty + th) * t);
+    X.closePath(); X.fill();
+  });
+  // Lower teeth
+  [[7,-24.5,2,2],[10,-24.5,2,2],[12.5,-24.5,1.8,1.8]].forEach(([tx,ty,tw,th]) => {
+    X.beginPath();
+    X.moveTo(tx * t, ty * t);
+    X.lineTo((tx + tw) * t, ty * t);
+    X.lineTo((tx + tw * 0.5) * t, (ty - th) * t);
+    X.closePath(); X.fill();
+  });
+  // Jaw outline
+  X.strokeStyle = '#1b5e20'; X.lineWidth = 0.9 * t;
+  X.beginPath(); X.ellipse(11 * t, -28 * t, 9 * t, 5 * t, -0.12, 0, Math.PI * 2); X.stroke();
+
+  // ── Big cartoon eyes ──────────────────────────────────────────────────────────
+  // Eye whites
+  X.fillStyle = '#fff';
+  X.beginPath(); X.ellipse(-2 * t, -35 * t, 4.5 * t, 5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(5 * t, -35.5 * t, 4.5 * t, 5 * t, 0, 0, Math.PI * 2); X.fill();
+  // Eye outline
+  X.strokeStyle = '#1b5e20'; X.lineWidth = 0.7 * t;
+  X.beginPath(); X.ellipse(-2 * t, -35 * t, 4.5 * t, 5 * t, 0, 0, Math.PI * 2); X.stroke();
+  X.beginPath(); X.ellipse(5 * t, -35.5 * t, 4.5 * t, 5 * t, 0, 0, Math.PI * 2); X.stroke();
+  // Pupils (dark brown)
+  X.fillStyle = '#3e2000';
+  X.beginPath(); X.arc(-2 * t, -35 * t, 3 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(5 * t, -35.5 * t, 3 * t, 0, Math.PI * 2); X.fill();
+  // Pupil shine — large bright dot
+  X.fillStyle = '#fff';
+  X.beginPath(); X.arc(-0.8 * t, -36.4 * t, 1.4 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(6.2 * t, -36.9 * t, 1.4 * t, 0, Math.PI * 2); X.fill();
+  // Secondary tiny shine
+  X.fillStyle = 'rgba(255,255,255,0.7)';
+  X.beginPath(); X.arc(-3 * t, -37.2 * t, 0.7 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(3.8 * t, -37.6 * t, 0.7 * t, 0, Math.PI * 2); X.fill();
+
+  // ── Green baseball cap ────────────────────────────────────────────────────────
+  // Cap dome
+  X.fillStyle = '#2e7d32';
+  X.beginPath(); X.ellipse(-1 * t, -38 * t, 11.5 * t, 7 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(-1 * t, -40 * t, 8 * t, Math.PI, 0); X.fill();
+  // Cap highlight
+  X.fillStyle = '#43a047';
+  X.beginPath(); X.ellipse(-3 * t, -42 * t, 5 * t, 3.5 * t, -0.2, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#66bb6a';
+  X.beginPath(); X.ellipse(-4 * t, -44 * t, 2.5 * t, 1.8 * t, -0.3, 0, Math.PI * 2); X.fill();
+  // Cap brim (right-facing)
+  X.fillStyle = '#1b5e20';
+  X.beginPath(); X.ellipse(9 * t, -37 * t, 9 * t, 3 * t, -0.25, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#266329';
+  X.beginPath(); X.ellipse(8 * t, -38.2 * t, 6 * t, 1.8 * t, -0.2, 0, Math.PI * 2); X.fill();
+  // Gold cap band
+  X.fillStyle = '#ffd700';
+  X.beginPath(); X.ellipse(-1 * t, -37.5 * t, 11.5 * t, 2.2 * t, 0, 0, Math.PI * 2); X.fill();
+  // MM on cap
+  X.fillStyle = '#1b5e20';
+  X.save(); X.scale(player.facing, 1);
+  X.font = `bold ${6 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('MM', player.facing * -1 * t, -40 * t);
+  X.textBaseline = 'alphabetic'; X.restore();
+  X.scale(player.facing, 1);
 
   X.restore();
 }
