@@ -214,6 +214,117 @@ const TOURNEY_WINDOW  = 60 * 60 * 1000;
 const MIN_PLAYERS     = 2;
 const MAX_PLAYERS     = 16;
 
+// ─── Anti-cheat config ────────────────────────────────────────────────────────
+// Hard caps: scores above these are physically impossible and are hard-rejected.
+// Based on known game mechanics (e.g. Pac-Man max is 3,333,360; a single session
+// is much shorter so session caps are lower).
+const SCORE_HARD_CAP = {
+  pacman:   500_000,
+  snake:    10_000,
+  frogger:  50_000,
+  pong:     500,
+  dino:     100_000,
+  invaders: 100_000,
+  mario:    999_999,
+  duckhunt: 999_999,
+  fighter:  999_999,
+};
+const SCORE_DEFAULT_HARD_CAP = 999_999;
+
+// Soft caps: scores above these are flagged as suspicious but still accepted
+// (to avoid blocking genuine high-scorers while we monitor).
+const SCORE_SOFT_CAP = {
+  pacman:   100_000,
+  snake:    3_000,
+  frogger:  15_000,
+  pong:     200,
+  dino:     30_000,
+  invaders: 30_000,
+  mario:    100_000,
+  duckhunt: 100_000,
+  fighter:  100_000,
+};
+const SCORE_DEFAULT_SOFT_CAP = 100_000;
+
+// Minimum seconds a game session must exist before a score can be submitted.
+// Prevents instant bot-speed submissions.
+const MIN_GAME_DURATION_S = {
+  pacman:   8,
+  snake:    5,
+  frogger:  5,
+  pong:     10,
+  dino:     5,
+  invaders: 8,
+  mario:    10,
+  duckhunt: 8,
+  fighter:  8,
+};
+const MIN_GAME_DURATION_DEFAULT_S = 5;
+
+// Per-wallet rate limit: max submissions per window
+const SUBMIT_RATE_LIMIT   = 5;   // max N submissions …
+const SUBMIT_RATE_WINDOW  = 60_000; // … per 60 s per wallet
+const _submitRateMap      = new Map(); // wallet -> [timestamp, ...]
+
+// Score-secret HMAC key — stays stable per server process.
+// Even if an attacker learns the key from a previous game, each session uses
+// a fresh one-time scoreSecret so old keys cannot be replayed.
+const SCORE_HMAC_KEY = crypto.randomBytes(32);
+
+function genScoreSecret() {
+  return crypto.randomBytes(16).toString('hex');
+}
+
+function verifyScoreHash(scoreSecret, score, hash) {
+  if (!hash || !scoreSecret) return false;
+  const expected = crypto.createHmac('sha256', SCORE_HMAC_KEY)
+    .update(`${scoreSecret}:${Math.round(score)}`)
+    .digest('hex');
+  try {
+    return crypto.timingSafeEqual(Buffer.from(hash, 'hex'), Buffer.from(expected, 'hex'));
+  } catch { return false; }
+}
+
+function makeScoreHash(scoreSecret, score) {
+  return crypto.createHmac('sha256', SCORE_HMAC_KEY)
+    .update(`${scoreSecret}:${Math.round(score)}`)
+    .digest('hex');
+}
+
+// Returns { ok, reason } — reason is set only when ok === false
+function checkScoreSanity(game, score, sessionStartMs) {
+  const s = Number(score);
+  if (!Number.isFinite(s) || s < 0) return { ok: false, reason: 'invalid score value' };
+  if (!Number.isInteger(s))          return { ok: false, reason: 'score must be an integer' };
+
+  const hardCap = SCORE_HARD_CAP[game] ?? SCORE_DEFAULT_HARD_CAP;
+  if (s > hardCap) return { ok: false, reason: `score ${s} exceeds hard cap ${hardCap} for ${game}` };
+
+  if (sessionStartMs) {
+    const elapsedS = (Date.now() - sessionStartMs) / 1000;
+    const minS     = MIN_GAME_DURATION_S[game] ?? MIN_GAME_DURATION_DEFAULT_S;
+    if (elapsedS < minS) return { ok: false, reason: `submitted too fast (${elapsedS.toFixed(1)}s < ${minS}s min)` };
+  }
+  return { ok: true };
+}
+
+function flagSuspicious(ctx) {
+  try {
+    const line = JSON.stringify({ ...ctx, ts: Date.now() }) + '\n';
+    fs.appendFileSync(path.join(DATA_DIR, 'suspicious_scores.log'), line);
+  } catch {}
+  console.warn('[ANTI-CHEAT] suspicious score:', JSON.stringify(ctx));
+}
+
+function checkRateLimit(wallet) {
+  const now  = Date.now();
+  const hits  = (_submitRateMap.get(wallet) || []).filter(t => now - t < SUBMIT_RATE_WINDOW);
+  if (hits.length >= SUBMIT_RATE_LIMIT) return false;
+  hits.push(now);
+  _submitRateMap.set(wallet, hits);
+  return true;
+}
+
 const TOKEN_PROG   = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const ASSOC_PROG   = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJe1bT3');
 // Primary: user-configured via env var (recommended for production).
@@ -870,8 +981,9 @@ app.post('/api/challenge/join', async (req, res) => {
     else { await verifyEntryFee(txId, c.entryFee || ENTRY_FEE); }
   } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
-  c.player2 = { wallet, txId, paymentType: paymentType || 'monet', score: null, submittedAt: null };
-  c.status  = 'active';
+  c.player2      = { wallet, txId, paymentType: paymentType || 'monet', score: null, submittedAt: null };
+  c.status       = 'active';
+  c.activatedAt  = Date.now();  // used by anti-cheat min-duration check
   dbWrite('challenges', challenges);
   res.json({ ok: true, challenge: c });
 });
@@ -880,6 +992,9 @@ app.post('/api/challenge/submit', async (req, res) => {
   const { challengeId, wallet, score } = req.body;
   if (!challengeId || !wallet || score == null) return res.status(400).json({ error: 'challengeId, wallet, score required' });
 
+  // Rate limit
+  if (!checkRateLimit(wallet)) return res.status(429).json({ error: 'Too many score submissions — slow down' });
+
   const challenges = dbRead('challenges');
   const idx = challenges.findIndex(c => c.id === challengeId);
   if (idx === -1) return res.status(404).json({ error: 'Challenge not found' });
@@ -887,6 +1002,18 @@ app.post('/api/challenge/submit', async (req, res) => {
   const c = challenges[idx];
   if (c.status === 'complete')  return res.json({ ok: true, challenge: c });
   if (Date.now() > c.expiresAt) { c.status = 'expired'; dbWrite('challenges', challenges); return res.status(410).json({ error: 'Challenge expired' }); }
+
+  // Score sanity — use challenge activatedAt (when P2 joined) or createdAt as session start
+  const sessionStart = c.activatedAt || c.createdAt;
+  const sanity = checkScoreSanity(c.game, score, sessionStart);
+  if (!sanity.ok) {
+    flagSuspicious({ reason: 'score_sanity_fail', detail: sanity.reason, wallet, game: c.game, score, challengeId });
+    return res.status(400).json({ error: `Score rejected: ${sanity.reason}` });
+  }
+  const softCap = SCORE_SOFT_CAP[c.game] ?? SCORE_DEFAULT_SOFT_CAP;
+  if (score > softCap) {
+    flagSuspicious({ reason: 'above_soft_cap', wallet, game: c.game, score, softCap, challengeId });
+  }
 
   if (c.player1.wallet === wallet) {
     if (c.player1.score === null || score > c.player1.score) { c.player1.score = score; c.player1.submittedAt = Date.now(); }
@@ -1005,6 +1132,9 @@ app.post('/api/tournament/submit', async (req, res) => {
   const { tournamentId, wallet, score } = req.body;
   if (!tournamentId || !wallet || score == null) return res.status(400).json({ error: 'tournamentId, wallet, score required' });
 
+  // Rate limit
+  if (!checkRateLimit(wallet)) return res.status(429).json({ error: 'Too many score submissions — slow down' });
+
   const tourneys = dbRead('tournaments');
   const idx = tourneys.findIndex(t => t.id === tournamentId);
   if (idx === -1) return res.status(404).json({ error: 'Tournament not found' });
@@ -1014,6 +1144,17 @@ app.post('/api/tournament/submit', async (req, res) => {
 
   const playerIdx = t.players.findIndex(p => p.wallet === wallet);
   if (playerIdx === -1) return res.status(403).json({ error: 'Not registered' });
+
+  // Score sanity — session starts when tournament goes active
+  const sanity = checkScoreSanity(t.game, score, t.startTime);
+  if (!sanity.ok) {
+    flagSuspicious({ reason: 'score_sanity_fail', detail: sanity.reason, wallet, game: t.game, score, tournamentId });
+    return res.status(400).json({ error: `Score rejected: ${sanity.reason}` });
+  }
+  const softCap = SCORE_SOFT_CAP[t.game] ?? SCORE_DEFAULT_SOFT_CAP;
+  if (score > softCap) {
+    flagSuspicious({ reason: 'above_soft_cap', wallet, game: t.game, score, softCap, tournamentId });
+  }
 
   if (t.players[playerIdx].score === null || score > t.players[playerIdx].score) {
     t.players[playerIdx].score       = score;
@@ -1141,26 +1282,98 @@ app.get('/api/leaderboard/:game', (req, res) => {
   const { game } = req.params;
   const challenges  = dbRead('challenges').filter(c => c.game === game && c.status === 'complete');
   const tourneys    = dbRead('tournaments').filter(t => t.game === game && t.status === 'complete');
+  const cpuGames    = dbRead('cpu_games').filter(g => g.game === game && g.status === 'complete');
 
-  const scores = {};
-  const addScore = (wallet, score) => {
-    if (!scores[wallet] || score > scores[wallet]) scores[wallet] = score;
+  // Track best score + the tx that paid out for each wallet
+  const scores = {}; // wallet -> { score, payoutTxId, entryTxId, source }
+  const addScore = (wallet, score, payoutTxId, entryTxId, source) => {
+    if (!scores[wallet] || score > scores[wallet].score) {
+      scores[wallet] = { score, payoutTxId: payoutTxId || null, entryTxId: entryTxId || null, source: source || 'challenge' };
+    }
   };
 
   challenges.forEach(c => {
-    if (c.player1.score) addScore(c.player1.wallet, c.player1.score);
-    if (c.player2?.score) addScore(c.player2.wallet, c.player2.score);
+    if (c.player1?.score) addScore(c.player1.wallet, c.player1.score, c.payoutTxId, c.player1.txId, 'h2h');
+    if (c.player2?.score) addScore(c.player2.wallet, c.player2.score, c.payoutTxId, c.player2.txId, 'h2h');
   });
   tourneys.forEach(t => {
-    t.players.forEach(p => { if (p.score) addScore(p.wallet, p.score); });
+    t.players.forEach(p => {
+      if (p.score) {
+        const winner = t.winners?.find(w => w.wallet === p.wallet);
+        addScore(p.wallet, p.score, winner?.payoutTxId, p.txId, 'tournament');
+      }
+    });
+  });
+  cpuGames.forEach(g => {
+    if (g.playerScore) addScore(g.wallet, g.playerScore, g.payoutTxId, g.txId, 'cpu');
   });
 
   const board = Object.entries(scores)
-    .map(([wallet, score]) => ({ wallet, score }))
+    .map(([wallet, d]) => ({ wallet, ...d }))
     .sort((a, b) => b.score - a.score)
     .slice(0, 20);
 
   res.json({ ok: true, game, leaderboard: board });
+});
+
+// Global leaderboard across all games
+app.get('/api/leaderboard', (req, res) => {
+  const games = ['pacman','snake','frogger','pong','dino','invaders','mario','duckhunt','fighter'];
+  const scores = {}; // wallet -> { score, game, payoutTxId, source }
+
+  games.forEach(game => {
+    const challenges = dbRead('challenges').filter(c => c.game === game && c.status === 'complete');
+    const cpuGames   = dbRead('cpu_games').filter(g => g.game === game && g.status === 'complete');
+    const tourneys   = dbRead('tournaments').filter(t => t.game === game && t.status === 'complete');
+
+    const addScore = (wallet, score, payoutTxId, source) => {
+      const key = wallet + ':' + game;
+      if (!scores[key] || score > scores[key].score) {
+        scores[key] = { wallet, score, game, payoutTxId: payoutTxId || null, source: source || 'challenge' };
+      }
+    };
+    challenges.forEach(c => {
+      if (c.player1?.score) addScore(c.player1.wallet, c.player1.score, c.payoutTxId, 'h2h');
+      if (c.player2?.score) addScore(c.player2.wallet, c.player2.score, c.payoutTxId, 'h2h');
+    });
+    cpuGames.forEach(g => { if (g.playerScore) addScore(g.wallet, g.playerScore, g.payoutTxId, 'cpu'); });
+    tourneys.forEach(t => {
+      t.players.forEach(p => {
+        if (p.score) {
+          const winner = t.winners?.find(w => w.wallet === p.wallet);
+          addScore(p.wallet, p.score, winner?.payoutTxId, 'tournament');
+        }
+      });
+    });
+  });
+
+  const board = Object.values(scores)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, 50);
+
+  res.json({ ok: true, leaderboard: board });
+});
+
+// Token-gate check — returns whether a wallet holds enough MONET to access premium content
+app.get('/api/token-gate/:wallet', async (req, res) => {
+  const { wallet } = req.params;
+  const { threshold = 1 } = req.query;
+  try {
+    const cached = BALANCE_CACHE.get(wallet);
+    let monet = cached?.monet ?? null;
+    if (monet === null) {
+      const mint  = new PublicKey(MINT_ADDRESS);
+      const owner = new PublicKey(wallet);
+      const result = await withRpc(conn => conn.getParsedTokenAccountsByOwner(owner, { mint }), 8000);
+      monet = result?.value?.[0]?.account?.data?.parsed?.info?.tokenAmount?.uiAmount ?? 0;
+      BALANCE_CACHE.set(wallet, { monet, sol: cached?.sol ?? 0, ts: Date.now() });
+    }
+    const passes = monet >= Number(threshold);
+    res.json({ ok: true, wallet, monet, threshold: Number(threshold), passes });
+  } catch(e) {
+    console.warn('[TOKEN-GATE] balance check failed:', e.message);
+    res.json({ ok: true, wallet, monet: 0, threshold: Number(threshold), passes: false, error: e.message });
+  }
 });
 
 // ─── Routes: CPU challenges ───────────────────────────────────────────────────
@@ -1174,21 +1387,37 @@ app.post('/api/cpu/start', async (req, res) => {
     else { await verifyEntryFee(txId, await getDynamicEntryFee()); }
   } catch(e) { return res.status(402).json({ error: `Payment verification failed: ${e.message}` }); }
 
+  // Reject duplicate txIds (replay prevention)
+  const allCpuGames = dbRead('cpu_games');
+  if (allCpuGames.some(g => g.txId === txId)) {
+    return res.status(400).json({ error: 'Transaction ID already used' });
+  }
+
   // CPU is always expert
   const diff   = 'expert';
   const range  = CPU_RANGES[diff]?.[game] || [2000, 4000];
   const cpuScore = Math.floor(range[0] + Math.random() * (range[1] - range[0]));
 
-  const cpuGames = dbRead('cpu_games');
+  // Issue a one-time scoreSecret — client must echo it back on submit so we
+  // know the submission came from the session that paid, not a forged request.
+  const scoreSecret = genScoreSecret();
   const id = genId();
-  cpuGames.push({ id, wallet, txId, game, difficulty: diff, cpuScore, playerScore: null, won: null, payoutTxId: null, status: 'active', createdAt: Date.now() });
-  dbWrite('cpu_games', cpuGames);
-  res.json({ ok: true, cpuGameId: id, cpuScore, difficulty: diff });
+  const now = Date.now();
+  allCpuGames.push({
+    id, wallet, txId, game, difficulty: diff, cpuScore,
+    scoreSecret, playerScore: null, won: null, payoutTxId: null,
+    status: 'active', createdAt: now,
+  });
+  dbWrite('cpu_games', allCpuGames);
+  res.json({ ok: true, cpuGameId: id, cpuScore, difficulty: diff, scoreSecret });
 });
 
 app.post('/api/cpu/submit', async (req, res) => {
-  const { cpuGameId, wallet, playerScore } = req.body;
+  const { cpuGameId, wallet, playerScore, scoreSecret } = req.body;
   if (!cpuGameId || !wallet || playerScore == null) return res.status(400).json({ error: 'cpuGameId, wallet, playerScore required' });
+
+  // Rate limit
+  if (!checkRateLimit(wallet)) return res.status(429).json({ error: 'Too many score submissions — slow down' });
 
   const cpuGames = dbRead('cpu_games');
   const idx = cpuGames.findIndex(g => g.id === cpuGameId && g.wallet === wallet);
@@ -1197,7 +1426,26 @@ app.post('/api/cpu/submit', async (req, res) => {
   const g = cpuGames[idx];
   const dynFee = await getDynamicEntryFee();
   const CPU_PAYOUT = Math.min(dynFee * 2 * (1 - HOUSE_RAKE), CPU_PAYOUT_MAX * (dynFee / ENTRY_FEE));
-  if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0 });
+  if (g.status === 'complete') return res.json({ ok: true, won: g.won, cpuScore: g.cpuScore, playerScore: g.playerScore, payout: g.won ? CPU_PAYOUT : 0, payoutTxId: g.payoutTxId });
+
+  // Verify scoreSecret token — ensures submission came from the paid session
+  if (g.scoreSecret && scoreSecret !== g.scoreSecret) {
+    flagSuspicious({ reason: 'bad_score_secret', wallet, game: g.game, score: playerScore, cpuGameId });
+    return res.status(403).json({ error: 'Invalid score token — session mismatch' });
+  }
+
+  // Score sanity checks
+  const sanity = checkScoreSanity(g.game, playerScore, g.createdAt);
+  if (!sanity.ok) {
+    flagSuspicious({ reason: 'score_sanity_fail', detail: sanity.reason, wallet, game: g.game, score: playerScore, cpuGameId });
+    return res.status(400).json({ error: `Score rejected: ${sanity.reason}` });
+  }
+
+  // Soft cap — flag but allow
+  const softCap = SCORE_SOFT_CAP[g.game] ?? SCORE_DEFAULT_SOFT_CAP;
+  if (playerScore > softCap) {
+    flagSuspicious({ reason: 'above_soft_cap', wallet, game: g.game, score: playerScore, softCap, cpuGameId });
+  }
 
   g.playerScore = playerScore;
   g.won         = playerScore > g.cpuScore;

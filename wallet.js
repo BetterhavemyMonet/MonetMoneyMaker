@@ -1566,8 +1566,24 @@ function _showSubmitToast(msg) {
   setTimeout(() => t.remove(), 5000);
 }
 
+// ─── Solscan helper ───────────────────────────────────────────────────────────
+function _solscanTxLink(txId, label) {
+  if (!txId) return '';
+  const short = txId.slice(0,8) + '…' + txId.slice(-4);
+  return `<a href="https://solscan.io/tx/${txId}" target="_blank" rel="noopener"
+    style="display:inline-flex;align-items:center;gap:5px;margin-top:10px;
+           padding:6px 12px;border-radius:8px;border:1px solid #00f0ff33;
+           background:rgba(0,240,255,0.06);color:#00f0ff;
+           font-size:9px;font-family:Orbitron,sans-serif;text-decoration:none;
+           letter-spacing:0.5px;transition:border-color .15s"
+    onmouseover="this.style.borderColor='#00f0ff88'"
+    onmouseout="this.style.borderColor='#00f0ff33'">
+    &#128279; ${label || 'View on Solscan'} · ${short}
+  </a>`;
+}
+
 // ─── H2H challenge result overlay ────────────────────────────────────────────
-function _showChallengeResult(iWon, myScore, opScore, pot) {
+function _showChallengeResult(iWon, myScore, opScore, pot, payoutTxId) {
   if (document.getElementById('challenge-result-overlay')) return;
   const box = document.createElement('div');
   box.id = 'challenge-result-overlay';
@@ -1579,7 +1595,8 @@ function _showChallengeResult(iWon, myScore, opScore, pot) {
       <div style="font-size:18px;font-weight:800;color:${iWon ? '#ffd700' : '#ff4488'};margin-bottom:14px">${iWon ? 'YOU WIN!' : 'OPPONENT WINS'}</div>
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Your Score</span><span style="color:#00ff9d;font-weight:700">${fmt(myScore)}</span></div>
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Opponent</span><span style="color:#ff4488;font-weight:700">${fmt(opScore)}</span></div>
-      ${iWon ? `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#888">Payout</span><span style="color:#ffd700;font-weight:700">+${pot} MONET</span></div>` : `<div style="padding:8px 0;font-size:11px;color:#888">Better luck next time!</div>`}
+      ${iWon ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Payout</span><span style="color:#ffd700;font-weight:700">+${pot} MONET</span></div>` : `<div style="padding:8px 0;font-size:11px;color:#888">Better luck next time!</div>`}
+      ${iWon && payoutTxId ? `<div style="text-align:center">${_solscanTxLink(payoutTxId, 'Payout TX on Solscan')}</div>` : ''}
       <button onclick="location.href='arcade.html'" style="margin-top:14px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;font-family:Orbitron,sans-serif;font-size:12px;font-weight:800">&#8592; BACK TO ARCADE</button>
       <button onclick="location.href='challenge.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#888;font-family:Orbitron,sans-serif;font-size:10px">CHALLENGE AGAIN</button>
     </div>`;
@@ -1601,7 +1618,8 @@ function _showCpuResult(result, playerScore) {
       <div style="font-size:18px;font-weight:800;color:${won?'#ffd700':'#ff4488'};margin-bottom:14px">${won?'YOU BEAT THE CPU!':'CPU WINS'}</div>
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Your Score</span><span style="color:#00ff9d;font-weight:700">${playerScore}</span></div>
       <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">CPU Score</span><span style="color:#ff4488;font-weight:700">${result.cpuScore}</span></div>
-      ${won ? `<div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#888">Payout</span><span style="color:#ffd700;font-weight:700">+${result.payout} MONET</span></div>` : `<div style="padding:8px 0;font-size:11px;color:#888">Better luck next time!</div>`}
+      ${won ? `<div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#888">Payout</span><span style="color:#ffd700;font-weight:700">+${result.payout} MONET</span></div>` : `<div style="padding:8px 0;font-size:11px;color:#888">Better luck next time!</div>`}
+      ${won && result.payoutTxId ? `<div style="text-align:center">${_solscanTxLink(result.payoutTxId, 'Payout TX on Solscan')}</div>` : ''}
       <button onclick="location.href='arcade.html'" style="margin-top:14px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;font-family:Orbitron,sans-serif;font-size:12px;font-weight:800">&#8592; BACK TO ARCADE</button>
       <button onclick="location.href='challenge.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#888;font-family:Orbitron,sans-serif;font-size:10px">PLAY AGAIN</button>
     </div>`;
@@ -1627,7 +1645,8 @@ async function arcadeSubmitScore(gameName, score) {
 
   if (cpuGameId) {
     try {
-      const result = await api('/api/cpu/submit', 'POST', { cpuGameId, wallet: WalletState.address, playerScore: score });
+      const scoreSecret = cpuSession?.scoreSecret || null;
+      const result = await api('/api/cpu/submit', 'POST', { cpuGameId, wallet: WalletState.address, playerScore: score, scoreSecret });
       sessionStorage.removeItem('cpu_session');
       _showCpuResult(result, score);
     } catch(e) { console.warn('[ARCADE] CPU submit error:', e.message); }

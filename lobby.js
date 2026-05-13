@@ -535,6 +535,7 @@
       sessionStorage.setItem('cpu_session', JSON.stringify({
         cpuGameId: res.cpuGameId, cpuScore: res.cpuScore,
         difficulty: 'expert', game: _gameName, txId,
+        scoreSecret: res.scoreSecret || null,
       }));
       _remove();
       if (_onStart) _onStart({ mode: 'cpu', cpuGameId: res.cpuGameId, cpuScore: res.cpuScore });
