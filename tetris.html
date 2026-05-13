@@ -1,0 +1,397 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>BLOCKCHAIN BLITZ — MONET Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body.game-page{background:#000;overflow:hidden}
+body.game-page::before{display:none}
+.gw{display:flex;flex-direction:column;height:100vh}
+#wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #0a2a0a;font-size:11px;flex-shrink:0}
+.arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000}
+#gc{display:block;image-rendering:crisp-edges}
+.ctrl{flex-shrink:0;background:rgba(0,5,0,.95);border-top:1px solid #0a2a0a;padding:5px 8px;display:flex;flex-direction:column;gap:4px}
+.cr{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.cb{height:46px;border-radius:9px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+.cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
+.mv{width:50px;font-size:19px;background:linear-gradient(135deg,#002200,#001100);color:#00ff9d;border:1px solid #00441a;box-shadow:0 4px 0 #000}
+.rt{width:58px;font-size:9px;background:linear-gradient(135deg,#001a33,#000d22);color:#00d4ff;border:1px solid #003366;box-shadow:0 4px 0 #000}
+.hd{width:56px;font-size:9px;background:linear-gradient(135deg,#2a2200,#1a1500);color:#ffd700;border:1px solid #443300;box-shadow:0 4px 0 #000}
+.dp{flex:1;font-size:11px;background:linear-gradient(135deg,#220044,#110033);color:#c084fc;border:1px solid #440066;box-shadow:0 4px 0 #000}
+.sd{width:50px;font-size:16px;background:linear-gradient(135deg,#001a22,#000d11);color:#00ccff;border:1px solid #003344;box-shadow:0 4px 0 #000}
+.home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
+</style>
+</head>
+<body class="game-page">
+<div class="wallet-bar" id="wbar"></div>
+<div class="gw">
+  <div class="arena"><canvas id="gc"></canvas></div>
+  <div class="ctrl">
+    <div class="cr">
+      <button class="cb mv" ontouchstart="sDAS(-1,event)" ontouchend="eDAS()" onmousedown="sDAS(-1)" onmouseup="eDAS()" onmouseleave="eDAS()">◀</button>
+      <button class="cb rt" ontouchstart="rot(1,event)" onmousedown="rot(1)">↺<br>CCW</button>
+      <button class="cb hd" ontouchstart="hold(event)" onmousedown="hold()">⊡<br>HOLD</button>
+      <button class="cb rt" ontouchstart="rot(-1,event)" onmousedown="rot(-1)">↻<br>CW</button>
+      <button class="cb mv" ontouchstart="sDAS(1,event)" ontouchend="eDAS()" onmousedown="sDAS(1)" onmouseup="eDAS()" onmouseleave="eDAS()">▶</button>
+    </div>
+    <div class="cr">
+      <button class="cb sd" ontouchstart="sSD(event)" ontouchend="eSD()" onmousedown="sSD()" onmouseup="eSD()" onmouseleave="eSD()">▼</button>
+      <button class="cb dp" ontouchstart="hardDrop(event)" onmousedown="hardDrop()">⬇ HARD DROP</button>
+      <a class="home" href="arcade.html">⌂</a>
+    </div>
+  </div>
+</div>
+<script>
+const C=document.getElementById('gc'), X=C.getContext('2d');
+const COLS=10,ROWS=20;
+let SZ=24,PW=108;
+
+function resize(){
+  const p=C.parentElement;
+  SZ=Math.max(18,Math.min(30,Math.floor(Math.min(p.clientWidth*.6/COLS,p.clientHeight/ROWS))));
+  PW=SZ*4.5|0; C.width=COLS*SZ+PW; C.height=ROWS*SZ;
+}
+window.addEventListener('resize',()=>{resize();draw();});
+
+// Pieces: [color, glow, [4 rotation states of [col,row] offsets]]
+const PD=[
+  ['#00f0ff','#003344',[[[0,1],[1,1],[2,1],[3,1]],[[2,0],[2,1],[2,2],[2,3]],[[0,2],[1,2],[2,2],[3,2]],[[1,0],[1,1],[1,2],[1,3]]]],
+  ['#ffd700','#332200',[[[1,0],[2,0],[1,1],[2,1]],[[1,0],[2,0],[1,1],[2,1]],[[1,0],[2,0],[1,1],[2,1]],[[1,0],[2,0],[1,1],[2,1]]]],
+  ['#c084fc','#200033',[[[1,0],[0,1],[1,1],[2,1]],[[1,0],[1,1],[2,1],[1,2]],[[0,1],[1,1],[2,1],[1,2]],[[1,0],[0,1],[1,1],[1,2]]]],
+  ['#00ff9d','#002211',[[[1,0],[2,0],[0,1],[1,1]],[[1,0],[1,1],[2,1],[2,2]],[[1,1],[2,1],[0,2],[1,2]],[[0,0],[0,1],[1,1],[1,2]]]],
+  ['#ff4444','#330011',[[[0,0],[1,0],[1,1],[2,1]],[[2,0],[1,1],[2,1],[1,2]],[[0,1],[1,1],[1,2],[2,2]],[[1,0],[0,1],[1,1],[0,2]]]],
+  ['#4488ff','#001133',[[[0,0],[0,1],[1,1],[2,1]],[[1,0],[2,0],[1,1],[1,2]],[[0,1],[1,1],[2,1],[2,2]],[[1,0],[1,1],[0,2],[1,2]]]],
+  ['#ff8800','#331100',[[[2,0],[0,1],[1,1],[2,1]],[[1,0],[1,1],[1,2],[2,2]],[[0,1],[1,1],[2,1],[0,2]],[[0,0],[1,0],[1,1],[1,2]]]],
+];
+const SYMS=['∞','⬡','◈','⟳','⚡','◂','▸'];
+const NAMES=['CHAIN','BLOCK','TOKEN','SWAP','ZAP','JET','LEDGER'];
+
+const KICKS={ // [from>to]: [[kx,ky],...]
+  '01':[[ 0,0],[-1,0],[-1,-1],[0, 2],[-1, 2]],
+  '10':[[ 0,0],[ 1,0],[ 1, 1],[0,-2],[ 1,-2]],
+  '12':[[ 0,0],[ 1,0],[ 1, 1],[0,-2],[ 1,-2]],
+  '21':[[ 0,0],[-1,0],[-1,-1],[0, 2],[-1, 2]],
+  '23':[[ 0,0],[ 1,0],[ 1,-1],[0, 2],[ 1, 2]],
+  '32':[[ 0,0],[-1,0],[-1, 1],[0,-2],[-1,-2]],
+  '30':[[ 0,0],[-1,0],[-1, 1],[0,-2],[-1,-2]],
+  '03':[[ 0,0],[ 1,0],[ 1,-1],[0, 2],[ 1, 2]],
+};
+const IKICKS={
+  '01':[[ 0,0],[-2,0],[ 1,0],[-2, 1],[ 1,-2]],
+  '10':[[ 0,0],[ 2,0],[-1,0],[ 2,-1],[-1, 2]],
+  '12':[[ 0,0],[-1,0],[ 2,0],[-1,-2],[ 2, 1]],
+  '21':[[ 0,0],[ 1,0],[-2,0],[ 1, 2],[-2,-1]],
+  '23':[[ 0,0],[ 2,0],[-1,0],[ 2,-1],[-1, 2]],
+  '32':[[ 0,0],[-2,0],[ 1,0],[-2, 1],[ 1,-2]],
+  '30':[[ 0,0],[ 1,0],[-2,0],[ 1, 2],[-2,-1]],
+  '03':[[ 0,0],[-1,0],[ 2,0],[-1,-2],[ 2, 1]],
+};
+
+let grid,cur,held,holdUsed,nextQ,score,lines,level,combo;
+let fallT,fallI,lockT,flashT,flashRows;
+let phase='idle',rafId,lastT=0;
+let dasDir=0,dasT=0,sdOn=false;
+let sessionActive=false;
+
+const DAS_MS=167,REP_MS=33,LOCK_MS=500;
+function getFallI(lv){return Math.max(50,800-(lv-1)*75);}
+function shuffle(a){const b=[...a];for(let i=b.length-1;i>0;i--){const j=Math.random()*(i+1)|0;[b[i],b[j]]=[b[j],b[i]];}return b;}
+function fillBag(){while(nextQ.length<6)nextQ.push(...shuffle([0,1,2,3,4,5,6]));}
+function popNext(){fillBag();return nextQ.shift();}
+
+function initGame(){
+  grid=Array.from({length:ROWS},()=>Array(COLS).fill(0));
+  held=null;holdUsed=false;nextQ=[];
+  score=0;lines=0;level=1;combo=-1;
+  fallT=0;fallI=getFallI(1);lockT=LOCK_MS;flashT=0;flashRows=[];
+  fillBag();spawn();
+}
+
+function spawn(){
+  cur={t:popNext(),r:0,x:3,y:0};holdUsed=false;
+  if(hit(cur.x,cur.y,cur.r)){endGame();return;}
+  lockT=LOCK_MS;fallT=0;
+}
+
+function cc(t,r){return PD[t][2][r];}
+function hit(x,y,r,t=cur.t){
+  return cc(t,r).some(([c,rr])=>{
+    const nx=x+c,ny=y+rr;
+    return nx<0||nx>=COLS||ny>=ROWS||(ny>=0&&grid[ny][nx]);
+  });
+}
+
+function lock(){
+  cc(cur.t,cur.r).forEach(([c,r])=>{if(cur.y+r>=0)grid[cur.y+r][cur.x+c]=cur.t+1;});
+  const full=[];
+  for(let r=0;r<ROWS;r++)if(grid[r].every(v=>v))full.push(r);
+  if(full.length){flashRows=full;flashT=280;}
+  else{combo=-1;spawn();}
+}
+
+function clearRows(){
+  const n=flashRows.length;
+  flashRows.sort((a,b)=>b-a).forEach(r=>{grid.splice(r,1);grid.unshift(Array(COLS).fill(0));});
+  const pts=[0,100,300,500,800][n]*level+(n===4?400*level:0);
+  score+=pts;lines+=n;combo++;
+  if(combo>0)score+=50*combo*level;
+  level=Math.floor(lines/10)+1;
+  fallI=getFallI(level);
+  flashRows=[];flashT=0;spawn();
+}
+
+function mH(d){if(!cur||flashT>0)return;if(!hit(cur.x+d,cur.y,cur.r)){cur.x+=d;lockT=LOCK_MS;}}
+function rot(d,e){
+  if(e)e.preventDefault();
+  if(phase!=='play'||!cur||flashT>0)return;
+  const nr=(cur.r+d+4)%4;
+  const ks=cur.t===0?IKICKS[`${cur.r}${nr}`]||[[0,0]]:KICKS[`${cur.r}${nr}`]||[[0,0]];
+  for(const[kx,ky]of ks){if(!hit(cur.x+kx,cur.y-ky,nr)){cur.x+=kx;cur.y-=ky;cur.r=nr;lockT=LOCK_MS;return;}}
+}
+function hardDrop(e){
+  if(e)e.preventDefault();
+  if(phase!=='play'||!cur||flashT>0)return;
+  let d=0;while(!hit(cur.x,cur.y+1,cur.r)){cur.y++;d++;}
+  score+=d*2;lock();
+}
+function hold(e){
+  if(e)e.preventDefault();
+  if(phase!=='play'||holdUsed||!cur||flashT>0)return;
+  holdUsed=true;
+  const t=cur.t;
+  if(held===null){held=t;spawn();}
+  else{const tmp=held;held=t;cur={t:tmp,r:0,x:3,y:0};holdUsed=true;if(hit(cur.x,cur.y,cur.r))endGame();}
+}
+function ghostY(){let gy=cur.y;while(!hit(cur.x,gy+1,cur.r))gy++;return gy;}
+
+let dasFirst=true;
+function sDAS(d,e){if(e)e.preventDefault();dasDir=d;dasFirst=true;dasT=DAS_MS;mH(d);}
+function eDAS(){dasDir=0;}
+function sSD(e){if(e)e.preventDefault();sdOn=true;}
+function eSD(){sdOn=false;}
+
+document.addEventListener('keydown',e=>{
+  if(phase!=='play')return;
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){sDAS(-1);}
+  else if(e.code==='ArrowRight'||e.code==='KeyD'){sDAS(1);}
+  else if(e.code==='ArrowDown'||e.code==='KeyS'){sSD();}
+  else if(e.code==='ArrowUp'||e.code==='KeyW'||e.code==='KeyX'){rot(-1);}
+  else if(e.code==='KeyZ'){rot(1);}
+  else if(e.code==='Space'){e.preventDefault();hardDrop();}
+  else if(e.code==='ShiftLeft'||e.code==='KeyC'){hold();}
+});
+document.addEventListener('keyup',e=>{
+  if((e.code==='ArrowLeft'||e.code==='KeyA')&&dasDir===-1)eDAS();
+  if((e.code==='ArrowRight'||e.code==='KeyD')&&dasDir===1)eDAS();
+  if(e.code==='ArrowDown'||e.code==='KeyS')eSD();
+});
+
+function update(dt){
+  if(phase!=='play'||!cur)return;
+  if(flashT>0){flashT-=dt;if(flashT<=0)clearRows();return;}
+  if(dasDir){dasT-=dt;if(dasT<=0){mH(dasDir);dasT=REP_MS;}}
+  if(sdOn){fallT+=dt*5;score+=1;}else fallT+=dt;
+  if(fallT>=fallI){
+    fallT%=fallI;
+    if(!hit(cur.x,cur.y+1,cur.r)){cur.y++;lockT=LOCK_MS;}
+    else{lockT-=dt;if(lockT<=0)lock();}
+  } else if(hit(cur.x,cur.y+1,cur.r)){
+    lockT-=dt;if(lockT<=0)lock();
+  }
+}
+
+function drawCell(x,y,t,alpha=1,ghost=false){
+  const [col,gl]=PD[t],px=x*SZ,py=y*SZ;
+  X.save();X.globalAlpha=alpha;
+  if(ghost){
+    X.strokeStyle=col;X.lineWidth=1.5;
+    X.strokeRect(px+1,py+1,SZ-2,SZ-2);
+  } else {
+    X.fillStyle=gl;X.fillRect(px,py,SZ,SZ);
+    const g=X.createLinearGradient(px,py,px+SZ,py+SZ);
+    g.addColorStop(0,col+'ee');g.addColorStop(1,col+'77');
+    X.fillStyle=g;X.fillRect(px+1,py+1,SZ-2,SZ-2);
+    X.fillStyle='rgba(255,255,255,0.15)';X.fillRect(px+2,py+2,SZ-4,3);
+    X.fillStyle='rgba(0,0,0,0.45)';
+    X.font=`bold ${SZ*.36|0}px Orbitron,sans-serif`;
+    X.textAlign='center';X.textBaseline='middle';
+    X.fillText(SYMS[t],px+SZ/2,py+SZ/2);
+    X.strokeStyle=col+'99';X.lineWidth=.8;X.strokeRect(px+.5,py+.5,SZ-1,SZ-1);
+  }
+  X.restore();
+}
+
+function drawMini(t,cx,cy,sz=13){
+  const cs=PD[t][2][0];
+  const minC=Math.min(...cs.map(([c])=>c)),maxC=Math.max(...cs.map(([c])=>c));
+  const minR=Math.min(...cs.map(([,r])=>r)),maxR=Math.max(...cs.map(([,r])=>r));
+  const ox=cx-((minC+maxC)/2+.5)*sz, oy=cy-((minR+maxR)/2+.5)*sz;
+  const [col,gl]=PD[t];
+  cs.forEach(([c,r])=>{
+    const px=ox+c*sz,py=oy+r*sz;
+    X.fillStyle=gl;X.fillRect(px,py,sz,sz);
+    X.fillStyle=col+'cc';X.fillRect(px+1,py+1,sz-2,sz-2);
+    X.strokeStyle=col+'aa';X.lineWidth=.7;X.strokeRect(px+.5,py+.5,sz-1,sz-1);
+  });
+}
+
+let hexLines=[];
+function tickHex(){
+  if(hexLines.length<10&&Math.random()<.05){
+    const chars='0123456789ABCDEF';
+    hexLines.push({x:Math.random()*COLS*SZ,y:-10,spd:.8+Math.random()*1.5,
+      s:Array.from({length:8},()=>chars[Math.random()*16|0]).join('')});
+  }
+  hexLines.forEach(h=>h.y+=h.spd);
+  hexLines=hexLines.filter(h=>h.y<ROWS*SZ);
+}
+
+function draw(){
+  const GW=COLS*SZ,H=ROWS*SZ;
+  X.clearRect(0,0,C.width,H);
+  // BG
+  X.fillStyle='#00050a';X.fillRect(0,0,GW,H);
+  X.strokeStyle='#00180a';X.lineWidth=1;
+  for(let c=0;c<=COLS;c++){X.beginPath();X.moveTo(c*SZ,0);X.lineTo(c*SZ,H);X.stroke();}
+  for(let r=0;r<=ROWS;r++){X.beginPath();X.moveTo(0,r*SZ);X.lineTo(GW,r*SZ);X.stroke();}
+  tickHex();
+  X.fillStyle='#003a1022';X.font='8px monospace';X.textAlign='left';
+  hexLines.forEach(h=>X.fillText(h.s,h.x,h.y));
+
+  // Locked cells
+  for(let r=0;r<ROWS;r++){
+    for(let c=0;c<COLS;c++){
+      const v=grid[r][c];
+      if(!v)continue;
+      if(flashRows.includes(r)){
+        X.save();X.globalAlpha=.5+.5*Math.abs(Math.sin(Date.now()/50));
+        X.fillStyle='#aaffdd';X.fillRect(c*SZ,r*SZ,SZ,SZ);X.restore();
+      } else drawCell(c,r,v-1);
+    }
+  }
+
+  // Ghost + current
+  if(cur&&phase==='play'&&flashT===0){
+    const gy=ghostY();
+    if(gy>cur.y) cc(cur.t,cur.r).forEach(([c,r])=>{if(gy+r>=0)drawCell(cur.x+c,gy+r,cur.t,.22,true);});
+    cc(cur.t,cur.r).forEach(([c,r])=>{if(cur.y+r>=0)drawCell(cur.x+c,cur.y+r,cur.t);});
+  }
+
+  // Panel BG
+  const px=GW;
+  X.fillStyle='#000a03';X.fillRect(px,0,PW,H);
+  X.strokeStyle='#00441a';X.lineWidth=1;X.beginPath();X.moveTo(px,.5);X.lineTo(px,H);X.stroke();
+
+  function pLabel(txt,y,col='#00661a'){
+    X.save();X.fillStyle=col;X.font=`bold ${SZ*.28|0}px Orbitron,sans-serif`;
+    X.textAlign='left';X.shadowBlur=0;X.fillText(txt,px+6,y);X.restore();
+  }
+  function pVal(txt,y,col='#00ff9d'){
+    X.save();X.fillStyle=col;X.font=`bold ${SZ*.44|0}px Orbitron,sans-serif`;
+    X.textAlign='right';X.shadowBlur=6;X.shadowColor=col;X.fillText(txt,px+PW-6,y);X.restore();
+  }
+
+  let py=SZ*.9|0;
+  pLabel('HASH PWR',py);pVal(score,py+SZ*.46|0,'#00ff9d');
+  py+=SZ*1.1|0;
+  pLabel('HEIGHT',py);pVal(level,py+SZ*.46|0,'#ffd700');
+  py+=SZ*1.1|0;
+  pLabel('TXS',py);pVal(lines,py+SZ*.46|0,'#00d4ff');
+  if(combo>0){py+=SZ*.9|0;pLabel('CHAIN',py);pVal('x'+(combo+1),py+SZ*.46|0,'#ff8800');}
+
+  // Divider
+  py+=SZ*1.2|0;
+  X.strokeStyle='#00441a';X.lineWidth=1;
+  X.beginPath();X.moveTo(px+4,py);X.lineTo(px+PW-4,py);X.stroke();py+=SZ*.5|0;
+
+  // HOLD
+  pLabel('QUEUED TX',py);py+=SZ*.55|0;
+  const holdBoxY=py,holdBoxH=SZ*2.2|0;
+  X.fillStyle='#001a08';X.fillRect(px+4,holdBoxY,PW-8,holdBoxH);
+  X.strokeStyle='#00441a'+(holdUsed?'88':'');X.lineWidth=1;
+  X.strokeRect(px+4,holdBoxY,PW-8,holdBoxH);
+  if(held!==null) drawMini(held,px+PW/2,holdBoxY+holdBoxH/2,SZ*.56|0);
+  py+=holdBoxH+SZ*.4|0;
+
+  // NEXT
+  X.strokeStyle='#00441a';X.lineWidth=1;
+  X.beginPath();X.moveTo(px+4,py);X.lineTo(px+PW-4,py);X.stroke();py+=SZ*.4|0;
+  pLabel('MEMPOOL',py);py+=SZ*.55|0;
+  const show=Math.min(3,nextQ.length);
+  for(let i=0;i<show;i++){
+    const boxH=SZ*2|0;
+    X.fillStyle=i===0?'#001a08':'#000d04';
+    X.fillRect(px+4,py,PW-8,boxH);
+    if(i===0){X.strokeStyle='#00ff9d55';X.strokeRect(px+4,py,PW-8,boxH);}
+    drawMini(nextQ[i],px+PW/2,py+boxH/2,SZ*.52|0);
+    py+=boxH+3;
+  }
+
+  // Idle overlay
+  if(phase==='idle'){
+    X.fillStyle='rgba(0,5,2,.75)';X.fillRect(0,0,GW,H);
+    X.fillStyle='#00ff9d';X.font=`bold ${SZ*.7|0}px Orbitron,sans-serif`;
+    X.textAlign='center';X.shadowBlur=18;X.shadowColor='#00ff9d';
+    X.fillText('BLOCKCHAIN',GW/2,H/2-SZ*1.5);
+    X.fillText('BLITZ',GW/2,H/2-.4*SZ);
+    X.shadowBlur=0;X.fillStyle='#ffffff44';X.font=`bold ${SZ*.3|0}px Orbitron,sans-serif`;
+    X.fillText('mine blocks · confirm chains',GW/2,H/2+SZ*.9);
+  }
+  if(phase==='over'){
+    X.fillStyle='rgba(0,0,5,.8)';X.fillRect(0,0,GW,H);
+    X.fillStyle='#ff4444';X.font=`bold ${SZ*.65|0}px Orbitron,sans-serif`;
+    X.textAlign='center';X.shadowBlur=20;X.shadowColor='#ff4444';
+    X.fillText('CHAIN',GW/2,H/2-SZ);X.fillText('BROKEN',GW/2,H/2+SZ*.2);
+  }
+}
+
+function endGame(){
+  phase='over';cancelAnimationFrame(rafId);draw();
+  if(sessionActive){arcadeSubmitScore('tetris',score).catch(()=>{});sessionActive=false;}
+  setTimeout(()=>{
+    const b=document.createElement('div');
+    b.style.cssText='position:fixed;inset:0;background:rgba(0,0,8,.96);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+    b.innerHTML=`<div style="background:linear-gradient(160deg,#000d04,#001a08);border:2px solid #00ff9d;border-radius:20px;padding:28px 22px;width:min(320px,90vw);text-align:center">
+      <div style="font-size:38px;margin-bottom:8px">⛓️</div>
+      <div style="font-size:20px;font-weight:900;color:#00ff9d;letter-spacing:3px;margin-bottom:14px">CHAIN BROKEN</div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#666">HASH POWER</span><span style="color:#00ff9d;font-weight:800">${score.toLocaleString()}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#666">BLOCK HEIGHT</span><span style="color:#ffd700;font-weight:800">${level}</span></div>
+      <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#666">TXS CONFIRMED</span><span style="color:#00d4ff;font-weight:800">${lines}</span></div>
+      <button onclick="location.reload()" style="margin-top:16px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#00ff9d,#00aa66);color:#000;font-family:Orbitron,sans-serif;font-size:12px;font-weight:900">RESTART CHAIN</button>
+      <button onclick="location.href='arcade.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #222;cursor:pointer;background:transparent;color:#555;font-family:Orbitron,sans-serif;font-size:10px">← ARCADE</button>
+    </div>`;
+    document.body.appendChild(b);
+  },800);
+}
+
+function loop(ts){
+  rafId=requestAnimationFrame(loop);
+  const dt=Math.min(100,ts-lastT);lastT=ts;
+  if(phase==='play')update(dt);
+  draw();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  renderWalletBar('wbar');
+  resize();
+  phase='idle';initGame();
+  lastT=performance.now();
+  rafId=requestAnimationFrame(loop);
+
+  showGameLobby('tetris',()=>{
+    sessionActive=true;
+    phase='idle';initGame();
+    setTimeout(()=>{phase='play';},200);
+  });
+});
+</script>
+</body>
+</html>

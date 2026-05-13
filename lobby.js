@@ -222,20 +222,20 @@
           <div class="lb-mc-name">PRACTICE</div>
           <div class="lb-mc-sub">Free · No entry fee<br>No prize pool</div>
         </button>
-        <button class="lb-mode-card cpu" onclick="window._lbCpuExpert()">
-          <span class="lb-mc-icon">🤖</span>
-          <div class="lb-mc-name">CPU EXPERT</div>
-          <div class="lb-mc-sub">≈$0.50 entry · Win 80% back<br>(~${CPU_WIN_PAYOUT} MONET if you win)</div>
+        <button class="lb-mode-card cpu" onclick="window._lbSoloPaid()">
+          <span class="lb-mc-icon">🏅</span>
+          <div class="lb-mc-name">SOLO PLAY</div>
+          <div class="lb-mc-sub">≈$0.50 entry · Top score<br>wins 80% of pot back</div>
         </button>
         <button class="lb-mode-card live" onclick="window._lbJoinLive()">
           <span class="lb-mc-icon">⚡</span>
           <div class="lb-mc-name">JOIN LIVE</div>
-          <div class="lb-mc-sub">Browse open H2H<br>80/20 pot split</div>
+          <div class="lb-mc-sub">Browse open H2H<br>90/10 pot split</div>
         </button>
         <button class="lb-mode-card create" onclick="window._lbCreate()">
           <span class="lb-mc-icon">⚔</span>
           <div class="lb-mc-name">CREATE H2H</div>
-          <div class="lb-mc-sub">Challenge a friend<br>80/20 pot split</div>
+          <div class="lb-mc-sub">Challenge a friend<br>90/10 pot split</div>
         </button>
       </div>
       <button class="lb-mode-card tourney full-row" style="width:100%;display:block" onclick="window._lbTournament()">
@@ -510,40 +510,29 @@
     if (_onStart) _onStart({ mode: 'solo' });
   }
 
-  // CPU EXPERT — currency picker then pay → launch via showPayGate
-  function _doCpuExpert() {
-    _screenCurrency('CPU EXPERT', '🤖',
-      () => { _paymentType = 'monet'; _doPayAndLaunchCpu(); },
-      () => { _paymentType = 'sol';   _doPayAndLaunchCpu(); }
+  // SOLO PLAY (paid) — currency picker then pay → start game solo
+  function _doSoloPaid() {
+    _screenCurrency('SOLO PLAY', '🏅',
+      () => { _paymentType = 'monet'; _doPayAndLaunchSolo(); },
+      () => { _paymentType = 'sol';   _doPayAndLaunchSolo(); }
     );
   }
 
-  async function _doPayAndLaunchCpu() {
+  async function _doPayAndLaunchSolo() {
     try { await _ensureWallet(); } catch(e) { _setErr(e.message); return; }
     _screenPaying('CHECKING WALLET...');
     _setSpinStep(1);
     let txId;
     try { txId = await _pay(_selectedWager); }
-    catch(e) { _doCpuExpert(); _setErr(e.message); return; }
+    catch(e) { _doSoloPaid(); _setErr(e.message); return; }
 
-    _setSpinLabel('LAUNCHING CPU GAME...');
-    try {
-      const wallet = WalletState.address;
-      const res = await api('/api/cpu/start', 'POST', {
-        wallet, txId, game: _gameName, paymentType: _paymentType,
-      });
-      sessionStorage.setItem('cpu_session', JSON.stringify({
-        cpuGameId: res.cpuGameId, cpuScore: res.cpuScore,
-        difficulty: 'expert', game: _gameName, txId,
-        scoreSecret: res.scoreSecret || null,
-      }));
-      _remove();
-      if (_onStart) _onStart({ mode: 'cpu', cpuGameId: res.cpuGameId, cpuScore: res.cpuScore });
-      if (typeof showCpuTarget === 'function') setTimeout(() => showCpuTarget(res.cpuScore, 'expert'), 300);
-    } catch(e) {
-      _doCpuExpert();
-      _setErr('Failed to start CPU game: ' + e.message);
-    }
+    _setSpinLabel('STARTING GAME...');
+    _setSpinStep(2);
+    sessionStorage.setItem('solo_session', JSON.stringify({
+      game: _gameName, txId, entryFee: _selectedWager, paymentType: _paymentType,
+    }));
+    _remove();
+    if (_onStart) _onStart({ mode: 'solo_paid', txId });
   }
 
   // JOIN LIVE — browse then currency pick → pay → join
@@ -729,7 +718,7 @@
 
   // ─── Expose on window ────────────────────────────────────────────────────────
   window._lbSolo            = _doSolo;
-  window._lbCpuExpert       = _doCpuExpert;
+  window._lbSoloPaid        = _doSoloPaid;
   window._lbJoinLive        = _doJoinLive;
   window._lbCreate          = _doCreate;
   window._lbTournament      = _doTournament;

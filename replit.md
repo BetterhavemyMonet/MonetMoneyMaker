@@ -30,11 +30,15 @@ Active games (arcade.html displays in this order):
 10. **Asteroid Dodger** (`dodger.html`) — Space shooter; dodge & auto-fire through waves
 11. **Reaction Blitz** (`reaction.html`) — Tap glowing targets fast; build combo multipliers; 30-sec challenge
 12. **Tap Frenzy** (`tap.html`) — Tap as fast as possible in 20 seconds; graded S/A/B/C
-13. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
+13. **Blockchain Blitz** (`tetris.html`) — Crypto-themed Tetris; stack transaction blocks, confirm chains, mine rows
+14. **Brick Blaster** (`breakout.html`) — Arkanoid/Breakout; smash bricks with a ball, catch power-ups (wide/laser/multi-ball)
+15. **Galaxy Blitz** (`galaga.html`) — Galaga-style formation shooter; enemies dive-bomb, double score mid-dive
+16. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
 
 **Monet Bros** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
 **Asteroid Dodger**, **Reaction Blitz**, and **Tap Frenzy** also use `showPayGate` directly (solo-only games).  
-All other games use `showGameLobby()` (lobby.js) which presents Solo or H2H modes before play.
+All other games use `showGameLobby()` (lobby.js) which presents Practice · Solo Play · Join Live · Create H2H · Tournament.  
+**No CPU opponent games** — lobby shows Solo Play (paid, leaderboard) instead of CPU Expert.
 
 ## Project Structure
 
