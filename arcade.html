@@ -216,7 +216,7 @@ body::before {
 <div class="page">
 <img src="/logo.png" style="width:80px;display:block;margin:12px auto 6px;filter:drop-shadow(0 0 16px #a855ff)">
 <h1>MONET ARCADE</h1>
-<div class="subtitle">Every game costs <span style="color:#ffd700">$0.99 USD</span> · Pay in MONET or SOL</div>
+<div class="subtitle">Every game costs <span style="color:#ffd700">$0.50 USD</span> · Pay in MONET or SOL</div>
 
 <div class="nav-row">
   <button class="nav-btn" onclick="location.href='index.html'">&#8592; Home</button>
@@ -248,7 +248,7 @@ body::before {
     font-family:'Orbitron',sans-serif;
   ">
     <div>
-      <div style="font-size:18px;font-weight:800;color:#ffd700">$0.99 <span style="font-size:11px;color:#aaa;font-weight:normal">USD per game</span></div>
+      <div style="font-size:18px;font-weight:800;color:#ffd700">$0.50 <span style="font-size:11px;color:#aaa;font-weight:normal">USD per game</span></div>
       <div style="font-size:9px;color:#666;margin-top:2px;letter-spacing:1px">ENTRY FEE · ALL MODES</div>
     </div>
     <div style="display:flex;gap:16px;flex-wrap:wrap;justify-content:center">
@@ -260,7 +260,7 @@ body::before {
       <div style="color:#333;font-size:18px;align-self:center">·</div>
       <div style="text-align:center">
         <div style="font-size:11px;color:#3b82f6;font-weight:800">◎ SOL</div>
-        <div style="font-size:10px;color:#ccc;margin-top:2px">~$0.99 in SOL</div>
+        <div style="font-size:10px;color:#ccc;margin-top:2px">~$0.50 in SOL</div>
         <div style="font-size:8px;color:#555;margin-top:1px">≈ 0.001 SOL</div>
       </div>
     </div>
@@ -361,18 +361,18 @@ body::before {
     <span class="badge" style="background:linear-gradient(135deg,#00ff9d,#00aa55);color:#000">PUZZLE</span>
   </a>
 
-  <a class="card" data-href="kong.html" data-game="kong" data-icon="🦍" data-title="Token Kong" style="--accent:#ff8800;--accent2:#ffd700;--glow:#ff880044">
-    <div class="card-icon">🦍</div>
-    <div class="card-title">Token Kong</div>
-    <div class="card-desc">Climb blockchain layers to the MONET prize! Jump over TX barrels thrown by Monet Kong!</div>
-    <span class="badge" style="background:linear-gradient(135deg,#ff8800,#ffd700);color:#000">PLATFORMER</span>
+  <a class="card" data-href="breakout.html" data-game="breakout" data-icon="🧱" data-title="Brick Blaster" style="--accent:#00d4ff;--accent2:#0066cc;--glow:#00d4ff44">
+    <div class="card-icon">🧱</div>
+    <div class="card-title">Brick Blaster</div>
+    <div class="card-desc">Smash through rows of bricks with your ball. Catch power-ups: wide paddle, multi-ball, laser!</div>
+    <span class="badge" style="background:linear-gradient(135deg,#00d4ff,#0066cc);color:#000">CLASSIC</span>
   </a>
 
-  <a class="card" data-href="racer.html" data-game="racer" data-icon="🏍" data-title="Hash Racer" style="--accent:#ff2244;--accent2:#ff8800;--glow:#ff224444">
-    <div class="card-icon">🏍</div>
-    <div class="card-title">Hash Racer</div>
-    <div class="card-desc">Ride ramps, hit turbo &amp; manage overheat in this Excitebike-style blockchain night race!</div>
-    <span class="badge" style="background:linear-gradient(135deg,#00ccff,#a855ff);color:#000">RACING</span>
+  <a class="card" data-href="galaga.html" data-game="galaga" data-icon="👾" data-title="Galaxy Blitz" style="--accent:#ff8800;--accent2:#cc4400;--glow:#ff880044">
+    <div class="card-icon">👾</div>
+    <div class="card-title">Galaxy Blitz</div>
+    <div class="card-desc">Enemy formations dive-bomb your ship. Shoot them mid-dive for double points!</div>
+    <span class="badge" style="background:linear-gradient(135deg,#ff8800,#cc4400);color:#000">SHOOTER</span>
   </a>
 
   <a class="card" href="dino.html#create" style="--accent:#a855ff;--glow:#a855ff44" onclick="sessionStorage.setItem('dino_tab','create')">
@@ -417,8 +417,8 @@ body::before {
     <div id="gm-title" style="font-family:'Orbitron',sans-serif;font-size:14px;font-weight:800;background:linear-gradient(90deg,#a855ff,#00f0ff);-webkit-background-clip:text;-webkit-text-fill-color:transparent"></div>
     <div style="font-size:10px;color:#555;margin-top:3px;font-family:'Orbitron',sans-serif">SELECT GAME MODE</div>
     <div style="margin-top:8px;padding:6px 12px;background:rgba(255,215,0,0.07);border:1px solid rgba(255,215,0,0.2);border-radius:8px;display:inline-block">
-      <span style="font-size:10px;color:#ffd700;font-family:'Orbitron',sans-serif;font-weight:800">$0.99 USD entry</span>
-      <span style="font-size:9px;color:#666;margin-left:6px">· <span id="gm-monet-fee">—</span> MONET or ~$0.99 SOL</span>
+      <span style="font-size:10px;color:#ffd700;font-family:'Orbitron',sans-serif;font-weight:800">$0.50 USD entry</span>
+      <span style="font-size:9px;color:#666;margin-left:6px">· <span id="gm-monet-fee">—</span> MONET or ~$0.50 SOL</span>
     </div>
   </div>
   <div style="display:flex;flex-direction:column;gap:9px" id="gm-modes">
@@ -436,16 +436,16 @@ body::before {
       <span class="gm-btn-icon">🤖</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">VS CPU</span>
-        <span class="gm-btn-desc">Expert AI · $0.99 entry · Win double if you beat it</span>
+        <span class="gm-btn-desc">Expert AI · $0.50 entry · Win double if you beat it</span>
       </span>
-      <span class="gm-btn-badge" style="background:rgba(255,68,136,0.15);color:#ff4488;border-color:#ff448844" id="gm-cpu-badge">$0.99</span>
+      <span class="gm-btn-badge" style="background:rgba(255,68,136,0.15);color:#ff4488;border-color:#ff448844" id="gm-cpu-badge">$0.50</span>
     </button>
 
     <button class="gm-btn" style="--c:#00f0ff" onclick="goMode('wait')">
       <span class="gm-btn-icon">👥</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">WAIT FOR LIVE PLAYER</span>
-        <span class="gm-btn-desc">$0.99 entry · open a challenge · wait for a real opponent</span>
+        <span class="gm-btn-desc">$0.50 entry · open a challenge · wait for a real opponent</span>
       </span>
       <span class="gm-btn-badge" style="background:rgba(0,240,255,0.12);color:#00f0ff;border-color:#00f0ff44">LIVE</span>
     </button>
@@ -454,7 +454,7 @@ body::before {
       <span class="gm-btn-icon">⚔️</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">H2H CHALLENGE</span>
-        <span class="gm-btn-desc">$0.99 entry · challenge a friend · winner takes 80% pot</span>
+        <span class="gm-btn-desc">$0.50 entry · challenge a friend · winner takes 80% pot</span>
       </span>
       <span class="gm-btn-badge" style="background:rgba(0,240,255,0.12);color:#00f0ff;border-color:#00f0ff44">1v1</span>
     </button>
@@ -463,7 +463,7 @@ body::before {
       <span class="gm-btn-icon">🏆</span>
       <span class="gm-btn-body">
         <span class="gm-btn-title">TOURNAMENT</span>
-        <span class="gm-btn-desc">$0.99 entry · multi-player bracket · top 3 share prize pool</span>
+        <span class="gm-btn-desc">$0.50 entry · multi-player bracket · top 3 share prize pool</span>
       </span>
       <span class="gm-btn-badge" style="background:rgba(255,215,0,0.12);color:#ffd700;border-color:#ffd70044">PRIZE POOL</span>
     </button>
