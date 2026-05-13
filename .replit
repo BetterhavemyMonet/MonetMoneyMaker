@@ -92,7 +92,7 @@ externalPort = 3002
 [deployment]
 deploymentTarget = "autoscale"
 build = ["npm", "run", "build"]
-run = ["bash", "-c", "NODE_ENV=production node server.js"]
+run = ["node", "server.js"]
 
 [postMerge]
 path = "scripts/post-merge.sh"

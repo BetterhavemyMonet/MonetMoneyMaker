@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>TOKEN KONG — MONET Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body.game-page{background:#000;overflow:hidden}
+body.game-page::before{display:none}
+.gw{display:flex;flex-direction:column;height:100vh}
+#wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #1a0a00;font-size:11px;flex-shrink:0}
+.arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000}
+#gc{display:block;image-rendering:crisp-edges}
+.ctrl{flex-shrink:0;background:rgba(5,2,0,.97);border-top:1px solid #331100;padding:5px 8px;display:flex;flex-direction:column;gap:4px}
+.cr{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.cb{height:46px;border-radius:9px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
+.cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
+.mv{width:56px;font-size:22px;background:linear-gradient(135deg,#331100,#220a00);color:#ff8800;border:1px solid #661100;box-shadow:0 4px 0 #000}
+.jp{flex:1;font-size:12px;background:linear-gradient(135deg,#220044,#110033);color:#c084fc;border:1px solid #440066;box-shadow:0 4px 0 #000}
+.home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
+.ud{width:50px;font-size:22px;background:linear-gradient(135deg,#001a33,#000d22);color:#00f0ff;border:1px solid #003366;box-shadow:0 4px 0 #000}
+</style>
+</head>
+<body class="game-page">
+<div class="wallet-bar" id="wbar"></div>
+<div class="gw">
+  <div class="arena"><canvas id="gc"></canvas></div>
+  <div class="ctrl">
+    <div class="cr">
+      <button class="cb mv" ontouchstart="setKey('left',true,event)" ontouchend="setKey('left',false)" onmousedown="setKey('left',true)" onmouseup="setKey('left',false)" onmouseleave="setKey('left',false)">&#9664;</button>
+      <button class="cb ud" ontouchstart="setKey('up',true,event)" ontouchend="setKey('up',false)" onmousedown="setKey('up',true)" onmouseup="setKey('up',false)" onmouseleave="setKey('up',false)">&#9650;</button>
+      <button class="cb jp" ontouchstart="doJump(event)" onmousedown="doJump()">&#11014; JUMP</button>
+      <button class="cb ud" ontouchstart="setKey('down',true,event)" ontouchend="setKey('down',false)" onmousedown="setKey('down',true)" onmouseup="setKey('down',false)" onmouseleave="setKey('down',false)">&#9660;</button>
+      <button class="cb mv" ontouchstart="setKey('right',true,event)" ontouchend="setKey('right',false)" onmousedown="setKey('right',true)" onmouseup="setKey('right',false)" onmouseleave="setKey('right',false)">&#9654;</button>
+    </div>
+    <div class="cr">
+      <a class="home" href="arcade.html">&#8962;</a>
+    </div>
+  </div>
+</div>
+<script>
+const C=document.getElementById('gc'), X=C.getContext('2d');
+const LW=320, LH=460;
+let SC=1;
+
+function resize(){
+  const p=C.parentElement;
+  SC=Math.min(p.clientWidth/LW, p.clientHeight/LH);
+  C.width=Math.floor(LW*SC); C.height=Math.floor(LH*SC);
+}
+window.addEventListener('resize',()=>{resize(); if(phase) draw();});
+resize();
+
+const charImg=new Image(); charImg.src='/dino-sprite.png';
+
+const GRAVITY=0.55, JUMP_V=-13, WALK_SPD=2.4;
+const CW=28, CH=32;
+const BARREL_R=10;
+
+// FLOORS[0] = TOP (Kong's platform), FLOORS[4] = GROUND (player starts)
+// y increases downward; smaller y = higher on screen
+const FLOORS=[
+  {y:72,  x1:60, x2:260},   // 0 = TOP CHAIN (Kong lives here)
+  {y:155, x1:0,  x2:276},   // 1
+  {y:240, x1:44, x2:320},   // 2
+  {y:330, x1:0,  x2:276},   // 3
+  {y:420, x1:0,  x2:320},   // 4 = GROUND (player starts here)
+];
+
+// Ladders: x=center, y1=top (smaller y), y2=bottom (larger y)
+const LADDERS=[
+  {x:152, y1:72,  y2:155, w:18},  // floor 0 → floor 1
+  {x:252, y1:155, y2:240, w:18},  // floor 1 → floor 2
+  {x:68,  y1:240, y2:330, w:18},  // floor 2 → floor 3
+  {x:252, y1:330, y2:420, w:18},  // floor 3 → floor 4
+];
+
+// Barrel direction per floor: +1 = moving right, -1 = moving left
+const BARREL_DIR=[1, -1, 1, -1, 1];
+
+let player, barrels, score, lives, gameRunning, animId, phase;
+let barrelTimer=0, wave=0, kongAnim=0, kongThrow=false;
+let keys={left:false,right:false,up:false,down:false};
+let jumpQueued=false;
+
+function initVars(){
+  score=0; lives=3; wave=0; barrelTimer=0; phase='play'; gameRunning=true; kongAnim=0;
+  barrels=[];
+}
+
+function resetPlayer(){
+  player={x:20, y:FLOORS[4].y-CH, vy:0, climbing:false, floorIdx:4, dead:false, deadTimer:0};
+}
+
+function barrelSpeed(){ return 1.4+wave*0.18; }
+
+function spawnBarrel(){
+  // Start just above FLOORS[0], moving right
+  const f=FLOORS[0];
+  barrels.push({x:f.x1+8, y:f.y-BARREL_R-2, vy:0, floorIdx:0, falling:false, scored:false});
+  kongThrow=true; setTimeout(()=>kongThrow=false,400);
+}
+
+function updateBarrel(b){
+  if(b.falling){
+    b.vy+=GRAVITY*0.9;
+    b.y+=b.vy;
+    const nextFi=b.floorIdx+1;
+    if(nextFi<FLOORS.length){
+      const f=FLOORS[nextFi];
+      if(b.y+BARREL_R>=f.y && b.x+BARREL_R>f.x1 && b.x-BARREL_R<f.x2){
+        b.y=f.y-BARREL_R; b.vy=0; b.falling=false; b.floorIdx=nextFi;
+      }
+    }
+    if(b.y>LH+20) return false;
+  } else {
+    const dir=BARREL_DIR[b.floorIdx];
+    b.x+=dir*barrelSpeed();
+    const f=FLOORS[b.floorIdx];
+    if(b.x-BARREL_R<f.x1||b.x+BARREL_R>f.x2){
+      if(b.floorIdx>=FLOORS.length-1) return false;
+      b.falling=true; b.vy=1;
+    }
+  }
+  return true;
+}
+
+function onFloor(px,py){
+  const cy=py+CH;
+  for(let i=0;i<FLOORS.length;i++){
+    const f=FLOORS[i];
+    if(cy>=f.y-2 && cy<=f.y+5 && px+CW-4>f.x1 && px+4<f.x2) return i;
+  }
+  return -1;
+}
+
+function nearLadder(px,py){
+  const cx=px+CW/2, cy=py+CH/2;
+  for(let l of LADDERS){
+    if(Math.abs(cx-l.x)<=l.w/2+4 && cy>l.y1-8 && cy<l.y2+8) return l;
+  }
+  return null;
+}
+
+function killPlayer(){
+  if(player.dead) return;
+  player.dead=true; player.deadTimer=90; lives--;
+  if(lives<=0){ setTimeout(endGame,1100); }
+  else { setTimeout(()=>{ resetPlayer(); barrelTimer=0; },1100); }
+}
+
+function endGame(){
+  gameRunning=false; phase='over';
+  arcadeSubmitScore('kong',score);
+  if(animId) cancelAnimationFrame(animId); animId=null;
+  draw();
+}
+
+function checkWin(){
+  if(player.floorIdx===0){
+    phase='win'; score+=500+wave*100;
+    setTimeout(()=>{
+      wave=Math.min(wave+1,8);
+      if(wave>=8){ endGame(); return; }
+      barrels=[]; barrelTimer=0;
+      resetPlayer(); phase='play';
+    },1800);
+  }
+}
+
+function setKey(k,v,e){ if(e)e.preventDefault(); keys[k]=v; }
+function doJump(e){ if(e)e.preventDefault(); jumpQueued=true; }
+
+document.addEventListener('keydown',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){keys.left=true;}
+  if(e.code==='ArrowRight'||e.code==='KeyD'){keys.right=true;}
+  if(e.code==='ArrowUp'||e.code==='KeyW'){keys.up=true;}
+  if(e.code==='ArrowDown'||e.code==='KeyS'){keys.down=true;}
+  if(e.code==='Space'||e.code==='ArrowUp'){jumpQueued=true;}
+});
+document.addEventListener('keyup',e=>{
+  if(e.code==='ArrowLeft'||e.code==='KeyA'){keys.left=false;}
+  if(e.code==='ArrowRight'||e.code==='KeyD'){keys.right=false;}
+  if(e.code==='ArrowUp'||e.code==='KeyW'){keys.up=false;}
+  if(e.code==='ArrowDown'||e.code==='KeyS'){keys.down=false;}
+});
+
+function update(){
+  if(!gameRunning||phase!=='play') return;
+  if(player.dead){ player.deadTimer--; return; }
+
+  kongAnim=(kongAnim+0.08)%1;
+
+  // Barrel spawning
+  const interval=Math.max(90,200-wave*22);
+  barrelTimer++;
+  if(barrelTimer>=interval){ barrelTimer=0; spawnBarrel(); }
+
+  const lad=nearLadder(player.x,player.y);
+
+  if(lad&&(keys.up||keys.down)){
+    player.climbing=true; player.vy=0;
+    if(keys.up)  player.y-=2.4;
+    if(keys.down)player.y+=2.4;
+    player.x=lad.x-CW/2;
+    // Clamp to ladder bounds
+    if(player.y<lad.y1-CH)  player.y=lad.y1-CH;
+    if(player.y+CH>lad.y2+4){ player.y=lad.y2-CH; player.climbing=false; }
+    // Snap to floor when reaching top
+    if(player.y<=lad.y1-CH+4){
+      for(let i=0;i<FLOORS.length;i++){
+        if(Math.abs(FLOORS[i].y-lad.y1)<4){ player.y=FLOORS[i].y-CH; player.floorIdx=i; break; }
+      }
+    }
+  } else {
+    if(!lad) player.climbing=false;
+    player.vy+=GRAVITY; player.y+=player.vy;
+    if(keys.left)  player.x-=WALK_SPD;
+    if(keys.right) player.x+=WALK_SPD;
+
+    if(jumpQueued&&!player.climbing){
+      const fi=onFloor(player.x,player.y);
+      if(fi>=0){ player.vy=JUMP_V; }
+    }
+
+    // Floor landing
+    let landed=-1;
+    for(let i=0;i<FLOORS.length;i++){
+      const f=FLOORS[i];
+      if(player.vy>=0&&player.y+CH>=f.y&&player.y+CH<=f.y+14&&player.x+CW-4>f.x1&&player.x+4<f.x2){
+        player.y=f.y-CH; player.vy=0; landed=i; player.climbing=false; break;
+      }
+    }
+    if(landed>=0) player.floorIdx=landed;
+
+    // Clamp to current floor x range
+    if(player.floorIdx>=0){
+      const cf=FLOORS[player.floorIdx];
+      player.x=Math.max(cf.x1, Math.min(cf.x2-CW, player.x));
+    }
+  }
+  jumpQueued=false;
+  player.y=Math.max(-4,player.y);
+
+  // Update barrels
+  barrels=barrels.filter(b=>{
+    const alive=updateBarrel(b);
+    if(!alive) return false;
+    if(!b.scored&&!b.falling){
+      if(player.y+CH<b.y-2&&player.x+CW>b.x-BARREL_R&&player.x<b.x+BARREL_R){
+        score+=100; b.scored=true;
+      }
+    }
+    if(!player.dead&&!b.falling){
+      const dx=(player.x+CW/2)-b.x, dy=(player.y+CH/2)-b.y;
+      if(Math.abs(dx)<CW/2+BARREL_R-5&&Math.abs(dy)<CH/2+BARREL_R-4) killPlayer();
+    }
+    return true;
+  });
+
+  checkWin();
+}
+
+function drawKong(){
+  // Kong sits on FLOORS[0] (the top platform)
+  const f=FLOORS[0];
+  const kx=f.x1+12, ky=f.y-52;
+  const bob=Math.sin(kongAnim*Math.PI*2)*3;
+  X.save();
+  // Body
+  X.fillStyle=kongThrow?'#ff6600':'#7B3210';
+  X.fillRect(kx+2,ky+18+bob,32,24);
+  // Head
+  X.fillStyle='#6B3010';
+  X.fillRect(kx+6,ky+2+bob,24,20);
+  // Eyes
+  X.fillStyle='#ff0000';
+  X.fillRect(kx+9,ky+7+bob,5,5);
+  X.fillRect(kx+20,ky+7+bob,5,5);
+  // Nose
+  X.fillStyle='#5a2008';
+  X.fillRect(kx+13,ky+12+bob,8,5);
+  // Chest
+  X.fillStyle='#c08060';
+  X.fillRect(kx+9,ky+20+bob,18,14);
+  // Left arm
+  X.fillStyle='#7B3210';
+  X.fillRect(kx-7,ky+18+bob,11,16);
+  // Right arm / throwing arm
+  if(kongThrow){
+    X.fillStyle='#7B3210';
+    X.fillRect(kx+33,ky+12+bob,10,10);
+    X.fillStyle='#ffd700';
+    X.beginPath();X.arc(kx+46,ky+12+bob,8,0,Math.PI*2);X.fill();
+    X.fillStyle='#000';X.font='bold 7px monospace';X.fillText('TX',kx+42,ky+16+bob);
+  } else {
+    X.fillRect(kx+33,ky+18+bob,11,16);
+  }
+  // MONET prize coin on platform
+  X.save();
+  X.beginPath();X.arc(f.x2-22,f.y-16,12,0,Math.PI*2);
+  const cg=X.createRadialGradient(f.x2-25,f.y-19,1,f.x2-22,f.y-16,12);
+  cg.addColorStop(0,'#ffe066');cg.addColorStop(1,'#cc8800');
+  X.fillStyle=cg;X.fill();
+  X.strokeStyle='#ffd700';X.lineWidth=2;X.stroke();
+  X.fillStyle='#000';X.font='bold 8px Orbitron,sans-serif';
+  X.fillText('M',f.x2-27,f.y-12);
+  X.restore();
+  X.restore();
+}
+
+function draw(){
+  X.clearRect(0,0,C.width,C.height);
+  X.save(); X.scale(SC,SC);
+
+  const bg=X.createLinearGradient(0,0,0,LH);
+  bg.addColorStop(0,'#04020a'); bg.addColorStop(1,'#10040a');
+  X.fillStyle=bg; X.fillRect(0,0,LW,LH);
+
+  // Stars
+  X.fillStyle='rgba(255,200,100,0.25)';
+  for(let i=0;i<28;i++){
+    X.fillRect((i*79)%LW,(i*47)%120,1,1);
+  }
+
+  // HUD
+  X.font='bold 10px Orbitron,sans-serif';
+  X.fillStyle='#ff8800';
+  X.fillText('SCORE: '+(score||0),6,14);
+  X.fillStyle='#888';
+  X.fillText('WAVE '+(wave+1),LW/2-22,14);
+  X.fillStyle='#ff4444';
+  for(let i=0;i<(lives||0);i++) X.fillText('\u2665',LW-20-i*18,14);
+
+  // Floors (blockchain layers)
+  for(let i=0;i<FLOORS.length;i++){
+    const f=FLOORS[i];
+    const isTop=i===0;
+    const grd=X.createLinearGradient(0,f.y-4,0,f.y+5);
+    grd.addColorStop(0,isTop?'#ffd700':'#00d4ff');
+    grd.addColorStop(1,isTop?'#886600':'#004466');
+    X.fillStyle=grd;
+    X.fillRect(f.x1,f.y-4,f.x2-f.x1,6);
+    X.fillStyle=isTop?'rgba(255,215,0,0.35)':'rgba(0,240,255,0.25)';
+    X.font='bold 7px Orbitron,sans-serif';
+    const label=isTop?'TOP CHAIN':`LAYER ${FLOORS.length-1-i}`;
+    X.fillText(label,f.x1+4,f.y-7);
+  }
+
+  // Ladders
+  for(let l of LADDERS){
+    X.fillStyle='#4a3000';
+    X.fillRect(l.x-4,l.y1,4,l.y2-l.y1);
+    X.fillRect(l.x+2,l.y1,4,l.y2-l.y1);
+    X.fillStyle='#886600';
+    for(let ry=l.y1+8;ry<l.y2;ry+=14){
+      X.fillRect(l.x-4,ry,10,3);
+    }
+  }
+
+  // Kong
+  drawKong();
+
+  // Barrels
+  for(let b of barrels){
+    const br=X.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BARREL_R);
+    br.addColorStop(0,'#ffcc00'); br.addColorStop(1,'#ff4400');
+    X.beginPath();X.arc(b.x,b.y,BARREL_R,0,Math.PI*2);
+    X.fillStyle=br;X.fill();
+    X.strokeStyle='#000';X.lineWidth=1.5;X.stroke();
+    X.fillStyle='#000';X.font='bold 6px monospace';
+    X.fillText('TX',b.x-5,b.y+3);
+  }
+
+  // Player
+  if(player&&!(player.dead&&Math.floor(Date.now()/100)%2===0)){
+    X.save();
+    if(player.dead) X.globalAlpha=0.4;
+    if(charImg.complete&&charImg.naturalWidth>0){
+      X.drawImage(charImg,player.x,player.y,CW,CH);
+    } else {
+      X.fillStyle='#00ff9d';X.shadowColor='#00ff9d';X.shadowBlur=8;
+      X.fillRect(player.x,player.y,CW,CH);X.shadowBlur=0;
+    }
+    X.restore();
+  }
+
+  // Overlays
+  if(phase==='win'){
+    X.fillStyle='rgba(0,0,0,0.65)';X.fillRect(0,0,LW,LH);
+    X.fillStyle='#ffd700';X.font='bold 22px Orbitron,sans-serif';
+    X.textAlign='center';
+    X.fillText('CHAIN CLEARED!',LW/2,LH/2-20);
+    X.fillStyle='#00f0ff';X.font='bold 13px Orbitron,sans-serif';
+    X.fillText('+500 BONUS',LW/2,LH/2+10);
+    X.fillText('NEXT WAVE...',LW/2,LH/2+30);
+    X.textAlign='left';
+  }
+  if(phase==='over'){
+    X.fillStyle='rgba(0,0,0,0.75)';X.fillRect(0,0,LW,LH);
+    X.fillStyle='#ff4444';X.font='bold 24px Orbitron,sans-serif';
+    X.textAlign='center';
+    X.fillText('GAME OVER',LW/2,LH/2-30);
+    X.fillStyle='#ffd700';X.font='bold 14px Orbitron,sans-serif';
+    X.fillText('SCORE: '+(score||0),LW/2,LH/2+5);
+    X.fillStyle='#888';X.font='10px Orbitron,sans-serif';
+    X.fillText('Score submitted!',LW/2,LH/2+25);
+    X.textAlign='left';
+  }
+  if(phase==='ready'){
+    X.fillStyle='rgba(0,0,0,0.72)';X.fillRect(0,0,LW,LH);
+    X.fillStyle='#ff8800';X.font='bold 20px Orbitron,sans-serif';
+    X.textAlign='center';
+    X.fillText('TOKEN KONG',LW/2,LH/2-45);
+    X.fillStyle='#ffd700';X.font='bold 10px Orbitron,sans-serif';
+    X.fillText('Climb to the TOP CHAIN!',LW/2,LH/2-18);
+    X.fillStyle='#00f0ff';X.font='9px Orbitron,sans-serif';
+    X.fillText('Jump over FAILED TXs thrown by Kong',LW/2,LH/2+0);
+    X.fillText('Use ladders \u25b2\u25bc to climb the blockchain',LW/2,LH/2+16);
+    X.fillText('Reach the gold platform to win each wave',LW/2,LH/2+32);
+    X.textAlign='left';
+  }
+
+  X.restore();
+}
+
+function loop(){
+  update(); draw();
+  if(gameRunning) animId=requestAnimationFrame(loop);
+}
+
+function startGame(){
+  if(animId) cancelAnimationFrame(animId);
+  initVars(); resetPlayer();
+  loop();
+}
+
+document.addEventListener('DOMContentLoaded',()=>{
+  phase='ready'; score=0; lives=3; wave=0; barrels=[];
+  draw();
+  showGameLobby('kong',()=>startGame());
+});
+</script>
+</body>
+</html>

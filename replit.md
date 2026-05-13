@@ -31,8 +31,8 @@ Active games (arcade.html displays in this order):
 11. **Reaction Blitz** (`reaction.html`) — Tap glowing targets fast; build combo multipliers; 30-sec challenge
 12. **Tap Frenzy** (`tap.html`) — Tap as fast as possible in 20 seconds; graded S/A/B/C
 13. **Blockchain Blitz** (`tetris.html`) — Crypto-themed Tetris; stack transaction blocks, confirm chains, mine rows
-14. **Brick Blaster** (`breakout.html`) — Arkanoid/Breakout; smash bricks with a ball, catch power-ups (wide/laser/multi-ball)
-15. **Galaxy Blitz** (`galaga.html`) — Galaga-style formation shooter; enemies dive-bomb, double score mid-dive
+14. **Token Kong** (`kong.html`) — Donkey Kong spoof; dino character climbs blockchain layers, jumps over FAILED TX barrels thrown by Kong boss, reach TOP CHAIN to win
+15. **Hash Racer** (`racer.html`) — Excitebike spoof; side-scrolling crypto motorcycle race; throttle vs turbo, overheat bar (HASH TEMP), ramps, obstacles
 16. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
 
 **Monet Bros** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
