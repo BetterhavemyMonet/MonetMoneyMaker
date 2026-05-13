@@ -11,21 +11,21 @@
 <script src="/lobby.js"></script>
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
-body.game-page{background:#000;overflow:hidden;touch-action:none}
+body.game-page{background:#1a6b2a;overflow:hidden;touch-action:none}
 body.game-page::before{display:none}
 .gw{display:flex;flex-direction:column;height:100vh}
-#wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #221100;font-size:11px;flex-shrink:0}
-.arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000}
-#gc{display:block;image-rendering:crisp-edges}
-.ctrl{flex-shrink:0;background:rgba(5,2,0,.95);border-top:1px solid #332200;padding:5px 8px}
+#wbar{text-align:center;padding:3px 10px;background:rgba(0,0,0,0.55);border-bottom:2px solid #ff8800;font-size:11px;flex-shrink:0}
+.arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#1a6b2a}
+#gc{display:block;image-rendering:crisp-edges;border-radius:4px}
+.ctrl{flex-shrink:0;background:linear-gradient(180deg,#3a1a00,#1a0800);border-top:3px solid #ff8800;padding:6px 8px}
 .cr{display:flex;justify-content:space-between;align-items:center;gap:5px}
-.cb{height:54px;border-radius:10px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+.cb{height:56px;border-radius:12px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
     -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;font-size:10px;line-height:1.2}
 .cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
-.mv{flex:1;font-size:26px;background:linear-gradient(135deg,#221100,#110900);color:#ff8800;border:1px solid #442200;box-shadow:0 4px 0 #000}
-.jp{flex:1.5;background:linear-gradient(135deg,#003322,#001a11);color:#00ff9d;border:1px solid #006633;box-shadow:0 4px 0 #000}
-.cl{flex:1.5;background:linear-gradient(135deg,#222200,#111100);color:#ffd700;border:1px solid #444400;box-shadow:0 4px 0 #000}
-.home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
+.mv{flex:1;font-size:28px;background:linear-gradient(135deg,#cc4400,#882200);color:#fff;border:2px solid #ff6600;box-shadow:0 4px 0 #441100}
+.jp{flex:1.5;background:linear-gradient(135deg,#00aa44,#006622);color:#fff;border:2px solid #00ff66;box-shadow:0 4px 0 #003311;font-size:11px}
+.cl{flex:1.5;background:linear-gradient(135deg,#cc8800,#885500);color:#fff;border:2px solid #ffd700;box-shadow:0 4px 0 #443300;font-size:11px}
+.home{font-size:20px;color:#ff8800;text-decoration:none;padding:0 4px;align-self:center;text-shadow:0 0 8px #ff880088}
 </style>
 </head>
 <body class="game-page">
@@ -71,30 +71,33 @@ const LADDERS = [
 ];
 const KONG_X = 78, KONG_Y = 88;
 const PRIZE_X = 296, PRIZE_Y = 82;
-const CHAR_W = 24, CHAR_H = 30;
+const CHAR_W = 24, CHAR_H = 32;
 const BARREL_R = 10;
-const PH = 10;
+const PH = 12;
 const LW = 6;
 
 // Barrel direction per floor: even=right, odd=left
 function bDir(floor) { return floor % 2 === 0 ? 1 : -1; }
 
-let player, barrels, floatTexts, stars;
+let player, barrels, floatTexts, clouds;
 let score, lives, round, phase, rafId, lastT = 0;
 let kongThrowTimer = 3000, kongFrame = 0;
+let climbScoreTimer = 0;
 let sessionActive = false;
 const keys = { left: false, right: false, up: false };
-const charImg = new Image(); charImg.src = '/dino-sprite.png';
 
-function initStars() {
-  stars = Array.from({ length: 55 }, () => ({
-    x: Math.random() * GW, y: Math.random() * GH * 0.45,
-    r: 0.4 + Math.random() * 1.2, twinkle: Math.random() * Math.PI * 2
-  }));
+function initClouds() {
+  clouds = [
+    { x: 40,  y: 28, w: 60, h: 22, spd: 0.04 },
+    { x: 150, y: 18, w: 80, h: 26, spd: 0.03 },
+    { x: 260, y: 32, w: 55, h: 18, spd: 0.05 },
+    { x: 90,  y: 55, w: 50, h: 16, spd: 0.035 },
+  ];
 }
 
 function initGame() {
   score = 0; lives = 3; round = 1; phase = 'play';
+  climbScoreTimer = 0;
   initRound();
 }
 
@@ -102,7 +105,7 @@ function initRound() {
   player = {
     x: 14, y: PLATS[0].y - CHAR_H,
     vy: 0, onGround: true, onLadder: false, ladderX: 0,
-    facing: 1, invTimer: 0,
+    facing: 1, invTimer: 0, walkFrame: 0,
   };
   barrels = [];
   floatTexts = [];
@@ -122,14 +125,14 @@ function loseLife() {
   player.invTimer = 2500;
   player.x = 14; player.y = PLATS[0].y - CHAR_H;
   player.vy = 0; player.onGround = true; player.onLadder = false;
-  floatTexts.push({ x: GW / 2, y: GH / 2 - 20, txt: '💥 CRASHED!', col: '#ff4444', life: 60, vy: -0.4 });
+  floatTexts.push({ x: GW / 2, y: GH / 2 - 20, txt: '💥 OUCH!', col: '#ff4444', life: 60, vy: -0.4 });
   if (lives <= 0) { setTimeout(endGame, 600); }
 }
 
 function winRound() {
   const bonus = 800 + round * 200;
   score += bonus;
-  floatTexts.push({ x: GW / 2, y: GH / 2 - 30, txt: 'BLOCK CONFIRMED! +' + bonus, col: '#ffd700', life: 90, vy: -0.3 });
+  floatTexts.push({ x: GW / 2, y: GH / 2 - 30, txt: '🏆 BLOCK CONFIRMED! +' + bonus, col: '#ffd700', life: 90, vy: -0.3 });
   round++;
   setTimeout(() => { if (phase === 'play') initRound(); }, 2500);
 }
@@ -139,6 +142,12 @@ function update(dt) {
   const s = dt / 16;
   kongFrame += dt;
   if (player.invTimer > 0) player.invTimer = Math.max(0, player.invTimer - dt);
+
+  // Drift clouds
+  clouds.forEach(cl => {
+    cl.x += cl.spd * s;
+    if (cl.x > GW + cl.w) cl.x = -cl.w;
+  });
 
   // Kong throw timer
   kongThrowTimer -= dt;
@@ -154,22 +163,33 @@ function update(dt) {
   // Player
   if (player.onLadder) {
     player.x = player.ladderX - CHAR_W / 2;
-    if (keys.up) player.y -= 1.7 * s;
+    if (keys.up)  {
+      player.y -= 1.7 * s;
+      // Climbing score: +5 every ~60 frames on the ladder
+      climbScoreTimer += dt;
+      if (climbScoreTimer >= 600) {
+        climbScoreTimer = 0; score += 5;
+        floatTexts.push({ x: player.x + CHAR_W/2, y: player.y, txt: '+5', col: '#00ff88', life: 28, vy: -0.6 });
+      }
+    } else {
+      climbScoreTimer = 0;
+    }
     if (keys.down) player.y += 1.7 * s;
     const lad = LADDERS.find(l => Math.abs(l.x - player.ladderX) < 2);
     if (lad) {
       if (player.y + CHAR_H <= lad.y1 + 2) {
         player.y = lad.y1 - CHAR_H; player.onLadder = false; player.onGround = true; player.vy = 0;
+        climbScoreTimer = 0;
       }
       if (player.y + CHAR_H > lad.y2 + 4) {
-        player.onLadder = false; player.vy = 0;
+        player.onLadder = false; player.vy = 0; climbScoreTimer = 0;
       }
     }
   } else {
     if (!player.onGround) player.vy += 0.58 * s;
     player.y += player.vy * s;
-    if (keys.left)  { player.x -= 2.3 * s; player.facing = -1; }
-    else if (keys.right) { player.x += 2.3 * s; player.facing = 1; }
+    if (keys.left)  { player.x -= 2.3 * s; player.facing = -1; player.walkFrame += s; }
+    else if (keys.right) { player.x += 2.3 * s; player.facing = 1; player.walkFrame += s; }
     player.x = Math.max(0, Math.min(GW - CHAR_W, player.x));
 
     player.onGround = false;
@@ -253,30 +273,123 @@ function updateBarrel(b, s) {
   }
 }
 
+// ── Drawing ───────────────────────────────────────────────────────────────────
+
+function drawCloud(cl) {
+  X.save();
+  X.globalAlpha = 0.88;
+  X.fillStyle = '#fff';
+  const x = cl.x * SC, y = cl.y * SC, w = cl.w * SC, h = cl.h * SC;
+  X.beginPath();
+  X.arc(x + w * 0.25, y + h * 0.55, h * 0.55, 0, Math.PI * 2);
+  X.arc(x + w * 0.5,  y + h * 0.3,  h * 0.7,  0, Math.PI * 2);
+  X.arc(x + w * 0.75, y + h * 0.55, h * 0.5,  0, Math.PI * 2);
+  X.fill();
+  X.globalAlpha = 1;
+  X.restore();
+}
+
+function drawBackground() {
+  // Sky gradient — bright blue
+  const sky = X.createLinearGradient(0, 0, 0, C.height * 0.55);
+  sky.addColorStop(0, '#2196f3');
+  sky.addColorStop(0.6, '#64b5f6');
+  sky.addColorStop(1, '#b3e0ff');
+  X.fillStyle = sky; X.fillRect(0, 0, C.width, C.height * 0.55);
+
+  // Clouds
+  clouds.forEach(drawCloud);
+
+  // Jungle tree silhouettes (back layer)
+  X.fillStyle = '#1b5e20';
+  const treeData = [[10,0.5],[30,0.42],[55,0.48],[80,0.38],[110,0.44],[145,0.36],[175,0.43],[210,0.39],[245,0.46],[275,0.40],[305,0.47]];
+  treeData.forEach(([tx, ty]) => {
+    const bx = tx * SC, by = C.height * ty;
+    // Trunk
+    X.fillStyle = '#4e342e';
+    X.fillRect(bx - 3 * SC, by, 6 * SC, 20 * SC);
+    // Canopy circles
+    X.fillStyle = '#2e7d32';
+    X.beginPath(); X.arc(bx, by - 4 * SC, 14 * SC, 0, Math.PI * 2); X.fill();
+    X.fillStyle = '#388e3c';
+    X.beginPath(); X.arc(bx - 6 * SC, by + 2 * SC, 10 * SC, 0, Math.PI * 2); X.fill();
+    X.beginPath(); X.arc(bx + 6 * SC, by + 2 * SC, 10 * SC, 0, Math.PI * 2); X.fill();
+    // Highlight
+    X.fillStyle = '#43a047';
+    X.beginPath(); X.arc(bx - 2 * SC, by - 8 * SC, 6 * SC, 0, Math.PI * 2); X.fill();
+  });
+
+  // Ground fill — rich jungle green
+  const groundY = C.height * 0.5;
+  const gr = X.createLinearGradient(0, groundY, 0, C.height);
+  gr.addColorStop(0, '#2e7d32');
+  gr.addColorStop(0.1, '#1b5e20');
+  gr.addColorStop(1, '#0a2e0e');
+  X.fillStyle = gr; X.fillRect(0, groundY, C.width, C.height - groundY);
+
+  // Construction scaffolding poles
+  X.strokeStyle = '#c0392b'; X.lineWidth = 3 * SC;
+  X.beginPath(); X.moveTo(36 * SC, 0); X.lineTo(36 * SC, GH * SC); X.stroke();
+  X.beginPath(); X.moveTo(284 * SC, 0); X.lineTo(284 * SC, GH * SC); X.stroke();
+  // Diagonal cross-braces
+  X.strokeStyle = '#c0392b66'; X.lineWidth = 1.5 * SC;
+  for (let yy = 108; yy <= 444; yy += 84) {
+    X.beginPath(); X.moveTo(36 * SC, yy * SC); X.lineTo(284 * SC, (yy + 84) * SC); X.stroke();
+    X.beginPath(); X.moveTo(284 * SC, yy * SC); X.lineTo(36 * SC, (yy + 84) * SC); X.stroke();
+  }
+}
+
 function drawPlatform(p, idx) {
+  const colors = ['#e65100','#d84315','#bf360c','#6d4c41','#4e342e'];
+  const topColors = ['#ff6d00','#ff5722','#f4511e','#8d6e63','#6d4c41'];
+
+  // Main plank body
   const grd = X.createLinearGradient(0, p.y * SC, 0, (p.y + PH) * SC);
-  grd.addColorStop(0, '#9a7040'); grd.addColorStop(1, '#4a2810');
+  grd.addColorStop(0, topColors[idx] || '#ff6d00');
+  grd.addColorStop(0.35, colors[idx] || '#e65100');
+  grd.addColorStop(1, '#3e1a08');
   X.fillStyle = grd;
   X.fillRect(p.x1 * SC, p.y * SC, (p.x2 - p.x1) * SC, PH * SC);
-  X.fillStyle = '#c09050';
+
+  // Top shine
+  X.fillStyle = 'rgba(255,255,255,0.22)';
   X.fillRect(p.x1 * SC, p.y * SC, (p.x2 - p.x1) * SC, 2 * SC);
-  X.fillStyle = '#3a1a06';
-  X.fillRect(p.x1 * SC, (p.y + PH - 2) * SC, (p.x2 - p.x1) * SC, 2 * SC);
-  X.fillStyle = '#5a380888';
-  X.font = `bold ${6 * SC}px Orbitron,sans-serif`; X.textAlign = 'left';
-  X.fillText('LAYER ' + idx, (p.x1 + 8) * SC, (p.y + 7) * SC);
-  X.fillStyle = '#3a1a0855';
-  for (let rx = p.x1 + 20; rx < p.x2 - 10; rx += 28) {
-    X.beginPath(); X.arc(rx * SC, (p.y + PH / 2) * SC, 2.5 * SC, 0, Math.PI * 2); X.fill();
+
+  // Rivet dots
+  X.fillStyle = '#ffd700cc';
+  for (let rx = p.x1 + 14; rx < p.x2 - 6; rx += 22) {
+    X.beginPath(); X.arc(rx * SC, (p.y + PH / 2) * SC, 2.8 * SC, 0, Math.PI * 2); X.fill();
+    // Rivet shine
+    X.fillStyle = '#fff8';
+    X.beginPath(); X.arc((rx - 0.7) * SC, (p.y + PH / 2 - 0.8) * SC, 1 * SC, 0, Math.PI * 2); X.fill();
+    X.fillStyle = '#ffd700cc';
+  }
+
+  // Bottom shadow edge
+  X.fillStyle = 'rgba(0,0,0,0.35)';
+  X.fillRect(p.x1 * SC, (p.y + PH - 2) * SC, (p.x2 - p.x1) * SC, 3 * SC);
+
+  // Plank seam lines
+  X.strokeStyle = 'rgba(0,0,0,0.2)'; X.lineWidth = SC;
+  for (let rx = p.x1 + 32; rx < p.x2 - 8; rx += 32) {
+    X.beginPath(); X.moveTo(rx * SC, p.y * SC); X.lineTo(rx * SC, (p.y + PH) * SC); X.stroke();
   }
 }
 
 function drawLadder(lad) {
-  X.strokeStyle = '#886633'; X.lineWidth = 3 * SC;
+  // Vine rope sides — green
+  X.strokeStyle = '#558b2f'; X.lineWidth = 3.5 * SC; X.lineCap = 'round';
   X.beginPath(); X.moveTo((lad.x - LW) * SC, lad.y1 * SC); X.lineTo((lad.x - LW) * SC, lad.y2 * SC); X.stroke();
   X.beginPath(); X.moveTo((lad.x + LW) * SC, lad.y1 * SC); X.lineTo((lad.x + LW) * SC, lad.y2 * SC); X.stroke();
-  X.lineWidth = 2 * SC; X.strokeStyle = '#664422';
-  for (let ry = lad.y1 + 10; ry < lad.y2; ry += 14) {
+  // Vine texture nodes
+  X.fillStyle = '#33691e';
+  for (let ry = lad.y1 + 8; ry < lad.y2; ry += 18) {
+    X.beginPath(); X.ellipse((lad.x - LW) * SC, ry * SC, 3 * SC, 4 * SC, 0, 0, Math.PI * 2); X.fill();
+    X.beginPath(); X.ellipse((lad.x + LW) * SC, (ry + 9) * SC, 3 * SC, 4 * SC, 0, 0, Math.PI * 2); X.fill();
+  }
+  // Yellow rungs
+  X.lineWidth = 2.5 * SC; X.strokeStyle = '#ffd600'; X.lineCap = 'round';
+  for (let ry = lad.y1 + 12; ry < lad.y2; ry += 14) {
     X.beginPath(); X.moveTo((lad.x - LW) * SC, ry * SC); X.lineTo((lad.x + LW) * SC, ry * SC); X.stroke();
   }
 }
@@ -285,127 +398,291 @@ function drawKong() {
   const kx = KONG_X * SC, ky = KONG_Y * SC;
   const t = SC;
   const throwUp = Math.sin(kongFrame * 0.003) > 0;
-  X.save(); X.translate(kx, ky);
-  // Body
-  X.fillStyle = '#9b5523';
-  X.beginPath(); X.ellipse(0, 0, 21 * t, 19 * t, 0, 0, Math.PI * 2); X.fill();
-  // Chest highlight
-  X.fillStyle = '#b86830';
-  X.beginPath(); X.ellipse(-1 * t, -2 * t, 12 * t, 10 * t, 0, 0, Math.PI * 2); X.fill();
+  const bob = Math.sin(kongFrame * 0.002) * 1.5;
+
+  X.save(); X.translate(kx, ky + bob * t);
+
+  // Shadow beneath Kong
+  X.fillStyle = 'rgba(0,0,0,0.2)';
+  X.beginPath(); X.ellipse(2 * t, 32 * t, 22 * t, 6 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // Red shorts
+  X.fillStyle = '#d32f2f';
+  X.beginPath(); X.ellipse(0, 16 * t, 16 * t, 12 * t, 0, 0, Math.PI * 2); X.fill();
+  // Belt buckle
+  X.fillStyle = '#ffd700';
+  X.fillRect(-5 * t, 9 * t, 10 * t, 5 * t);
+  X.fillStyle = '#ff8800';
+  X.font = `bold ${4 * t}px sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('MM', 0, 11.5 * t);
+  X.textBaseline = 'alphabetic';
+
+  // Body — dark brown
+  X.fillStyle = '#5d2906';
+  X.beginPath(); X.ellipse(0, 0, 22 * t, 20 * t, 0, 0, Math.PI * 2); X.fill();
+  // Chest highlight (lighter tan)
+  X.fillStyle = '#8d5524';
+  X.beginPath(); X.ellipse(-1 * t, -3 * t, 13 * t, 11 * t, 0, 0, Math.PI * 2); X.fill();
+  // MM logo on chest
+  X.fillStyle = '#ff8800';
+  X.font = `bold ${7 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.shadowBlur = 4 * t; X.shadowColor = '#ff880088';
+  X.fillText('MM', -1 * t, -3 * t);
+  X.shadowBlur = 0; X.textBaseline = 'alphabetic';
+
   // Head
-  X.fillStyle = '#9b5523';
-  X.beginPath(); X.ellipse(2 * t, -24 * t, 15 * t, 13 * t, 0, 0, Math.PI * 2); X.fill();
-  // Face
-  X.fillStyle = '#c88050';
-  X.beginPath(); X.ellipse(2 * t, -22 * t, 9 * t, 8 * t, 0, 0, Math.PI * 2); X.fill();
-  // Eyes
-  X.fillStyle = '#000';
-  X.beginPath(); X.arc(-2 * t, -26 * t, 2.5 * t, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.arc(6 * t, -26 * t, 2.5 * t, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#5d2906';
+  X.beginPath(); X.ellipse(2 * t, -23 * t, 16 * t, 14 * t, 0, 0, Math.PI * 2); X.fill();
+  // Face (lighter)
+  X.fillStyle = '#8d5524';
+  X.beginPath(); X.ellipse(2 * t, -21 * t, 10 * t, 9 * t, 0, 0, Math.PI * 2); X.fill();
+  // Eyes — big cartoon eyes
   X.fillStyle = '#fff';
-  X.beginPath(); X.arc(-1.5 * t, -26.5 * t, 0.9 * t, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.arc(6.5 * t, -26.5 * t, 0.9 * t, 0, Math.PI * 2); X.fill();
-  // Frown
-  X.strokeStyle = '#4a1a00'; X.lineWidth = 1.8 * t; X.lineCap = 'round';
-  X.beginPath(); X.arc(2 * t, -18 * t, 5 * t, 0.15, Math.PI - 0.15); X.stroke();
-  // Throwing arm
-  X.strokeStyle = '#7a3e18'; X.lineWidth = 8 * t; X.lineCap = 'round';
-  const armY = throwUp ? -20 * t : -8 * t;
-  X.beginPath(); X.moveTo(19 * t, -2 * t); X.lineTo(28 * t, armY); X.stroke();
-  X.fillStyle = '#5a2c0a'; X.beginPath(); X.arc(28 * t, armY, 5 * t, 0, Math.PI * 2); X.fill();
-  // Left arm
-  X.strokeStyle = '#7a3e18'; X.lineWidth = 8 * t;
-  X.beginPath(); X.moveTo(-19 * t, -2 * t); X.lineTo(-27 * t, 10 * t); X.stroke();
-  X.fillStyle = '#5a2c0a'; X.beginPath(); X.arc(-27 * t, 10 * t, 5 * t, 0, Math.PI * 2); X.fill();
-  // Legs
-  X.strokeStyle = '#7a3e18'; X.lineWidth = 7 * t;
-  X.beginPath(); X.moveTo(-8 * t, 18 * t); X.lineTo(-10 * t, 33 * t); X.stroke();
-  X.beginPath(); X.moveTo(8 * t, 18 * t); X.lineTo(10 * t, 33 * t); X.stroke();
-  X.fillStyle = '#5a2c0a';
-  X.beginPath(); X.ellipse(-10 * t, 33 * t, 8 * t, 5 * t, 0, 0, Math.PI * 2); X.fill();
-  X.beginPath(); X.ellipse(10 * t, 33 * t, 8 * t, 5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(-3 * t, -25 * t, 4 * t, 4.5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(7 * t, -25 * t, 4 * t, 4.5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#1a0a00';
+  X.beginPath(); X.arc(-2.5 * t, -25 * t, 2.5 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(7.5 * t, -25 * t, 2.5 * t, 0, Math.PI * 2); X.fill();
+  // Eye shine
+  X.fillStyle = '#fff';
+  X.beginPath(); X.arc(-1.8 * t, -26.3 * t, 1 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(8.2 * t, -26.3 * t, 1 * t, 0, Math.PI * 2); X.fill();
+  // Big grin with teeth
+  X.fillStyle = '#fff';
+  X.beginPath(); X.arc(2 * t, -18 * t, 7 * t, 0.1, Math.PI - 0.1); X.fill();
+  X.fillStyle = '#5d2906';
+  X.beginPath(); X.arc(2 * t, -17 * t, 5.5 * t, 0.1, Math.PI - 0.1); X.fill();
+  // Nostrils
+  X.fillStyle = '#3a1500';
+  X.beginPath(); X.ellipse(-1 * t, -20 * t, 1.5 * t, 1 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(5 * t, -20 * t, 1.5 * t, 1 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // Red cap with brim and MM logo
+  X.fillStyle = '#d32f2f';
+  X.beginPath(); X.ellipse(2 * t, -32 * t, 17 * t, 10 * t, 0, 0, Math.PI * 2); X.fill();
+  // Cap brim
+  X.fillStyle = '#b71c1c';
+  X.beginPath(); X.ellipse(12 * t, -28 * t, 10 * t, 4 * t, -0.3, 0, Math.PI * 2); X.fill();
+  // Cap band
+  X.fillStyle = '#ffd700';
+  X.fillRect(-13 * t, -31 * t, 26 * t, 4 * t);
+  // MM on cap
+  X.fillStyle = '#1a1a1a';
+  X.font = `bold ${5 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('MM', 2 * t, -29 * t);
+  X.textBaseline = 'alphabetic';
+
+  // Ears
+  X.fillStyle = '#5d2906';
+  X.beginPath(); X.arc(-17 * t, -22 * t, 5 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(21 * t, -22 * t, 5 * t, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#8d5524';
+  X.beginPath(); X.arc(-17 * t, -22 * t, 3 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc(21 * t, -22 * t, 3 * t, 0, Math.PI * 2); X.fill();
+
+  // Throwing arm (right)
+  X.strokeStyle = '#5d2906'; X.lineWidth = 9 * t; X.lineCap = 'round';
+  const armY = throwUp ? -18 * t : -6 * t;
+  X.beginPath(); X.moveTo(20 * t, -2 * t); X.lineTo(30 * t, armY); X.stroke();
+  X.fillStyle = '#4a1e00'; X.beginPath(); X.arc(30 * t, armY, 6 * t, 0, Math.PI * 2); X.fill();
+  // Left arm (leaning)
+  X.strokeStyle = '#5d2906'; X.lineWidth = 9 * t;
+  X.beginPath(); X.moveTo(-20 * t, -2 * t); X.lineTo(-28 * t, 12 * t); X.stroke();
+  X.fillStyle = '#4a1e00'; X.beginPath(); X.arc(-28 * t, 12 * t, 6 * t, 0, Math.PI * 2); X.fill();
+
+  // Feet
+  X.fillStyle = '#4a1e00';
+  X.beginPath(); X.ellipse(-10 * t, 30 * t, 9 * t, 6 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse(10 * t, 30 * t, 9 * t, 6 * t, 0, 0, Math.PI * 2); X.fill();
+
   X.restore();
-  X.fillStyle = '#ff8800'; X.font = `bold ${7 * SC}px Orbitron,sans-serif`;
-  X.textAlign = 'center'; X.shadowBlur = 10; X.shadowColor = '#ff880066';
-  X.fillText('MONET KONG', kx, (KONG_Y - 42) * SC); X.shadowBlur = 0;
+
+  // "MONET KONG" label above
+  X.fillStyle = '#ffd700'; X.font = `bold ${7.5 * SC}px Orbitron,sans-serif`;
+  X.textAlign = 'center'; X.shadowBlur = 12; X.shadowColor = '#ff8800';
+  X.fillText('MONET KONG', kx, (KONG_Y - 48) * SC); X.shadowBlur = 0;
 }
 
 function drawPrize() {
   const px = PRIZE_X * SC, py = PRIZE_Y * SC;
-  const pulse = 0.88 + 0.12 * Math.sin(Date.now() * 0.004);
-  X.save(); X.translate(px, py); X.scale(pulse, pulse);
-  const g = X.createRadialGradient(0, -3 * SC, SC, 0, 0, 16 * SC);
-  g.addColorStop(0, '#fff5a0'); g.addColorStop(0.5, '#ffd700'); g.addColorStop(1, '#cc9900');
-  X.fillStyle = g; X.beginPath(); X.arc(0, 0, 16 * SC, 0, Math.PI * 2); X.fill();
-  X.strokeStyle = '#fff7b0'; X.lineWidth = 2 * SC; X.stroke();
-  X.fillStyle = '#7a4a00'; X.font = `bold ${14 * SC}px Orbitron,sans-serif`;
-  X.textAlign = 'center'; X.textBaseline = 'middle'; X.fillText('M', 0, SC);
-  X.restore();
+  const pulse = 0.88 + 0.14 * Math.sin(Date.now() * 0.004);
+  const glow = 12 + 8 * Math.sin(Date.now() * 0.006);
+
+  X.save();
+  // Glow ring
+  X.shadowBlur = glow; X.shadowColor = '#ffd700';
+  X.translate(px, py); X.scale(pulse, pulse);
+
+  // Outer ring
+  const rg = X.createRadialGradient(0, -2 * SC, SC, 0, 0, 18 * SC);
+  rg.addColorStop(0, '#fff9c4'); rg.addColorStop(0.4, '#ffd700'); rg.addColorStop(1, '#f57f17');
+  X.fillStyle = rg; X.beginPath(); X.arc(0, 0, 18 * SC, 0, Math.PI * 2); X.fill();
+  X.strokeStyle = '#fff176'; X.lineWidth = 2 * SC; X.stroke();
+  X.shadowBlur = 0;
+
+  // Coin face — MM logo
+  X.fillStyle = '#7a4f00'; X.font = `bold ${14 * SC}px Orbitron,sans-serif`;
+  X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.fillText('MM', 0, SC * 0.5);
   X.textBaseline = 'alphabetic';
+  // Shine
+  X.fillStyle = 'rgba(255,255,255,0.35)';
+  X.beginPath(); X.ellipse(-5 * SC, -7 * SC, 6 * SC, 4 * SC, -0.5, 0, Math.PI * 2); X.fill();
+  X.restore();
+
   X.fillStyle = '#ffd700'; X.font = `bold ${6.5 * SC}px Orbitron,sans-serif`; X.textAlign = 'center';
-  X.shadowBlur = 8; X.shadowColor = '#ffd700';
-  X.fillText('MONET PRIZE', PRIZE_X * SC, (PRIZE_Y - 22) * SC); X.shadowBlur = 0;
+  X.shadowBlur = 10; X.shadowColor = '#ffd700';
+  X.fillText('MONET PRIZE', PRIZE_X * SC, (PRIZE_Y - 24) * SC); X.shadowBlur = 0;
 }
 
 function drawBarrel(b) {
   const bx = b.x * SC, by = b.y * SC, r = BARREL_R * SC;
   const rot = (b.x * 0.04) % (Math.PI * 2);
   X.save(); X.translate(bx, by); X.rotate(rot);
-  const g = X.createRadialGradient(-r * .32, -r * .32, r * .08, 0, 0, r);
-  g.addColorStop(0, '#ffaa30'); g.addColorStop(.5, '#cc5500'); g.addColorStop(1, '#551a00');
+
+  // Glow
+  X.shadowBlur = 8; X.shadowColor = '#ff6600aa';
+
+  const g = X.createRadialGradient(-r * .3, -r * .3, r * .06, 0, 0, r);
+  g.addColorStop(0, '#ffcc00'); g.addColorStop(0.35, '#ff8800'); g.addColorStop(0.7, '#cc4400'); g.addColorStop(1, '#661a00');
   X.fillStyle = g; X.beginPath(); X.arc(0, 0, r, 0, Math.PI * 2); X.fill();
-  X.strokeStyle = '#33100066'; X.lineWidth = 1.5 * SC;
-  X.beginPath(); X.moveTo(-r * .75, -r * .38); X.lineTo(r * .75, -r * .38); X.stroke();
-  X.beginPath(); X.moveTo(-r * .75, r * .38); X.lineTo(r * .75, r * .38); X.stroke();
-  X.restore();
-  X.fillStyle = '#ffe8b0'; X.font = `bold ${6 * SC}px Orbitron,sans-serif`;
+  X.shadowBlur = 0;
+
+  // Barrel rings
+  X.strokeStyle = '#ffdd0088'; X.lineWidth = 1.8 * SC;
+  X.beginPath(); X.moveTo(-r * .8, -r * .35); X.lineTo(r * .8, -r * .35); X.stroke();
+  X.beginPath(); X.moveTo(-r * .8,  r * .35); X.lineTo(r * .8,  r * .35); X.stroke();
+
+  // MM label
+  X.fillStyle = '#fff9c4'; X.font = `bold ${5.5 * SC}px Orbitron,sans-serif`;
   X.textAlign = 'center'; X.textBaseline = 'middle';
-  X.fillText('TX', bx, by);
+  X.fillText('MM', 0, 0);
   X.textBaseline = 'alphabetic';
+  X.restore();
 }
 
 function drawPlayer() {
   const px = player.x * SC, py = player.y * SC;
   const cw = CHAR_W * SC, ch = CHAR_H * SC;
+  const cx = px + cw / 2, cy = py + ch / 2;
+  const t = SC;
+
   if (player.invTimer > 0 && Math.floor(player.invTimer / 120) % 2 === 1) return;
-  X.save();
-  if (player.facing === -1) {
-    X.translate(px + cw, 0); X.scale(-1, 1);
-    if (charImg.complete && charImg.naturalWidth > 0) X.drawImage(charImg, 0, py, cw, ch);
-    else { X.fillStyle = '#22bb44'; X.fillRect(0, py, cw, ch); }
-  } else {
-    if (charImg.complete && charImg.naturalWidth > 0) X.drawImage(charImg, px, py, cw, ch);
-    else { X.fillStyle = '#22bb44'; X.fillRect(px, py, cw, ch); }
+
+  const dir = player.facing; // 1=right, -1=left
+  const onLad = player.onLadder;
+  const walk = Math.sin(player.walkFrame * 0.35);
+
+  X.save(); X.translate(cx, py + ch);
+
+  // Shadow
+  if (player.onGround) {
+    X.fillStyle = 'rgba(0,0,0,0.25)';
+    X.beginPath(); X.ellipse(0, 2 * t, 10 * t, 3 * t, 0, 0, Math.PI * 2); X.fill();
   }
+
+  // Legs (walk animation)
+  const legSwing = onLad ? 0 : walk * 5;
+  X.strokeStyle = '#1e88e5'; X.lineWidth = 4 * t; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(-3 * t, -8 * t); X.lineTo((-3 - legSwing) * t, 0); X.stroke();
+  X.beginPath(); X.moveTo(3 * t, -8 * t);  X.lineTo((3 + legSwing) * t, 0);  X.stroke();
+  // Feet
+  X.fillStyle = '#ffd700';
+  X.beginPath(); X.ellipse((-3 - legSwing) * t, 0, 5 * t, 3 * t, 0.2, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse((3 + legSwing) * t, 0, 5 * t, 3 * t, -0.2, 0, Math.PI * 2); X.fill();
+
+  // Blue hoodie body
+  X.fillStyle = '#1565c0';
+  X.beginPath(); X.ellipse(0, -16 * t, 9 * t, 11 * t, 0, 0, Math.PI * 2); X.fill();
+  // Hoodie pocket
+  X.fillStyle = '#0d47a1';
+  X.fillRect(-4 * t, -18 * t, 8 * t, 5 * t);
+  // MM logo on hoodie
+  X.fillStyle = '#ffd700';
+  X.font = `bold ${5 * t}px Orbitron,sans-serif`; X.textAlign = 'center'; X.textBaseline = 'middle';
+  X.shadowBlur = 3 * t; X.shadowColor = '#ffd70088';
+  X.fillText('MM', 0, -15.5 * t);
+  X.shadowBlur = 0; X.textBaseline = 'alphabetic';
+
+  // Arms
+  const armSwing = onLad ? walk * 8 : walk * 4;
+  X.strokeStyle = '#1565c0'; X.lineWidth = 4 * t; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(dir > 0 ? 8 * t : -8 * t, -22 * t);
+  X.lineTo((dir > 0 ? 14 : -14) * t + armSwing * t, -16 * t); X.stroke();
+  X.beginPath(); X.moveTo(dir > 0 ? -8 * t : 8 * t, -22 * t);
+  X.lineTo((dir > 0 ? -14 : 14) * t - armSwing * t, -16 * t); X.stroke();
+  // Hands (green)
+  X.fillStyle = '#4caf50';
+  X.beginPath(); X.arc((dir > 0 ? 14 : -14) * t + armSwing * t, -16 * t, 3.5 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc((dir > 0 ? -14 : 14) * t - armSwing * t, -16 * t, 3.5 * t, 0, Math.PI * 2); X.fill();
+
+  // Green head
+  X.fillStyle = '#388e3c';
+  X.beginPath(); X.ellipse(0, -30 * t, 9 * t, 9 * t, 0, 0, Math.PI * 2); X.fill();
+  // Face highlight
+  X.fillStyle = '#4caf50';
+  X.beginPath(); X.ellipse(dir * 1.5 * t, -29 * t, 6 * t, 6.5 * t, 0, 0, Math.PI * 2); X.fill();
+
+  // Eyes — big and expressive
+  const eyeOff = dir * 2;
+  X.fillStyle = '#fff';
+  X.beginPath(); X.ellipse((eyeOff - 2) * t, -31 * t, 3 * t, 3.5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.ellipse((eyeOff + 3) * t, -31 * t, 3 * t, 3.5 * t, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#1a237e';
+  X.beginPath(); X.arc((eyeOff - 1.5) * t, -30.5 * t, 2 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc((eyeOff + 3.5) * t, -30.5 * t, 2 * t, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#fff';
+  X.beginPath(); X.arc((eyeOff - 1) * t, -31.2 * t, 0.8 * t, 0, Math.PI * 2); X.fill();
+  X.beginPath(); X.arc((eyeOff + 4) * t, -31.2 * t, 0.8 * t, 0, Math.PI * 2); X.fill();
+
+  // Smile
+  X.strokeStyle = '#2e7d32'; X.lineWidth = 1.5 * t; X.lineCap = 'round';
+  X.beginPath(); X.arc(eyeOff * t, -27 * t, 3.5 * t, 0.1, Math.PI - 0.1); X.stroke();
+
+  // Green cap / hoodie hood
+  X.fillStyle = '#1565c0';
+  X.beginPath(); X.arc(0, -35 * t, 8 * t, Math.PI, 0); X.fill();
+  // Cap brim
+  X.fillStyle = '#0d47a1';
+  X.beginPath(); X.ellipse(dir * 7 * t, -33 * t, 5 * t, 2.5 * t, dir * 0.2, 0, Math.PI * 2); X.fill();
+
+  // Tail
+  X.strokeStyle = '#388e3c'; X.lineWidth = 4 * t;
+  X.beginPath();
+  X.moveTo(-dir * 8 * t, -14 * t);
+  X.bezierCurveTo(-dir * 16 * t, -14 * t, -dir * 18 * t, -8 * t, -dir * 14 * t, -4 * t);
+  X.stroke();
+
   X.restore();
 }
 
 function drawHUD() {
-  X.fillStyle = '#ff8800'; X.font = `bold ${10 * SC}px Orbitron,sans-serif`;
-  X.textAlign = 'left'; X.shadowBlur = 8; X.shadowColor = '#ff880066';
-  X.fillText('SCORE ' + score.toLocaleString(), 8 * SC, 16 * SC); X.shadowBlur = 0;
-  X.fillStyle = '#ffd700'; X.textAlign = 'center';
+  // Score panel background
+  X.fillStyle = 'rgba(0,0,0,0.5)';
+  X.beginPath(); X.roundRect(4 * SC, 4 * SC, 100 * SC, 18 * SC, 4 * SC); X.fill();
+  X.fillStyle = '#ffd700'; X.font = `bold ${9 * SC}px Orbitron,sans-serif`;
+  X.textAlign = 'left'; X.shadowBlur = 6; X.shadowColor = '#ff880066';
+  X.fillText('⭐ ' + score.toLocaleString(), 8 * SC, 16 * SC); X.shadowBlur = 0;
+
+  // Round badge
+  X.fillStyle = 'rgba(0,0,0,0.5)';
+  X.beginPath(); X.roundRect((GW/2 - 36) * SC, 4 * SC, 72 * SC, 18 * SC, 4 * SC); X.fill();
+  X.fillStyle = '#ff8800'; X.textAlign = 'center';
   X.fillText('ROUND ' + round, GW / 2 * SC, 16 * SC);
+
+  // Lives — heart icons
   X.textAlign = 'right';
   for (let i = 0; i < lives; i++) {
-    X.fillStyle = '#ff4444'; X.fillText('♥', (GW - 8 - i * 18) * SC, 16 * SC);
+    X.fillStyle = '#ef5350';
+    X.shadowBlur = 4; X.shadowColor = '#ff0000';
+    X.fillText('♥', (GW - 6 - i * 18) * SC, 16 * SC);
   }
+  X.shadowBlur = 0;
 }
 
 function draw() {
   X.clearRect(0, 0, C.width, C.height);
-  const sky = X.createLinearGradient(0, 0, 0, C.height);
-  sky.addColorStop(0, '#000310'); sky.addColorStop(1, '#0a0518');
-  X.fillStyle = sky; X.fillRect(0, 0, C.width, C.height);
-  stars.forEach(s => {
-    const a = 0.3 + 0.3 * Math.sin(s.twinkle + Date.now() * 0.001);
-    X.fillStyle = `rgba(255,255,255,${a})`;
-    X.beginPath(); X.arc(s.x * SC, s.y * SC, s.r * SC, 0, Math.PI * 2); X.fill();
-  });
-  // Construction frame
-  X.strokeStyle = '#2a1200'; X.lineWidth = 2 * SC;
-  X.beginPath(); X.moveTo(36 * SC, 0); X.lineTo(36 * SC, GH * SC); X.stroke();
-  X.beginPath(); X.moveTo(284 * SC, 0); X.lineTo(284 * SC, GH * SC); X.stroke();
+  drawBackground();
   LADDERS.forEach(l => drawLadder(l));
   PLATS.forEach((p, i) => drawPlatform(p, i));
   drawKong();
@@ -420,12 +697,17 @@ function draw() {
   });
   drawHUD();
   if (phase === 'idle') {
-    X.fillStyle = 'rgba(0,2,8,.78)'; X.fillRect(0, 0, C.width, C.height);
-    X.fillStyle = '#ff8800'; X.font = `bold ${18 * SC}px Orbitron,sans-serif`;
-    X.textAlign = 'center'; X.shadowBlur = 22; X.shadowColor = '#ff8800';
-    X.fillText('TOKEN KONG', GW / 2 * SC, GH / 2 * SC - 14 * SC);
-    X.shadowBlur = 0; X.fillStyle = '#ffffff55'; X.font = `bold ${7.5 * SC}px Orbitron,sans-serif`;
-    X.fillText('climb to the MONET prize · jump over TX barrels', GW / 2 * SC, GH / 2 * SC + 6 * SC);
+    X.fillStyle = 'rgba(0,20,0,.72)'; X.fillRect(0, 0, C.width, C.height);
+    // Title card
+    X.fillStyle = 'rgba(0,0,0,0.6)';
+    X.beginPath(); X.roundRect((GW/2 - 100) * SC, (GH/2 - 36) * SC, 200 * SC, 70 * SC, 12 * SC); X.fill();
+    X.fillStyle = '#ffd700'; X.font = `bold ${20 * SC}px Orbitron,sans-serif`;
+    X.textAlign = 'center'; X.shadowBlur = 24; X.shadowColor = '#ff8800';
+    X.fillText('TOKEN KONG', GW / 2 * SC, GH / 2 * SC - 12 * SC);
+    X.shadowBlur = 0; X.fillStyle = '#ffffff99'; X.font = `bold ${7 * SC}px Orbitron,sans-serif`;
+    X.fillText('🦍 climb · jump · reach the MONET prize!', GW / 2 * SC, GH / 2 * SC + 8 * SC);
+    X.fillStyle = '#ffd70066'; X.font = `bold ${6 * SC}px Orbitron,sans-serif`;
+    X.fillText('jump TX barrels for bonus points!', GW / 2 * SC, GH / 2 * SC + 22 * SC);
   }
 }
 
@@ -433,14 +715,14 @@ function endGame() {
   phase = 'over';
   if (sessionActive) { arcadeSubmitScore('kong', score).catch(() => {}); sessionActive = false; }
   const b = document.createElement('div');
-  b.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,8,.96);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
-  b.innerHTML = `<div style="background:linear-gradient(160deg,#0d0500,#1a0a00);border:2px solid #ff8800;border-radius:20px;padding:28px 22px;width:min(320px,90vw);text-align:center">
-    <div style="font-size:42px;margin-bottom:8px">🦍</div>
-    <div style="font-size:20px;font-weight:900;color:#ff8800;letter-spacing:3px;margin-bottom:14px">GAME OVER</div>
-    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#666">FINAL SCORE</span><span style="color:#ff8800;font-weight:800">${score.toLocaleString()}</span></div>
-    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#666">ROUNDS CLEARED</span><span style="color:#ffd700;font-weight:800">${Math.max(0, round - 1)}</span></div>
-    <button onclick="location.reload()" style="margin-top:16px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff8800,#cc4400);color:#000;font-family:Orbitron,sans-serif;font-size:12px;font-weight:900">PLAY AGAIN</button>
-    <button onclick="location.href='arcade.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #222;cursor:pointer;background:transparent;color:#555;font-family:Orbitron,sans-serif;font-size:10px">← ARCADE</button>
+  b.style.cssText = 'position:fixed;inset:0;background:rgba(0,10,0,.96);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  b.innerHTML = `<div style="background:linear-gradient(160deg,#0d2010,#1a3a10);border:3px solid #ff8800;border-radius:20px;padding:28px 22px;width:min(320px,90vw);text-align:center;box-shadow:0 0 40px #ff880044">
+    <div style="font-size:46px;margin-bottom:8px">🦍</div>
+    <div style="font-size:20px;font-weight:900;color:#ffd700;letter-spacing:3px;margin-bottom:14px;text-shadow:0 0 12px #ff8800">GAME OVER</div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff15;font-size:12px"><span style="color:#888">FINAL SCORE</span><span style="color:#ffd700;font-weight:800">${score.toLocaleString()}</span></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#888">ROUNDS CLEARED</span><span style="color:#00ff88;font-weight:800">${Math.max(0, round - 1)}</span></div>
+    <button onclick="location.reload()" style="margin-top:16px;width:100%;padding:13px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#ff8800,#cc4400);color:#fff;font-family:Orbitron,sans-serif;font-size:12px;font-weight:900;box-shadow:0 4px 0 #661a00">🦍 PLAY AGAIN</button>
+    <button onclick="location.href='arcade.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #333;cursor:pointer;background:transparent;color:#555;font-family:Orbitron,sans-serif;font-size:10px">← ARCADE</button>
   </div>`;
   document.body.appendChild(b);
 }
@@ -466,13 +748,13 @@ document.addEventListener('keyup', e => {
 
 document.addEventListener('DOMContentLoaded', () => {
   renderWalletBar('wbar');
-  resize(); initStars();
+  resize(); initClouds();
   phase = 'idle'; initGame();
   lastT = performance.now();
   rafId = requestAnimationFrame(loop);
   showGameLobby('kong', () => {
     sessionActive = true;
-    phase = 'idle'; initGame(); initStars();
+    phase = 'idle'; initGame(); initClouds();
     setTimeout(() => { phase = 'play'; }, 200);
   });
 });
