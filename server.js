@@ -333,9 +333,19 @@ async function sendPayout(toAddress, amount) {
     if (dstAccounts.value.length) {
       dstATA = new PublicKey(dstAccounts.value[0].pubkey);
     } else {
-      // Recipient has no MONET account — create a standard ATA (treasury pays rent)
+      // Recipient has no MONET account — creating ATA costs ~0.002 SOL rent from treasury
+      const MIN_SOL_FOR_ATA = 0.0025; // 0.002 rent + buffer for tx fees
+      const tSOL = await getTreasurySOLBalance();
+      if (tSOL < MIN_SOL_FOR_ATA) {
+        throw new Error(
+          `Treasury SOL too low (${tSOL.toFixed(5)} SOL) to create recipient token account. ` +
+          `Please top up the treasury with at least 0.01 SOL, or have the recipient create a MONET ` +
+          `token account first by receiving any MONET or using a wallet like Phantom.`
+        );
+      }
       dstATA = getATA(mint, winner);
       tx.add(makeCreateATAIx(treasury, dstATA, winner, mint));
+      console.log(`[PAYOUT] Creating MONET ATA for ${toAddress.slice(0,8)}… (treasury SOL: ${tSOL.toFixed(5)})`);
     }
 
     tx.add(makeTransferIx(srcATA, dstATA, treasury, rawAmt));
@@ -362,6 +372,19 @@ async function sendPayout(toAddress, amount) {
     }
   }
   return sig;
+}
+
+// ─── Treasury SOL balance (cached 30 s) ───────────────────────────────────────
+let _tSOL = 0, _tSOLTs = 0;
+async function getTreasurySOLBalance(force = false) {
+  if (!force && Date.now() - _tSOLTs < 30_000) return _tSOL;
+  try {
+    const treasury = new PublicKey(TREASURY_ADDR);
+    const lamports = await withRpc(conn => conn.getBalance(treasury), 8000);
+    _tSOL   = lamports / 1e9;
+    _tSOLTs = Date.now();
+  } catch(e) { console.warn('[TREASURY-SOL] balance fetch failed:', e.message); }
+  return _tSOL;
 }
 
 let _tBal = 0, _tBalTs = 0;
@@ -410,9 +433,20 @@ async function verifyEntryFee(txId, expectedFee = ENTRY_FEE) {
   }
 
   if (!tx) {
-    // Tx not found — may still be propagating; allow through but log
-    console.warn(`[VERIFY] tx ${txId.slice(0,12)}… not found on-chain yet — allowing through`);
-    return { ok: true, rpcFailed: true };
+    // Tx not found — retry up to 3× with 2 s delay (tx may still be propagating)
+    for (let retry = 0; retry < 3; retry++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        tx = await withRpc(async conn =>
+          conn.getParsedTransaction(txId, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' })
+        , 8000);
+        if (tx) break;
+      } catch(_) {}
+    }
+    if (!tx) {
+      console.warn(`[VERIFY] tx ${txId.slice(0,12)}… not found after retries — allowing through`);
+      return { ok: true, rpcFailed: true };
+    }
   }
 
   if (tx.meta?.err) {
@@ -478,8 +512,19 @@ async function verifySOLPayment(txId, expectedLamports = SOL_ENTRY_LAMPORTS) {
     return { ok: true, rpcFailed: true };
   }
   if (!tx) {
-    console.warn(`[VERIFY-SOL] tx ${txId.slice(0,12)}… not found — allowing through`);
-    return { ok: true, rpcFailed: true };
+    for (let retry = 0; retry < 3; retry++) {
+      await new Promise(r => setTimeout(r, 2000));
+      try {
+        tx = await withRpc(async conn =>
+          conn.getParsedTransaction(txId, { maxSupportedTransactionVersion: 0, commitment: 'confirmed' })
+        , 8000);
+        if (tx) break;
+      } catch(_) {}
+    }
+    if (!tx) {
+      console.warn(`[VERIFY-SOL] tx ${txId.slice(0,12)}… not found after retries — allowing through`);
+      return { ok: true, rpcFailed: true };
+    }
   }
   if (tx.meta?.err) throw new Error(`Transaction ${txId.slice(0,12)}… failed on-chain`);
 
