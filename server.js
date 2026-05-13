@@ -125,8 +125,8 @@ app.use(express.json());
 // ─── Config ───────────────────────────────────────────────────────────────────
 const MINT_ADDRESS    = '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b';
 const TREASURY_ADDR   = 'BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z';
-const ENTRY_FEE       = 5;   // fallback only — dynamic fee targets $0.50 USD
-const TARGET_USD      = 0.50; // entry fee target in USD
+const ENTRY_FEE       = 10;  // fallback only — dynamic fee targets $0.99 USD
+const TARGET_USD      = 0.99; // entry fee target in USD
 const PRICE_CACHE_MS  = 5 * 60 * 1000; // cache MONET price for 5 minutes
 
 // ─── Dynamic SOL pricing ───────────────────────────────────────────────────
@@ -154,8 +154,8 @@ async function getSolPrice() {
   return fetchSolPrice();
 }
 
-// Returns lamports equivalent to TARGET_USD worth of SOL ($0.50)
-// Falls back to 5_000_000 lamports (~$0.50 at ~$100/SOL) if price unavailable
+// Returns lamports equivalent to TARGET_USD worth of SOL ($0.99)
+// Falls back to 9_900_000 lamports (~$0.99 at ~$100/SOL) if price unavailable
 async function getDynamicSolLamports() {
   const p = await getSolPrice();
   if (!p) return 5_000_000;
@@ -191,7 +191,7 @@ async function getMonetPrice() {
   return fetchMonetPrice();
 }
 
-// Returns the current MONET entry fee (how many MONET = $0.50 USD)
+// Returns the current MONET entry fee (how many MONET = $0.99 USD)
 // Falls back to ENTRY_FEE (5) if price cannot be fetched.
 async function getDynamicEntryFee() {
   const p = await getMonetPrice();
@@ -207,7 +207,7 @@ fetchMonetPrice().then(p => {
 const DECIMALS        = 6;
 const HOUSE_RAKE      = 0.20;
 const CPU_PAYOUT_MAX  = 9;
-const SOL_ENTRY_LAMPORTS = 5_000_000;   // fallback only — dynamic fee targets $0.50 USD
+const SOL_ENTRY_LAMPORTS = 9_900_000;   // fallback only — dynamic fee targets $0.99 USD
 const PRIZE_CUTS      = [0.50, 0.30, 0.20];
 const CHALLENGE_TTL   = 24 * 60 * 60 * 1000;
 const TOURNEY_WINDOW  = 60 * 60 * 1000;
@@ -811,7 +811,7 @@ app.post('/api/stripe/create-payment-intent', async (req, res) => {
     const game         = (req.body.game || 'game').toLowerCase();
     const sessionToken = crypto.randomUUID();
     const pi = await stripe.paymentIntents.create({
-      amount:   50,          // $0.50 USD in cents
+      amount:   99,          // $0.99 USD in cents
       currency: 'usd',
       metadata: { game, sessionToken, source: 'monet-arcade' },
     });

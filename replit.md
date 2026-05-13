@@ -1,6 +1,6 @@
 # Monet Money Arcade
 
-A Web3 Solana arcade with MONET token payment gating. Entry fee is ≈$0.50 USD (dynamically priced in MONET). Three payment methods: MONET tokens, SOL (~$0.25), or credit/debit card via Stripe. Solo play returns 80% to the high-score holder; Head-to-Head and Tournaments use a 90% payout pool. Players can also fund their crypto wallet via the Transak on-ramp widget.
+A Web3 Solana arcade with MONET token payment gating. Entry fee is ≈$0.99 USD (dynamically priced in MONET). Three payment methods: MONET tokens, SOL (~$0.99), or credit/debit card via Stripe. Solo play returns 80% to the high-score holder; Head-to-Head and Tournaments use a 90% payout pool. Players can also fund their crypto wallet via the Transak on-ramp widget.
 
 ## Token Details
 - **MONET Mint:** `6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b`
@@ -18,7 +18,7 @@ A Web3 Solana arcade with MONET token payment gating. Entry fee is ≈$0.50 USD 
 ## Game Roster
 
 Active games (arcade.html displays in this order):
-1. **Monet Bros** (`mario.html`) — Super Mario-style platformer; ≈$0.50 entry, 90% of pot as prize on level clear
+1. **Monet Bros** (`mario.html`) — Super Mario-style platformer; ≈$0.99 entry, 90% of pot as prize on level clear
 2. **Pac-Man** (`pacman.html`) — Maze dot-eating
 3. **Runner** (`dino.html`) — Endless runner + level creator
 4. **Frogger** (`frogger.html`) — Cross traffic/river
@@ -31,8 +31,8 @@ Active games (arcade.html displays in this order):
 11. **Reaction Blitz** (`reaction.html`) — Tap glowing targets fast; build combo multipliers; 30-sec challenge
 12. **Tap Frenzy** (`tap.html`) — Tap as fast as possible in 20 seconds; graded S/A/B/C
 13. **Blockchain Blitz** (`tetris.html`) — Crypto-themed Tetris; stack transaction blocks, confirm chains, mine rows
-14. **Brick Blaster** (`breakout.html`) — Arkanoid/Breakout; smash bricks with a ball, catch power-ups (wide/laser/multi-ball)
-15. **Galaxy Blitz** (`galaga.html`) — Galaga-style formation shooter; enemies dive-bomb, double score mid-dive
+14. **Token Kong** (`kong.html`) — DK-style platformer; climb blockchain layers, jump TX barrels, reach the MONET prize
+15. **Hash Racer** (`racer.html`) — Excitebike-style night race; ride ramps, turbo boost with overheat, dodge rival bikes
 16. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
 
 **Monet Bros** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
@@ -113,18 +113,18 @@ Payouts are **QUEUED** by default. Set `TREASURY_PRIVATE_KEY` environment variab
 | Method | How it works |
 |--------|-------------|
 | MONET tokens | Pay directly from connected Phantom/Solflare/Backpack wallet |
-| SOL | Pay ~$0.25 in SOL from connected wallet |
-| Credit/Debit Card | Pay $0.50 USD via Stripe — no crypto wallet needed (requires `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY`) |
+| SOL | Pay ~$0.99 in SOL from connected wallet |
+| Credit/Debit Card | Pay $0.99 USD via Stripe — no crypto wallet needed (requires `STRIPE_SECRET_KEY` + `STRIPE_PUBLISHABLE_KEY`) |
 | Fund Wallet (Transak) | Buy SOL with card via Transak on-ramp widget, then play with MONET/SOL |
 
 ## Prize Structure
 
 | Mode | Entry | Player Payout | House Rake |
 |------|-------|--------------|------------|
-| Solo | ≈$0.50 (dynamic MONET) | 80% back | 20% |
-| CPU Challenge | ≈$0.50 | 80–180% back depending on difficulty | varies |
-| H2H Challenge | ≈$0.50 each | 90% of combined pot to winner | 10% |
-| Tournament | ≈$0.50 each | 50%/30%/20% top 3 | 10% |
+| Solo | ≈$0.99 (dynamic MONET) | 80% back | 20% |
+| CPU Challenge | ≈$0.99 | 80–180% back depending on difficulty | varies |
+| H2H Challenge | ≈$0.99 each | 90% of combined pot to winner | 10% |
+| Tournament | ≈$0.99 each | 50%/30%/20% top 3 | 10% |
 
 ## Deployment
 

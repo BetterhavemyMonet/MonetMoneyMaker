@@ -5,7 +5,7 @@ const MONET_CONFIG = {
   MINT:         '6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b',
   TREASURY:     'BmEAUUkKcj7BLNAxTF6wqFx6r25wbX5josw4voMbin9z',
   ENTRY_FEE:    5,      // updated dynamically by fetchEntryFee()
-  ENTRY_FEE_USD: 0.50,  // target USD value per entry
+  ENTRY_FEE_USD: 0.99,  // target USD value per entry
   PAYOUT_RATE:  0.80,
   DECIMALS:     6,
   SYMBOL:       'MONET',
@@ -13,7 +13,7 @@ const MONET_CONFIG = {
 
 // ─── Dynamic entry fee ────────────────────────────────────────────────────────
 // Fetches the current MONET price from the server and updates MONET_CONFIG.ENTRY_FEE
-// so that it always equals $0.50 worth of MONET. Cached by the server for 5 min.
+// so that it always equals $0.99 worth of MONET. Cached by the server for 5 min.
 let _entryFeeFetched = false;
 async function fetchEntryFee() {
   try {
@@ -735,9 +735,9 @@ window.ensureMonetAccount = ensureMonetAccount;
 window.refreshBalances    = refreshBalances;
 
 // ─── Pay Entry Fee (SOL) ──────────────────────────────────────────────────────
-// Sends native SOL to treasury (~$0.50 worth) as an alternative to MONET.
+// Sends native SOL to treasury (~$0.99 worth) as an alternative to MONET.
 // Default lamports updated dynamically via fetchEntryFee() → MONET_CONFIG.SOL_ENTRY_LAMPORTS
-MONET_CONFIG.SOL_ENTRY_LAMPORTS = 5_000_000; // fallback ~$0.50 at ~$100/SOL
+MONET_CONFIG.SOL_ENTRY_LAMPORTS = 9_900_000; // fallback ~$0.99 at ~$100/SOL
 
 async function payEntryFeeSOL(gameName, onProgress, lamports) {
   const lam    = (lamports && lamports > 0) ? lamports : (MONET_CONFIG.SOL_ENTRY_LAMPORTS || 5_000_000);
@@ -1142,7 +1142,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
     const conn     = WalletState.connected;
     const bal      = WalletState.monetBalance;
     const fee      = MONET_CONFIG.ENTRY_FEE;
-    const feeUsd   = MONET_CONFIG._priceUsd ? (fee * MONET_CONFIG._priceUsd).toFixed(2) : '0.50';
+    const feeUsd   = MONET_CONFIG._priceUsd ? (fee * MONET_CONFIG._priceUsd).toFixed(2) : '0.99';
     const hasEnough = bal >= fee;
     const short    = conn ? WalletState.address.slice(0,4)+'...'+WalletState.address.slice(-4) : '';
     const potAmt   = opts.pot        ? opts.pot
@@ -1188,7 +1188,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
           <button id="pg-pay-sol-btn" onclick="pgPaySOL()"
             style="margin-top:8px;width:100%;padding:11px;border-radius:12px;border:1px solid ${WalletState.solBalance>=0.003?'#3b82f6':'#333'};cursor:${WalletState.solBalance>=0.003?'pointer':'not-allowed'};background:${WalletState.solBalance>=0.003?'rgba(59,130,246,0.12)':'rgba(255,255,255,0.03)'};color:${WalletState.solBalance>=0.003?'#60a5fa':'#555'};font-family:Orbitron,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px"
             ${WalletState.solBalance>=0.003?'':'disabled'}>
-            ◎ PAY ~$0.50 IN SOL &amp; PLAY${WalletState.solBalance<0.003?' (need ~0.003 SOL)':''}
+            ◎ PAY ~$0.99 IN SOL &amp; PLAY${WalletState.solBalance<0.003?' (need ~0.003 SOL)':''}
           </button>
         ` : `
           <button id="pg-connect-btn" onclick="pgConnect()">CONNECT WALLET</button>
@@ -1197,7 +1197,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
           <div style="flex:1;height:1px;background:#1a1a2a"></div>OR<div style="flex:1;height:1px;background:#1a1a2a"></div>
         </div>
         <button id="pg-card-btn" onclick="pgPayCard()" style="margin-top:10px;width:100%;padding:11px;border-radius:12px;border:1px solid #22c55e;cursor:pointer;background:rgba(34,197,94,0.08);color:#22c55e;font-family:Orbitron,sans-serif;font-size:11px;font-weight:800;letter-spacing:0.5px">
-          &#128179; PAY $0.50 WITH CARD
+          &#128179; PAY $0.99 WITH CARD
         </button>
         <button id="pg-transak-btn" onclick="pgOpenTransak()" style="margin-top:8px;width:100%;padding:9px;border-radius:10px;border:1px solid #3b82f633;cursor:pointer;background:rgba(59,130,246,0.05);color:#3b82f6;font-family:Orbitron,sans-serif;font-size:10px;font-weight:800;letter-spacing:0.5px">
           &#127974; FUND WALLET WITH CARD
@@ -1413,7 +1413,7 @@ async function pgPayCard() {
     <div id="pg-star">&#128179;</div>
     <div id="pg-title">PAY WITH CARD</div>
     <div id="pg-game">${gameName.toUpperCase()}</div>
-    <div style="color:#888;font-size:11px;margin:6px 0 16px">$0.50 USD · No crypto wallet needed</div>
+    <div style="color:#888;font-size:11px;margin:6px 0 16px">$0.99 USD · No crypto wallet needed</div>
     <div id="pg-card-form-wrap" style="width:100%;text-align:left">
       <div style="color:#888;font-size:11px;text-align:center">Loading payment form…</div>
     </div>
@@ -1469,7 +1469,7 @@ async function pgPayCard() {
                background:linear-gradient(135deg,#22c55e,#16a34a);color:#fff;
                font-family:Orbitron,sans-serif;font-size:13px;font-weight:800;letter-spacing:0.5px;
                box-shadow:0 4px 20px #22c55e44">
-        PAY $0.50 NOW &#8594;
+        PAY $0.99 NOW &#8594;
       </button>
     `);
   } catch(e) {
@@ -1508,7 +1508,7 @@ async function pgCardSubmit() {
     if (window._pgOnSuccess) window._pgOnSuccess('card-payment');
   } catch(e) {
     if (err) err.textContent = e.message;
-    if (btn) { btn.disabled = false; btn.textContent = 'PAY $0.50 NOW →'; }
+    if (btn) { btn.disabled = false; btn.textContent = 'PAY $0.99 NOW →'; }
   }
 }
 

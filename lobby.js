@@ -1,6 +1,6 @@
 // ─── MONET ARCADE GAME LOBBY ──────────────────────────────────────────────────
 // 5-mode lobby: Practice · CPU Expert · Join Live H2H · Create H2H · Tournament
-// Supports MONET or SOL (~$0.25) entry fee payments.
+// Supports MONET or SOL (~$0.99) entry fee payments.
 // Requires wallet.js to be loaded first.
 
 (function () {
@@ -225,7 +225,7 @@
         <button class="lb-mode-card cpu" onclick="window._lbSoloPaid()">
           <span class="lb-mc-icon">🏅</span>
           <div class="lb-mc-name">SOLO PLAY</div>
-          <div class="lb-mc-sub">≈$0.50 entry · Top score<br>wins 80% of pot back</div>
+          <div class="lb-mc-sub">≈$0.99 entry · Top score<br>wins 80% of pot back</div>
         </button>
         <button class="lb-mode-card live" onclick="window._lbJoinLive()">
           <span class="lb-mc-icon">⚡</span>
@@ -421,7 +421,7 @@
           return `<div class="lb-live-item" onclick="window._lbJoinChallenge('${c.code}')">
             <div>
               <div style="color:#fff;font-weight:800">${c.code}</div>
-              <div style="color:#888;font-size:9px;margin-top:2px">${short} · ≈$0.50 each (${c.entryFee} MONET)</div>
+              <div style="color:#888;font-size:9px;margin-top:2px">${short} · ≈$0.99 each (${c.entryFee} MONET)</div>
             </div>
             <div style="text-align:right">
               <div style="color:#ffd700;font-weight:800;font-size:12px">${pot} MONET</div>
@@ -463,7 +463,7 @@
           return `<div class="lb-tourney-item" onclick="window._lbJoinTournament('${t.id}', ${t.entryFee})">
             <div>
               <div style="color:#fff;font-weight:800;font-size:11px">${t.title}</div>
-              <div style="color:#888;font-size:9px;margin-top:2px">${t.players.length}/${t.maxPlayers} players · ≈$0.50 entry (${t.entryFee} MONET)</div>
+              <div style="color:#888;font-size:9px;margin-top:2px">${t.players.length}/${t.maxPlayers} players · ≈$0.99 entry (${t.entryFee} MONET)</div>
             </div>
             <div style="text-align:right">
               <div style="color:#ffd700;font-weight:800;font-size:11px">${t.prizePool.toFixed(1)} POT</div>

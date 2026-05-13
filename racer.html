@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>HASH RACER — MONET Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body.game-page{background:#000;overflow:hidden;touch-action:none}
+body.game-page::before{display:none}
+.gw{display:flex;flex-direction:column;height:100vh}
+#wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #001133;font-size:11px;flex-shrink:0}
+.arena{flex:1;min-height:0;position:relative;background:#000}
+#gc{display:block;width:100%;height:100%}
+.ctrl{flex-shrink:0;background:rgba(0,2,10,.95);border-top:1px solid #001133;padding:5px 8px}
+.cr{display:flex;justify-content:space-between;align-items:center;gap:5px}
+.cb{height:54px;border-radius:10px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;font-size:10px;line-height:1.3}
+.cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
+.brk{flex:1;background:linear-gradient(135deg,#220000,#110000);color:#ff4444;border:1px solid #440000;box-shadow:0 4px 0 #000}
+.go{flex:1.6;background:linear-gradient(135deg,#003322,#001a11);color:#00ff9d;border:1px solid #006633;box-shadow:0 4px 0 #000}
+.trb{flex:1.6;background:linear-gradient(135deg,#330022,#1a0011);color:#ff44cc;border:1px solid #660044;box-shadow:0 4px 0 #000}
+.home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
+</style>
+</head>
+<body class="game-page">
+<div class="wallet-bar" id="wbar"></div>
+<div class="gw">
+  <div class="arena"><canvas id="gc"></canvas></div>
+  <div class="ctrl">
+    <div class="cr">
+      <button class="cb brk" ontouchstart="keys.brake=true;event.preventDefault()" ontouchend="keys.brake=false" onmousedown="keys.brake=true" onmouseup="keys.brake=false" onmouseleave="keys.brake=false">◀<br>BRAKE</button>
+      <button class="cb go"  ontouchstart="keys.go=true;event.preventDefault()"    ontouchend="keys.go=false"    onmousedown="keys.go=true"    onmouseup="keys.go=false"    onmouseleave="keys.go=false">▶<br>GO</button>
+      <button class="cb trb" ontouchstart="keys.turbo=true;event.preventDefault()"  ontouchend="keys.turbo=false"  onmousedown="keys.turbo=true"  onmouseup="keys.turbo=false"  onmouseleave="keys.turbo=false">🔥<br>TURBO</button>
+      <a class="home" href="arcade.html">⌂</a>
+    </div>
+  </div>
+</div>
+<script>
+const C = document.getElementById('gc'), X = C.getContext('2d');
+let W, H;
+
+function resize() {
+  const p = C.parentElement;
+  W = p.clientWidth; H = p.clientHeight;
+  C.width = W; C.height = H;
+}
+window.addEventListener('resize', () => { resize(); });
+
+// ── Track generation ─────────────────────────────────────────────────────────
+const TRACK_LEN = 22000;
+const trackSegs = [];
+
+function genTrack() {
+  trackSegs.length = 0;
+  let x = 0, h = 0.62;
+  const clamp = v => Math.max(0.28, Math.min(0.70, v));
+
+  // Opening flat
+  trackSegs.push({ x1: 0, x2: 500, h1: h, h2: h }); x = 500;
+
+  while (x < TRACK_LEN - 600) {
+    const r = Math.random();
+    if (r < 0.30) {
+      const len = 140 + Math.random() * 200 | 0;
+      const obs = Math.random() > 0.55 && x > 800;
+      trackSegs.push({ x1: x, x2: x + len, h1: h, h2: h, obs });
+      x += len;
+    } else if (r < 0.46) {
+      // Jump ramp — steep rise then drop
+      const rLen = 55 + Math.random() * 35 | 0;
+      const newH = clamp(h - 0.16 - Math.random() * 0.12);
+      trackSegs.push({ x1: x, x2: x + rLen, h1: h, h2: newH, ramp: true }); h = newH; x += rLen;
+      const dLen = 30 + Math.random() * 20 | 0;
+      const dh = clamp(h + 0.22 + Math.random() * 0.06);
+      trackSegs.push({ x1: x, x2: x + dLen, h1: h, h2: dh }); h = dh; x += dLen;
+    } else if (r < 0.62) {
+      const len = 120 + Math.random() * 100 | 0;
+      const newH = clamp(h - 0.06 - Math.random() * 0.08);
+      trackSegs.push({ x1: x, x2: x + len, h1: h, h2: newH }); h = newH; x += len;
+    } else if (r < 0.78) {
+      const len = 120 + Math.random() * 100 | 0;
+      const newH = clamp(h + 0.04 + Math.random() * 0.07);
+      trackSegs.push({ x1: x, x2: x + len, h1: h, h2: newH }); h = newH; x += len;
+    } else {
+      // Obstacle only
+      const len = 70;
+      trackSegs.push({ x1: x, x2: x + len, h1: h, h2: h, obs: x > 800 }); x += len;
+    }
+  }
+  trackSegs.push({ x1: x, x2: TRACK_LEN, h1: h, h2: h });
+}
+
+function getSegAt(wx) {
+  for (const s of trackSegs) { if (wx >= s.x1 && wx < s.x2) return s; }
+  return trackSegs[trackSegs.length - 1];
+}
+
+function trackFrac(wx) {
+  const s = getSegAt(wx); if (!s) return 0.62;
+  const t = Math.min(1, Math.max(0, (wx - s.x1) / (s.x2 - s.x1)));
+  return s.h1 + (s.h2 - s.h1) * t;
+}
+
+// ── State ────────────────────────────────────────────────────────────────────
+const BIKE_X = 92;
+let scrollX, speed, heat, overheated, airH, airVY, lives, distance;
+let crashed, crashTimer, phase, rafId, lastT = 0;
+let floatTexts, stars, score, sessionActive = false;
+let prevRoadFrac;
+const keys = { brake: false, go: false, turbo: false };
+
+const GRAV = 0.38;
+const NORMAL_MAX = 5.5;
+const TURBO_MAX = 9.5;
+const MIN_SPEED = 0.4;
+const ACCEL = 0.1;
+const HEAT_RATE = 1.8;
+const COOL_RATE = 0.9;
+const OHEAT_COOL = 2.8;
+
+function initStars() {
+  stars = Array.from({ length: 80 }, () => ({
+    x: Math.random() * W, y: Math.random() * H * 0.55, r: 0.4 + Math.random() * 1.4
+  }));
+}
+
+function initGame() {
+  scrollX = 0; speed = 2.5; heat = 0; overheated = false;
+  airH = 0; airVY = 0; lives = 3; distance = 0;
+  crashed = false; crashTimer = 0; score = 0;
+  floatTexts = [];
+  prevRoadFrac = trackFrac(BIKE_X);
+  genTrack();
+}
+
+function doCrash() {
+  if (crashed) return;
+  crashed = true; crashTimer = 2200; speed = 0;
+  airH = 0; airVY = 0;
+  lives--;
+  floatTexts.push({ x: BIKE_X, y: -50, txt: '💥 WIPEOUT!', col: '#ff4444', life: 60, vy: -0.8 });
+  if (lives <= 0) setTimeout(endGame, 800);
+}
+
+function update(dt) {
+  if (phase !== 'play') return;
+  const s = dt / 16;
+
+  if (crashed) {
+    crashTimer -= dt;
+    if (crashTimer <= 0) { crashed = false; speed = 1; }
+    scrollX += Math.max(0, speed) * 0.4 * s;
+    return;
+  }
+
+  if (overheated) {
+    heat -= OHEAT_COOL * s;
+    speed = Math.max(0, speed - 0.08 * s);
+    if (heat <= 0) { heat = 0; overheated = false; speed = 0.8; }
+    scrollX += speed * s;
+    return;
+  }
+
+  // Speed
+  if (keys.turbo) {
+    speed = Math.min(TURBO_MAX, speed + ACCEL * 1.6 * s);
+    heat = Math.min(100, heat + HEAT_RATE * s);
+    if (heat >= 100) overheated = true;
+  } else if (keys.go) {
+    speed = Math.min(NORMAL_MAX, speed + ACCEL * s);
+    heat = Math.max(0, heat - COOL_RATE * s);
+  } else if (keys.brake) {
+    speed = Math.max(MIN_SPEED, speed - 0.18 * s);
+    heat = Math.max(0, heat - COOL_RATE * 1.5 * s);
+  } else {
+    speed = Math.max(1.5, speed - 0.04 * s);
+    heat = Math.max(0, heat - COOL_RATE * 0.7 * s);
+  }
+
+  scrollX += speed * s;
+  distance = Math.round(scrollX / 50);
+  score = distance;
+
+  const wx = scrollX + BIKE_X;
+  const roadFrac = trackFrac(wx);
+
+  if (airH > 0) {
+    airVY -= GRAV * s;
+    airH += airVY * s;
+    if (airH <= 0) {
+      const landV = -airVY;
+      // Crash if landing on a ramp segment
+      const seg = getSegAt(wx);
+      if (seg && seg.ramp && landV > 4) { airH = 0; airVY = 0; doCrash(); }
+      else { airH = 0; airVY = 0; }
+    }
+  } else {
+    // Ramp launch detection: road fraction ahead is much higher (drops away)
+    const aheadFrac = trackFrac(wx + 4 * speed);
+    const drop = aheadFrac - roadFrac;
+    if (drop > 0.038 && speed > 3.8) {
+      airH = 1;
+      airVY = speed * 0.75;
+    }
+    // Obstacle check
+    if (airH <= 0) {
+      const seg = getSegAt(wx);
+      if (seg && seg.obs && !seg.hit) {
+        const mid = (seg.x1 + seg.x2) / 2;
+        if (Math.abs(wx - mid) < 28) { seg.hit = true; doCrash(); }
+      }
+    }
+  }
+
+  // Track end / victory
+  if (scrollX >= TRACK_LEN - 400) {
+    score += lives * 500;
+    floatTexts.push({ x: W / 2, y: H * 0.4, txt: 'FINISH! +' + (lives * 500), col: '#ffd700', life: 80, vy: -0.5 });
+    setTimeout(endGame, 2000);
+    phase = 'finish';
+  }
+
+  prevRoadFrac = roadFrac;
+
+  // Floats
+  for (let i = floatTexts.length - 1; i >= 0; i--) {
+    const f = floatTexts[i]; f.y += f.vy; f.life--;
+    if (f.life <= 0) floatTexts.splice(i, 1);
+  }
+}
+
+// ── Drawing ──────────────────────────────────────────────────────────────────
+function drawBG() {
+  const sky = X.createLinearGradient(0, 0, 0, H);
+  sky.addColorStop(0, '#000008'); sky.addColorStop(0.55, '#040518'); sky.addColorStop(1, '#080a22');
+  X.fillStyle = sky; X.fillRect(0, 0, W, H);
+  X.fillStyle = '#ffffff28';
+  stars.forEach(s => { X.beginPath(); X.arc(s.x, s.y, s.r, 0, Math.PI * 2); X.fill(); });
+  // Moon
+  X.fillStyle = '#fffde0'; X.shadowBlur = 26; X.shadowColor = '#fffde066';
+  X.beginPath(); X.arc(W * 0.8, H * 0.1, 18, 0, Math.PI * 2); X.fill(); X.shadowBlur = 0;
+  X.fillStyle = '#ddd8be'; X.beginPath(); X.arc(W * 0.8 + 5, H * 0.1 - 3, 13, 0, Math.PI * 2); X.fill();
+  // Mountains far
+  X.fillStyle = '#080816';
+  X.beginPath(); X.moveTo(0, H);
+  const mFar = [[0,0.55],[.07,.4],[.14,.52],[.2,.35],[.28,.48],[.36,.3],[.44,.44],[.52,.27],[.6,.42],[.7,.34],[.8,.46],[.9,.38],[1,.54]];
+  mFar.forEach(([px, py]) => X.lineTo(W * px, H * py));
+  X.lineTo(W, H); X.closePath(); X.fill();
+  // Mountains near
+  X.fillStyle = '#050511';
+  X.beginPath(); X.moveTo(0, H);
+  const mNear = [[0,0.63],[.06,.52],[.12,.6],[.2,.49],[.28,.58],[.36,.46],[.44,.56],[.55,.48],[.64,.58],[.74,.5],[.84,.59],[.93,.52],[1,.62]];
+  mNear.forEach(([px, py]) => X.lineTo(W * px, H * py));
+  X.lineTo(W, H); X.closePath(); X.fill();
+}
+
+function drawTrack() {
+  // Road polygon
+  X.beginPath(); X.moveTo(0, H);
+  for (let sx = 0; sx <= W; sx += 3) {
+    X.lineTo(sx, trackFrac(scrollX + sx) * H);
+  }
+  X.lineTo(W, H); X.closePath();
+  const rg = X.createLinearGradient(0, H * 0.35, 0, H);
+  rg.addColorStop(0, '#252535'); rg.addColorStop(0.4, '#181826'); rg.addColorStop(1, '#0a0a14');
+  X.fillStyle = rg; X.fill();
+
+  // Road edge line
+  X.strokeStyle = '#2244aa'; X.lineWidth = 2;
+  X.beginPath();
+  for (let sx = 0; sx <= W; sx += 3) {
+    const ry = trackFrac(scrollX + sx) * H;
+    if (sx === 0) X.moveTo(sx, ry); else X.lineTo(sx, ry);
+  }
+  X.stroke();
+
+  // Road markings (dashed)
+  X.strokeStyle = '#ffffff16'; X.lineWidth = 2;
+  X.setLineDash([22, 18]);
+  X.beginPath();
+  for (let sx = 0; sx <= W; sx += 3) {
+    const ry = trackFrac(scrollX + sx) * H + 12;
+    if (sx === 0) X.moveTo(sx, ry); else X.lineTo(sx, ry);
+  }
+  X.stroke(); X.setLineDash([]);
+
+  // Ramp visuals
+  for (const seg of trackSegs) {
+    if (!seg.ramp) continue;
+    const sx1 = seg.x1 - scrollX, sx2 = seg.x2 - scrollX;
+    if (sx2 < -10 || sx1 > W + 10) continue;
+    X.fillStyle = '#1e3a5a';
+    X.beginPath();
+    X.moveTo(Math.max(0, sx1), seg.h1 * H);
+    X.lineTo(Math.min(W, sx2), seg.h2 * H);
+    X.lineTo(Math.min(W, sx2), seg.h1 * H);
+    X.closePath(); X.fill();
+    X.strokeStyle = '#2a5580'; X.lineWidth = 2;
+    X.beginPath(); X.moveTo(Math.max(0, sx1), seg.h1 * H); X.lineTo(Math.min(W, sx2), seg.h2 * H); X.stroke();
+    // Ramp stripes
+    X.strokeStyle = '#3a6a9a44'; X.lineWidth = 1;
+    for (let i = 1; i < 4; i++) {
+      const t = i / 4;
+      const rx = sx1 + (sx2 - sx1) * t, ry = (seg.h1 + (seg.h2 - seg.h1) * t) * H;
+      X.beginPath(); X.moveTo(rx, ry); X.lineTo(rx, seg.h1 * H); X.stroke();
+    }
+  }
+
+  // Obstacles (rival bikes)
+  for (const seg of trackSegs) {
+    if (!seg.obs || seg.hit) continue;
+    const mid = (seg.x1 + seg.x2) / 2;
+    const sx = mid - scrollX;
+    if (sx < -35 || sx > W + 35) continue;
+    const ry = trackFrac(mid) * H;
+    drawRivalBike(sx, ry);
+  }
+
+  // Finish line
+  const fx = TRACK_LEN - scrollX;
+  if (fx > 0 && fx < W + 20) {
+    X.fillStyle = '#fff';
+    for (let i = 0; i < 8; i++) {
+      X.fillStyle = (i % 2) ? '#fff' : '#000';
+      X.fillRect(fx - 4, (trackFrac(TRACK_LEN) * H) + i * 8 - 60, 8, 8);
+    }
+    X.strokeStyle = '#ffd700'; X.lineWidth = 3;
+    X.beginPath(); X.moveTo(fx, 0); X.lineTo(fx, H); X.stroke();
+  }
+}
+
+function drawRivalBike(x, y) {
+  X.save(); X.translate(x, y);
+  X.fillStyle = '#442200'; X.strokeStyle = '#664400'; X.lineWidth = 2;
+  X.beginPath(); X.arc(-11, 0, 8, 0, Math.PI * 2); X.fill(); X.stroke();
+  X.beginPath(); X.arc(11, 0, 8, 0, Math.PI * 2); X.fill(); X.stroke();
+  X.strokeStyle = '#775500'; X.lineWidth = 4; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(-11, -2); X.lineTo(11, -2); X.stroke();
+  X.beginPath(); X.moveTo(-4, -13); X.lineTo(-11, -2); X.stroke();
+  X.beginPath(); X.moveTo(7, -11); X.lineTo(11, -2); X.stroke();
+  X.fillStyle = '#553300';
+  X.beginPath(); X.ellipse(-2, -19, 5, 9, 0, 0, Math.PI * 2); X.fill();
+  X.fillStyle = '#663311'; X.beginPath(); X.arc(-2, -28, 6, 0, Math.PI * 2); X.fill();
+  X.restore();
+}
+
+function drawPlayerBike() {
+  const wx = scrollX + BIKE_X;
+  const roadY = trackFrac(wx) * H - airH * 2;
+  // Lean based on slope
+  const h1 = trackFrac(wx - 4), h2 = trackFrac(wx + 4);
+  const slope = (h2 - h1) * H / 8;
+  const leanAngle = crashed ? 1.1 : Math.atan2(slope, 1) * 0.55 + (airH > 5 ? -0.22 : 0);
+
+  X.save(); X.translate(BIKE_X, roadY); X.rotate(leanAngle);
+  const WR = 10;
+
+  // Shadow
+  if (!crashed) {
+    X.fillStyle = 'rgba(0,0,0,0.35)';
+    X.beginPath(); X.ellipse(0, airH * 2 + 4, 18 + airH * 0.5, 4, 0, 0, Math.PI * 2); X.fill();
+  }
+
+  // Rear wheel
+  const wrot = (scrollX / 13) % (Math.PI * 2);
+  X.fillStyle = '#1a1a1a'; X.strokeStyle = '#3a3a3a'; X.lineWidth = 2;
+  X.beginPath(); X.arc(-14, 0, WR, 0, Math.PI * 2); X.fill(); X.stroke();
+  X.strokeStyle = '#4a4a4a'; X.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const a = wrot + i * Math.PI / 2;
+    X.beginPath(); X.moveTo(-14, 0); X.lineTo(-14 + Math.cos(a) * (WR - 1), Math.sin(a) * (WR - 1)); X.stroke();
+  }
+  // Front wheel
+  X.fillStyle = '#1a1a1a'; X.strokeStyle = '#3a3a3a'; X.lineWidth = 2;
+  X.beginPath(); X.arc(14, 0, WR, 0, Math.PI * 2); X.fill(); X.stroke();
+  X.strokeStyle = '#4a4a4a'; X.lineWidth = 1;
+  for (let i = 0; i < 4; i++) {
+    const a = wrot + i * Math.PI / 2;
+    X.beginPath(); X.moveTo(14, 0); X.lineTo(14 + Math.cos(a) * (WR - 1), Math.sin(a) * (WR - 1)); X.stroke();
+  }
+
+  // Frame
+  X.strokeStyle = '#cc1a22'; X.lineWidth = 4; X.lineCap = 'round';
+  X.beginPath(); X.moveTo(-14, -3); X.lineTo(-4, -15); X.lineTo(9, -13); X.lineTo(14, -3); X.stroke();
+  // Engine block
+  X.fillStyle = '#aa1118'; X.fillRect(-6, -17, 12, 8);
+  X.fillStyle = '#dd2233'; X.fillRect(-5, -16, 8, 3);
+  // Fork
+  X.strokeStyle = '#888'; X.lineWidth = 2;
+  X.beginPath(); X.moveTo(9, -13); X.lineTo(14, 0); X.stroke();
+  // Exhaust
+  X.strokeStyle = '#777'; X.lineWidth = 3;
+  X.beginPath(); X.moveTo(-10, -8); X.lineTo(-20, 2); X.stroke();
+  X.fillStyle = '#555'; X.beginPath(); X.arc(-20, 2, 4, 0, Math.PI * 2); X.fill();
+
+  // Rider body
+  if (!crashed) {
+    X.fillStyle = '#1133aa';
+    X.beginPath(); X.ellipse(-3, -25, 6, 10, -0.12, 0, Math.PI * 2); X.fill();
+    // Helmet
+    X.fillStyle = '#ee3300'; X.beginPath(); X.arc(-3, -35, 7, 0, Math.PI * 2); X.fill();
+    X.fillStyle = '#ffcc00'; X.fillRect(-6, -37, 9, 4);
+    X.fillStyle = '#cc2200aa'; X.fillRect(-5, -34, 7, 3); // visor shadow
+  } else {
+    // Crashed rider falls off
+    X.fillStyle = '#1133aa'; X.fillRect(8, -15, 10, 14);
+    X.fillStyle = '#ee3300'; X.beginPath(); X.arc(14, -18, 7, 0, Math.PI * 2); X.fill();
+  }
+
+  // Speed streaks
+  if (speed > 5.5 && !crashed) {
+    const a = Math.min(0.6, (speed - 5.5) / 4);
+    X.strokeStyle = `rgba(0,180,255,${a})`;
+    X.lineWidth = 1;
+    for (let i = 0; i < 3; i++) {
+      const ly = -10 + i * 7;
+      X.beginPath(); X.moveTo(-18, ly); X.lineTo(-18 - 8 - Math.random() * 8, ly); X.stroke();
+    }
+  }
+
+  // Turbo flame
+  if (keys.turbo && !overheated && !crashed && speed > 3) {
+    X.fillStyle = `rgba(255,${60 + Math.random() * 100 | 0},0,.88)`;
+    X.beginPath(); X.moveTo(-18, -4); X.lineTo(-24 - Math.random() * 7, -1); X.lineTo(-18, 2); X.closePath(); X.fill();
+    X.fillStyle = `rgba(255,220,0,.6)`;
+    X.beginPath(); X.moveTo(-18, -2); X.lineTo(-21 - Math.random() * 4, 0); X.lineTo(-18, 2); X.closePath(); X.fill();
+  }
+
+  // Airborne glow
+  if (airH > 5) {
+    X.shadowBlur = 12; X.shadowColor = '#00aaff44'; X.strokeStyle = '#00aaff22'; X.lineWidth = 1;
+    X.strokeRect(-16, -38, 34, 40); X.shadowBlur = 0;
+  }
+  X.restore();
+}
+
+function drawHUD() {
+  // Title
+  X.fillStyle = '#00ccff'; X.font = 'bold 11px Orbitron,sans-serif';
+  X.textAlign = 'center'; X.shadowBlur = 8; X.shadowColor = '#00ccff44';
+  X.fillText('HASH RACER', W / 2, 16); X.shadowBlur = 0;
+
+  // Distance / score
+  X.fillStyle = '#ffd700'; X.font = 'bold 13px Orbitron,sans-serif'; X.textAlign = 'right';
+  X.shadowBlur = 6; X.shadowColor = '#ffd70066';
+  X.fillText(distance + 'm', W - 10, 16); X.shadowBlur = 0;
+
+  // Lives
+  X.textAlign = 'left'; X.font = 'bold 11px Orbitron,sans-serif';
+  for (let i = 0; i < lives; i++) { X.fillStyle = '#ff4444'; X.fillText('♥', 8 + i * 17, 16); }
+
+  // Speed bar
+  const bx = 8, by = 22, bw = 82, bh = 7;
+  X.fillStyle = '#111'; X.fillRect(bx, by, bw, bh);
+  X.fillStyle = speed > NORMAL_MAX ? '#ff4400' : '#00ff9d';
+  X.fillRect(bx, by, bw * (speed / TURBO_MAX), bh);
+  X.strokeStyle = '#333'; X.lineWidth = 1; X.strokeRect(bx, by, bw, bh);
+  X.fillStyle = '#888'; X.font = 'bold 7px Orbitron,sans-serif'; X.textAlign = 'left';
+  X.fillText('SPEED', bx, by + bh + 9);
+
+  // Heat bar
+  const hx = 8, hy = 44, hw = 82, hh = 7;
+  X.fillStyle = '#111'; X.fillRect(hx, hy, hw, hh);
+  const hc = heat > 75 ? '#ff1100' : heat > 45 ? '#ff8800' : '#ffcc00';
+  if (!overheated) {
+    X.fillStyle = hc; X.fillRect(hx, hy, hw * (heat / 100), hh);
+  } else if (Math.floor(Date.now() / 180) % 2) {
+    X.fillStyle = '#ff0000'; X.fillRect(hx, hy, hw, hh);
+  }
+  X.strokeStyle = '#333'; X.strokeRect(hx, hy, hw, hh);
+  X.fillStyle = overheated ? '#ff4444' : '#888'; X.font = 'bold 7px Orbitron,sans-serif';
+  X.fillText(overheated ? '⚠ OVERHEAT' : 'HEAT', hx, hy + hh + 9);
+
+  // Float texts
+  floatTexts.forEach(f => {
+    X.save(); X.globalAlpha = Math.max(0, f.life / 60);
+    X.fillStyle = f.col; X.font = 'bold 11px Orbitron,sans-serif';
+    X.textAlign = 'center'; X.shadowBlur = 8; X.shadowColor = f.col;
+    X.fillText(f.txt, f.x, H * 0.4 + f.y); X.restore();
+  });
+}
+
+function drawIdle() {
+  X.fillStyle = 'rgba(0,2,10,.8)'; X.fillRect(0, 0, W, H);
+  X.fillStyle = '#00ccff'; X.font = `bold ${Math.min(22, W * 0.07)}px Orbitron,sans-serif`;
+  X.textAlign = 'center'; X.shadowBlur = 24; X.shadowColor = '#00ccff';
+  X.fillText('HASH RACER', W / 2, H / 2 - 14);
+  X.shadowBlur = 0; X.fillStyle = '#ffffff55'; X.font = `bold ${Math.min(9, W * 0.028)}px Orbitron,sans-serif`;
+  X.fillText('ride ramps · hit turbo · dodge rival bikes · finish the track', W / 2, H / 2 + 8);
+}
+
+function draw() {
+  X.clearRect(0, 0, W, H);
+  drawBG();
+  drawTrack();
+  drawPlayerBike();
+  drawHUD();
+  if (phase === 'idle') drawIdle();
+}
+
+function endGame() {
+  if (phase === 'over') return;
+  phase = 'over';
+  if (sessionActive) { arcadeSubmitScore('racer', score).catch(() => {}); sessionActive = false; }
+  const el = document.createElement('div');
+  el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,12,.96);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  const won = scrollX >= TRACK_LEN - 600;
+  el.innerHTML = `<div style="background:linear-gradient(160deg,#020510,#050820);border:2px solid #00ccff;border-radius:20px;padding:28px 22px;width:min(320px,90vw);text-align:center">
+    <div style="font-size:40px;margin-bottom:8px">${won ? '🏁' : '🏍'}</div>
+    <div style="font-size:20px;font-weight:900;color:#00ccff;letter-spacing:3px;margin-bottom:14px">${won ? 'RACE COMPLETE!' : 'WIPED OUT'}</div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #ffffff0d;font-size:12px"><span style="color:#666">DISTANCE</span><span style="color:#00ccff;font-weight:800">${distance}m</span></div>
+    <div style="display:flex;justify-content:space-between;padding:8px 0;font-size:12px"><span style="color:#666">SCORE</span><span style="color:#ffd700;font-weight:800">${score.toLocaleString()}</span></div>
+    <button onclick="location.reload()" style="margin-top:16px;width:100%;padding:12px;border-radius:12px;border:none;cursor:pointer;background:linear-gradient(135deg,#00ccff,#0066aa);color:#000;font-family:Orbitron,sans-serif;font-size:12px;font-weight:900">RACE AGAIN</button>
+    <button onclick="location.href='arcade.html'" style="margin-top:8px;width:100%;padding:10px;border-radius:12px;border:1px solid #222;cursor:pointer;background:transparent;color:#555;font-family:Orbitron,sans-serif;font-size:10px">← ARCADE</button>
+  </div>`;
+  document.body.appendChild(el);
+}
+
+function loop(ts) {
+  rafId = requestAnimationFrame(loop);
+  const dt = Math.min(100, ts - lastT); lastT = ts;
+  if (phase === 'play') update(dt);
+  draw();
+}
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'ArrowLeft')  keys.brake = true;
+  if (e.code === 'ArrowRight') keys.go = true;
+  if (e.code === 'KeyZ' || e.code === 'KeyX' || e.code === 'Space') { e.preventDefault(); keys.turbo = true; }
+});
+document.addEventListener('keyup', e => {
+  if (e.code === 'ArrowLeft')  keys.brake = false;
+  if (e.code === 'ArrowRight') keys.go = false;
+  if (e.code === 'KeyZ' || e.code === 'KeyX' || e.code === 'Space') keys.turbo = false;
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+  renderWalletBar('wbar');
+  resize(); initStars(); genTrack();
+  phase = 'idle'; initGame();
+  lastT = performance.now();
+  rafId = requestAnimationFrame(loop);
+  showGameLobby('racer', () => {
+    sessionActive = true;
+    phase = 'idle'; initGame(); initStars();
+    setTimeout(() => { phase = 'play'; }, 200);
+  });
+});
+</script>
+</body>
+</html>
