@@ -1,6 +1,6 @@
 # Monet Money Arcade
 
-A Web3 Solana arcade with MONET token payment gating. Entry fee is ≈$0.50 USD (dynamically priced in MONET). Three payment methods: MONET tokens, SOL (~$0.25), or credit/debit card via Stripe. Solo play returns 80% to the high-score holder; Head-to-Head and Tournaments use a 90% payout pool. Players can also fund their crypto wallet via the Transak on-ramp widget.
+A Web3 Solana arcade with MONET token payment gating. Entry fee is ≈$0.99 USD (dynamically priced in MONET). Three payment methods: MONET tokens, SOL (~$0.25), or credit/debit card via Stripe. Solo play returns 80% to the high-score holder; Head-to-Head and Tournaments use a 90% payout pool. Players can also fund their crypto wallet via the Transak on-ramp widget.
 
 ## Token Details
 - **MONET Mint:** `6eACLGXCGdw9D5zb5eBKyFnFNTX9pTihDEpZQ7gYAX1b`

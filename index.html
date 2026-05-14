@@ -73,14 +73,14 @@ body::before {
   </div>
 
   <div class="fee-note">
-    Entry fee: <b><span id="idx-fee">≈$0.50 in MONET</span></b> per game &nbsp;|&nbsp; Winners receive <b>80% payout</b>
+    Entry fee: <b><span id="idx-fee">≈$0.99 in MONET</span></b> per game &nbsp;|&nbsp; Winners receive <b>80% payout</b>
   </div>
 
   <div class="nav-grid">
     <a class="nav-card arcade" href="arcade.html">
       <div class="nav-icon">&#127918;</div>
       <div class="nav-title" style="color:#00ff9d">PLAY GAMES</div>
-      <div class="nav-desc"><span id="idx-fee2">≈$0.50</span> entry · Win prizes</div>
+      <div class="nav-desc"><span id="idx-fee2">≈$0.99</span> entry · Win prizes</div>
     </a>
     <a class="nav-card exchange" href="exchange.html">
       <div class="nav-icon">&#8645;</div>
@@ -143,8 +143,8 @@ function logout() {
   try {
     const d = await fetch('/api/monet-price').then(r => r.json());
     const fee = d.entryFee || 5;
-    document.getElementById('idx-fee').textContent  = `≈$0.50 (~${fee} MONET)`;
-    document.getElementById('idx-fee2').textContent = `≈$0.50 (~${fee} MONET)`;
+    document.getElementById('idx-fee').textContent  = `≈$0.99 (~${fee} MONET)`;
+    document.getElementById('idx-fee2').textContent = `≈$0.99 (~${fee} MONET)`;
   } catch(e) {}
 })();
 </script>

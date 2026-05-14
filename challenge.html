@@ -237,13 +237,13 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
       <div style="margin:10px 0 6px">
         <div style="font-size:11px;color:#888;margin-bottom:6px">Wager amount:</div>
         <div class="game-opts" id="h2h-wager-opts">
-          <div class="game-opt active" data-wager="5"  onclick="selectH2HWager(this)">$0.50</div>
+          <div class="game-opt active" data-wager="5"  onclick="selectH2HWager(this)">$0.99</div>
           <div class="game-opt"        data-wager="10" onclick="selectH2HWager(this)">$1.00</div>
           <div class="game-opt"        data-wager="25" onclick="selectH2HWager(this)">$2.50</div>
           <div class="game-opt"        data-wager="50" onclick="selectH2HWager(this)">$5.00</div>
         </div>
       </div>
-      <button class="btn-h2h btn-full" id="h2h-create-btn" onclick="createH2HChallenge()">PAY ≈$0.50 IN MONET &amp; CREATE CHALLENGE</button>
+      <button class="btn-h2h btn-full" id="h2h-create-btn" onclick="createH2HChallenge()">PAY ≈$0.99 IN MONET &amp; CREATE CHALLENGE</button>
       <div class="err" id="h2h-err"></div>
     </div>
 
@@ -280,7 +280,7 @@ input:focus, select:focus { outline:none; border-color:#a855ff; }
         <div class="diff-opt" data-diff="expert" onclick="selectDiff(this)" style="border-color:#ff0066;color:#ff0066">💀 EXPERT</div>
       </div>
       <div style="font-size:10px;color:#555;margin:6px 0 10px" id="cpu-range-hint">CPU score target: 80 &#8211; 250 pts</div>
-      <button class="btn-cpu btn-full" id="cpu-start-btn" onclick="startCpuChallenge()">PAY ≈$0.50 IN MONET &amp; PLAY vs CPU</button>
+      <button class="btn-cpu btn-full" id="cpu-start-btn" onclick="startCpuChallenge()">PAY ≈$0.99 IN MONET &amp; PLAY vs CPU</button>
       <div class="err" id="cpu-err"></div>
     </div>
   </div>
@@ -350,7 +350,7 @@ async function fetchDynFee() {
       selectedH2HWager = _dynFee;
       rebuildWagerOptions();
       const cpuBtn = document.getElementById('cpu-start-btn');
-      if (cpuBtn) cpuBtn.textContent = `PAY ${_dynFee} MONET ≈$0.50 & PLAY vs CPU`;
+      if (cpuBtn) cpuBtn.textContent = `PAY ${_dynFee} MONET ≈$0.99 & PLAY vs CPU`;
     }
   } catch(e) { /* keep default */ }
 }
@@ -366,7 +366,7 @@ function rebuildWagerOptions() {
   }).join('');
   const pot = (_dynFee * 2 * 0.9).toFixed(1);
   document.getElementById('h2h-pot-display').textContent = `Win ~${pot} MONET (90% of pot)`;
-  document.getElementById('h2h-create-btn').textContent = `PAY ${_dynFee} MONET ≈$0.50 & CREATE CHALLENGE`;
+  document.getElementById('h2h-create-btn').textContent = `PAY ${_dynFee} MONET ≈$0.99 & CREATE CHALLENGE`;
 }
 
 const CPU_RANGES = {
@@ -399,7 +399,7 @@ function selectH2HWager(el) {
   el.classList.add('active');
   selectedH2HWager = Number(el.dataset.wager);
   const pot = (selectedH2HWager * 2 * 0.9).toFixed(1);
-  const usdAmt = _dynFee > 0 ? '$' + (selectedH2HWager / _dynFee * 0.50).toFixed(2) : '≈$0.50';
+  const usdAmt = _dynFee > 0 ? '$' + (selectedH2HWager / _dynFee * 0.99).toFixed(2) : '≈$0.99';
   document.getElementById('h2h-pot-display').textContent = `Win ~${pot} MONET (90% of pot)`;
   document.getElementById('h2h-create-btn').textContent = `PAY ${usdAmt} (${selectedH2HWager} MONET) & CREATE CHALLENGE`;
 }
@@ -459,7 +459,7 @@ async function loadLobby(force) {
           </div>
           <div style="text-align:right">
             <div style="font-size:13px;font-weight:800;color:#ffd700">${c.pot} MONET</div>
-            <div style="font-size:9px;color:#555">≈$0.50 entry (${c.entryFee||5} MONET)</div>
+            <div style="font-size:9px;color:#555">≈$0.99 entry (${c.entryFee||5} MONET)</div>
           </div>
           <div style="font-size:9px;color:${expiring?'#ff4488':'#555'};margin-left:8px">${timeLeft}m left</div>
         </div>
@@ -506,7 +506,7 @@ async function startCpuChallenge() {
   const err = document.getElementById('cpu-err');
   err.textContent = '';
   if (!WalletState.connected) { err.textContent = 'Connect your wallet first'; return; }
-  if (WalletState.monetBalance < _dynFee) { err.textContent = `Need ${_dynFee} MONET (≈$0.50) to play`; return; }
+  if (WalletState.monetBalance < _dynFee) { err.textContent = `Need ${_dynFee} MONET (≈$0.99) to play`; return; }
 
   btn.disabled = true;
   btn.textContent = 'SIGN IN WALLET...';
@@ -517,7 +517,7 @@ async function startCpuChallenge() {
     sessionStorage.setItem('cpu_session', JSON.stringify({ cpuGameId: res.cpuGameId, cpuScore: res.cpuScore, txId }));
     location.href = `/${selectedCPUGame}.html?cpu=${selectedDiff}&cpuGameId=${encodeURIComponent(res.cpuGameId)}&cpuScore=${res.cpuScore}`;
   } catch(e) {
-    btn.textContent = `PAY ${_dynFee} MONET ≈$0.50 & PLAY vs CPU`;
+    btn.textContent = `PAY ${_dynFee} MONET ≈$0.99 & PLAY vs CPU`;
     btn.disabled = false;
     err.textContent = e.message;
   }
@@ -568,7 +568,7 @@ async function lookupChallenge() {
         <div><span class="ch-status st-${c.status}">${c.status.toUpperCase()}</span></div>
         ${c.player1?.score !== null ? `<div style="font-size:10px;color:#888;margin-top:6px">P1 score: ${c.player1.score}</div>` : ''}
         ${c.status === 'open' ? `
-          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY ≈$0.50 (${c.entryFee||5} MONET) &amp; ACCEPT</button>
+          <button class="btn-primary btn-full" style="margin-top:10px" onclick="joinAndPlay('${c.code}','${c.game}')">PAY ≈$0.99 (${c.entryFee||5} MONET) &amp; ACCEPT</button>
         ` : c.status === 'active' ? `
           <button class="btn-green btn-full" style="margin-top:10px" onclick="location.href='/${c.game}.html?challenge=${c.code}'">PLAY YOUR TURN &#9658;</button>
         ` : c.status === 'complete' ? `
