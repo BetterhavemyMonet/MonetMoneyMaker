@@ -1880,16 +1880,16 @@ app.post('/api/terms/accept', (req, res) => {
   res.json({ ok: true });
 });
 
-// ─── Static files (production) ────────────────────────────────────────────────
-if (process.env.NODE_ENV === 'production') {
-  const distDir = path.join(__dirname, 'dist');
+// ─── Static files ─────────────────────────────────────────────────────────────
+const distDir = path.join(__dirname, 'dist');
+if (fs.existsSync(distDir)) {
   app.use(express.static(distDir));
   app.get(/^(?!\/api).*/, (_req, res) => {
     res.sendFile(path.join(distDir, 'index.html'));
   });
 }
 
-const PORT = process.env.PORT || (process.env.NODE_ENV === 'production' ? 5000 : 3001);
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
   const kp = getTreasuryKP();
   if (kp) {
