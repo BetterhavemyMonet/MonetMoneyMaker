@@ -17,14 +17,17 @@ body.game-page::before{display:none}
 #wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #0a0a1a;font-size:11px;flex-shrink:0}
 .arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000}
 #gc{display:block;image-rendering:crisp-edges}
-.ctrl{flex-shrink:0;background:rgba(0,0,5,.97);border-top:1px solid #110033;padding:5px 8px;display:flex;flex-direction:column;gap:4px}
-.cr{display:flex;justify-content:space-between;align-items:center;gap:4px}
-.cb{height:50px;border-radius:9px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
-    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation}
-.cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
-.thr{flex:1;font-size:11px;background:linear-gradient(135deg,#001133,#000d22);color:#00f0ff;border:1px solid #003366;box-shadow:0 4px 0 #000}
-.trb{flex:1;font-size:11px;background:linear-gradient(135deg,#220011,#110008);color:#ff2244;border:1px solid #660022;box-shadow:0 4px 0 #000}
-.home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
+.ctrl{flex-shrink:0;background:rgba(0,0,5,.97);border-top:1px solid #110033;padding:6px 8px;display:grid;grid-template-columns:1fr 24px 1fr;gap:6px;align-items:center}
+.cb{height:64px;border-radius:12px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1}
+.cb:active{transform:scale(0.93)!important;filter:brightness(1.4)!important}
+.cbpair{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+.lft{font-size:20px;background:linear-gradient(135deg,#0a1a0a,#051005);color:#00ff9d;border:1px solid #004400;box-shadow:0 4px 0 #001400}
+.rgt{font-size:20px;background:linear-gradient(135deg,#0a1a0a,#051005);color:#00ff9d;border:1px solid #004400;box-shadow:0 4px 0 #001400}
+.thr{font-size:13px;background:linear-gradient(135deg,#001133,#000d22);color:#00f0ff;border:1px solid #003366;box-shadow:0 4px 0 #000}
+.trb{font-size:13px;background:linear-gradient(135deg,#220011,#110008);color:#ff2244;border:1px solid #660022;box-shadow:0 4px 0 #000}
+.home{font-size:18px;color:#333;text-decoration:none;text-align:center;align-self:center}
 </style>
 </head>
 <body class="game-page">
@@ -32,16 +35,26 @@ body.game-page::before{display:none}
 <div class="gw">
   <div class="arena"><canvas id="gc"></canvas></div>
   <div class="ctrl">
-    <div class="cr">
+    <div class="cbpair">
+      <button class="cb lft"
+        ontouchstart="setBtn('left',true,event)" ontouchend="setBtn('left',false)"
+        onmousedown="setBtn('left',true)" onmouseup="setBtn('left',false)"
+        onmouseleave="setBtn('left',false)"><span style="font-size:26px">&#9664;</span><span style="font-size:9px;opacity:.7">STEER</span></button>
+      <button class="cb rgt"
+        ontouchstart="setBtn('right',true,event)" ontouchend="setBtn('right',false)"
+        onmousedown="setBtn('right',true)" onmouseup="setBtn('right',false)"
+        onmouseleave="setBtn('right',false)"><span style="font-size:26px">&#9654;</span><span style="font-size:9px;opacity:.7">STEER</span></button>
+    </div>
+    <a class="home" href="arcade.html">&#8962;</a>
+    <div class="cbpair">
       <button class="cb thr"
         ontouchstart="setBtn('throttle',true,event)" ontouchend="setBtn('throttle',false)"
         onmousedown="setBtn('throttle',true)" onmouseup="setBtn('throttle',false)"
-        onmouseleave="setBtn('throttle',false)">&#9889; THROTTLE</button>
+        onmouseleave="setBtn('throttle',false)"><span style="font-size:18px">&#9889;</span><span style="font-size:9px">THROTTLE</span></button>
       <button class="cb trb"
         ontouchstart="setBtn('turbo',true,event)" ontouchend="setBtn('turbo',false)"
         onmousedown="setBtn('turbo',true)" onmouseup="setBtn('turbo',false)"
-        onmouseleave="setBtn('turbo',false)">&#128293; TURBO</button>
-      <a class="home" href="arcade.html">&#8962;</a>
+        onmouseleave="setBtn('turbo',false)"><span style="font-size:18px">&#128293;</span><span style="font-size:9px">TURBO</span></button>
     </div>
   </div>
 </div>

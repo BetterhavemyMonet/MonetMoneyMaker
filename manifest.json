@@ -1,0 +1,40 @@
+{
+  "name": "Monet Money Arcade",
+  "short_name": "Monet Arcade",
+  "description": "Web3 Solana arcade with MONET token games — play, compete, earn.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#7c00ff",
+  "categories": ["games", "entertainment"],
+  "icons": [
+    {
+      "src": "/logo.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    {
+      "name": "Arcade",
+      "short_name": "Play",
+      "url": "/arcade.html",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Leaderboard",
+      "short_name": "Scores",
+      "url": "/leaderboard.html",
+      "icons": [{ "src": "/logo.png", "sizes": "192x192" }]
+    }
+  ]
+}
