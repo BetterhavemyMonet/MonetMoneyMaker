@@ -1148,7 +1148,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
     const potAmt   = opts.pot        ? opts.pot
                    : challengeCode  ? (fee * 2 * (1 - 0.20)).toFixed(1) + ' MONET'
                    : tournamentId   ? 'Pool grows with players'
-                   : (fee * MONET_CONFIG.PAYOUT_RATE).toFixed(1) + ' MONET';
+                   : 'Leaderboard entry';
 
     overlay.innerHTML = `
       <div id="pg-box">
@@ -1169,7 +1169,7 @@ async function showPayGate(gameName, onSuccess, opts = {}) {
         </div>
         <div class="pg-row">
           <span class="pg-label">House Rake</span>
-          <span class="pg-val" style="color:#888">${opts.rake !== undefined ? opts.rake : (challengeCode || tournamentId ? '20%' : Math.round((1 - MONET_CONFIG.PAYOUT_RATE) * 100) + '%')}</span>
+          <span class="pg-val" style="color:#888">${opts.rake !== undefined ? opts.rake : (challengeCode || tournamentId ? '10%' : '100% — no auto payout')}</span>
         </div>
 
         ${conn ? `
@@ -1675,8 +1675,48 @@ async function arcadeSubmitScore(gameName, score) {
       await api('/api/tournament/submit', 'POST', { tournamentId, wallet: WalletState.address, score });
     } catch(e) { console.warn('[ARCADE] Tournament submit error:', e.message); }
   } else {
-    if (score > 0 && WalletState.connected) recordWin(gameName, score);
+    // Solo play — record score to leaderboard only, no automatic treasury payout
+    if (score > 0 && WalletState.connected) {
+      const soloSession = JSON.parse(sessionStorage.getItem('solo_session') || 'null');
+      const txId = soloSession?.txId || null;
+      sessionStorage.removeItem('solo_session');
+      try {
+        await api('/api/leaderboard/submit', 'POST', { wallet: WalletState.address, game: gameName, score, txId });
+      } catch(e) { console.warn('[SOLO] leaderboard submit failed:', e.message); }
+      _showSoloResult(score, gameName);
+    }
   }
+}
+
+// ─── Solo result overlay (score recorded, no auto-payout) ─────────────────────
+function _showSoloResult(score, gameName) {
+  const existing = document.getElementById('solo-result-overlay');
+  if (existing) existing.remove();
+  const box = document.createElement('div');
+  box.id = 'solo-result-overlay';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.82);z-index:9999;display:flex;align-items:center;justify-content:center;font-family:Orbitron,sans-serif';
+  box.innerHTML = `
+    <div style="background:#0d0d1a;border:1px solid #a855ff44;border-radius:18px;padding:28px 30px;max-width:320px;width:90%;text-align:center">
+      <div style="font-size:36px;margin-bottom:8px">🏅</div>
+      <div style="font-size:16px;font-weight:900;color:#a855ff;letter-spacing:1px;margin-bottom:4px">SCORE RECORDED</div>
+      <div style="font-size:11px;color:#555;letter-spacing:1px;margin-bottom:18px">${(gameName||'').toUpperCase()}</div>
+      <div style="font-size:32px;font-weight:900;color:#ffd700;margin-bottom:6px">${score.toLocaleString()}</div>
+      <div style="font-size:10px;color:#888;margin-bottom:18px">Your score is on the leaderboard.<br>Top scorers may receive a random MONET bonus paid manually.</div>
+      <button onclick="document.getElementById('solo-result-overlay').remove()"
+        style="width:100%;padding:11px;border-radius:10px;border:none;cursor:pointer;
+               background:linear-gradient(135deg,#a855ff,#7c3aed);color:#fff;
+               font-family:Orbitron,sans-serif;font-size:12px;font-weight:800">
+        VIEW LEADERBOARD &#8594;
+      </button>
+      <button onclick="document.getElementById('solo-result-overlay').remove()"
+        style="width:100%;padding:9px;border-radius:10px;border:1px solid #333;background:transparent;color:#555;
+               font-family:Orbitron,sans-serif;font-size:11px;cursor:pointer;margin-top:8px">
+        CLOSE
+      </button>
+    </div>`;
+  document.body.appendChild(box);
+  box.querySelector('button').onclick = () => { box.remove(); location.href = 'leaderboard.html'; };
+  box.querySelectorAll('button')[1].onclick = () => box.remove();
 }
 
 window.arcadeSubmitScore = arcadeSubmitScore;

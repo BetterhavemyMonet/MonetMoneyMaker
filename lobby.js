@@ -225,7 +225,7 @@
         <button class="lb-mode-card cpu" onclick="window._lbSoloPaid()">
           <span class="lb-mc-icon">🏅</span>
           <div class="lb-mc-name">SOLO PLAY</div>
-          <div class="lb-mc-sub">≈$0.99 entry · Top score<br>wins 80% of pot back</div>
+          <div class="lb-mc-sub">≈$0.99 entry · Score goes on<br>leaderboard · Chance at bonus</div>
         </button>
         <button class="lb-mode-card live" onclick="window._lbJoinLive()">
           <span class="lb-mc-icon">⚡</span>

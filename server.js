@@ -1278,11 +1278,24 @@ app.post('/api/claims/process', async (req, res) => {
 });
 
 // ─── Routes: leaderboard ──────────────────────────────────────────────────────
+
+// POST /api/leaderboard/submit — record a solo-play score (no payout, leaderboard only)
+app.post('/api/leaderboard/submit', (req, res) => {
+  const { wallet, game, score, txId } = req.body || {};
+  if (!wallet || !game || score == null) return res.status(400).json({ error: 'wallet, game, score required' });
+  const soloScores = dbRead('solo_scores');
+  soloScores.push({ wallet, game, score: Number(score), txId: txId || null, submittedAt: new Date().toISOString() });
+  dbWrite('solo_scores', soloScores);
+  console.log(`[SOLO] ${wallet.slice(0,8)}… scored ${score} on ${game}`);
+  res.json({ ok: true });
+});
+
 app.get('/api/leaderboard/:game', (req, res) => {
   const { game } = req.params;
   const challenges  = dbRead('challenges').filter(c => c.game === game && c.status === 'complete');
   const tourneys    = dbRead('tournaments').filter(t => t.game === game && t.status === 'complete');
   const cpuGames    = dbRead('cpu_games').filter(g => g.game === game && g.status === 'complete');
+  const soloEntries = dbRead('solo_scores').filter(s => s.game === game);
 
   // Track best score + the tx that paid out for each wallet
   const scores = {}; // wallet -> { score, payoutTxId, entryTxId, source }
@@ -1307,6 +1320,7 @@ app.get('/api/leaderboard/:game', (req, res) => {
   cpuGames.forEach(g => {
     if (g.playerScore) addScore(g.wallet, g.playerScore, g.payoutTxId, g.txId, 'cpu');
   });
+  soloEntries.forEach(s => addScore(s.wallet, s.score, null, s.txId, 'solo'));
 
   const board = Object.entries(scores)
     .map(([wallet, d]) => ({ wallet, ...d }))
