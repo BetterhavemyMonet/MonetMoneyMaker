@@ -33,7 +33,8 @@ Active games (arcade.html displays in this order):
 13. **Blockchain Blitz** (`tetris.html`) — Crypto-themed Tetris; stack transaction blocks, confirm chains, mine rows
 14. **Token Kong** (`kong.html`) — Donkey Kong spoof; dino character climbs blockchain layers, jumps over FAILED TX barrels thrown by Kong boss, reach TOP CHAIN to win
 15. **Hash Racer** (`racer.html`) — Excitebike spoof; side-scrolling crypto motorcycle race; throttle vs turbo, overheat bar (HASH TEMP), ramps, obstacles
-16. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
+16. **Arcade Gator** (`gator.html`) — Phaser 3 platformer; hoodie gator collects M-Coins in 60 sec; jump, hold UP to glide, hold CHARGE to headbutt-dash; uses `showGameLobby`
+17. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
 
 **Monet Bros** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
 **Asteroid Dodger**, **Reaction Blitz**, and **Tap Frenzy** also use `showPayGate` directly (solo-only games).  

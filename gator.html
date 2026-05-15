@@ -1,0 +1,307 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ARCADE GATOR — MONET Arcade</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/styles.css">
+<script src="https://unpkg.com/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/wallet.js"></script>
+<script src="/lobby.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/phaser@3.60.0/dist/phaser.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body.game-page{background:#0f051c;overflow:hidden}
+body.game-page::before{display:none}
+.gw{display:flex;flex-direction:column;height:100vh}
+#wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #1a003a;font-size:11px;flex-shrink:0}
+.arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0f051c;position:relative}
+#game-container{border-radius:8px;overflow:hidden}
+.ctrl{flex-shrink:0;background:rgba(15,5,28,.97);border-top:1px solid #2e114d;padding:5px 8px;display:flex;flex-direction:column;gap:4px}
+.cr{display:flex;justify-content:space-between;align-items:center;gap:4px}
+.cb{height:46px;border-radius:9px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;font-size:11px}
+.cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
+.mv{width:56px;font-size:22px;background:linear-gradient(135deg,#2e114d,#1a0a30);color:#00ffcc;border:1px solid #3d1e6d;box-shadow:0 4px 0 #000}
+.jp{flex:1;background:linear-gradient(135deg,#1a0a30,#0f051c);color:#a855ff;border:1px solid #3d1e6d;box-shadow:0 4px 0 #000}
+.ch{width:70px;background:linear-gradient(135deg,#3d0000,#220000);color:#ff4444;border:1px solid #660000;box-shadow:0 4px 0 #000}
+.home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
+#lobby-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;background:#0f051c}
+</style>
+</head>
+<body class="game-page">
+<div class="wallet-bar" id="wbar"></div>
+<div class="gw">
+  <div class="arena">
+    <div id="lobby-wrap"></div>
+    <div id="game-container"></div>
+  </div>
+  <div class="ctrl">
+    <div class="cr">
+      <button class="cb mv" ontouchstart="setKey('left',true,event)"  ontouchend="setKey('left',false)"  onmousedown="setKey('left',true)"  onmouseup="setKey('left',false)"  onmouseleave="setKey('left',false)">&#9664;</button>
+      <button class="cb jp" ontouchstart="setKey('up',true,event)"    ontouchend="setKey('up',false)"    onmousedown="setKey('up',true)"    onmouseup="setKey('up',false)"    onmouseleave="setKey('up',false)">&#11014; JUMP / GLIDE</button>
+      <button class="cb ch" ontouchstart="setKey('shift',true,event)" ontouchend="setKey('shift',false)" onmousedown="setKey('shift',true)" onmouseup="setKey('shift',false)" onmouseleave="setKey('shift',false)">&#9889; CHARGE</button>
+      <button class="cb mv" ontouchstart="setKey('right',true,event)" ontouchend="setKey('right',false)" onmousedown="setKey('right',true)" onmouseup="setKey('right',false)" onmouseleave="setKey('right',false)">&#9654;</button>
+    </div>
+    <div class="cr">
+      <a class="home" href="arcade.html">&#8962;</a>
+    </div>
+  </div>
+</div>
+
+<script>
+// ─── Touch key state ───────────────────────────────────────────────────────────
+const _touchKeys = { left:false, right:false, up:false, shift:false };
+function setKey(k, v, e) { if(e){ e.preventDefault(); } _touchKeys[k]=v; }
+
+// ─── Game variables ────────────────────────────────────────────────────────────
+let phaserGame = null;
+let gameRunning = false;
+let finalScore = 0;
+
+// ─── Show lobby, then start game ───────────────────────────────────────────────
+showGameLobby('gator', () => {
+  document.getElementById('lobby-wrap').style.display = 'none';
+  startPhaserGame();
+});
+
+function startPhaserGame() {
+  if (phaserGame) { phaserGame.destroy(true); phaserGame = null; }
+  gameRunning = true;
+  finalScore = 0;
+
+  const arena = document.querySelector('.arena');
+  const W = Math.min(arena.clientWidth, 520);
+  const H = Math.min(arena.clientHeight, 480);
+
+  const cfg = {
+    type: Phaser.AUTO,
+    width:  W,
+    height: H,
+    parent: 'game-container',
+    backgroundColor: '#0f051c',
+    physics: {
+      default: 'arcade',
+      arcade: { gravity: { y: 1000 }, debug: false }
+    },
+    scene: { preload, create, update }
+  };
+  phaserGame = new Phaser.Game(cfg);
+}
+
+// ─── Phaser Scene ──────────────────────────────────────────────────────────────
+let player, platforms, coins, scoreText, timerText, scene_ref;
+let score = 0, timeLeft = 60, isGliding = false;
+let clockEvent;
+
+function preload() {}
+
+function create() {
+  scene_ref = this;
+  const W = this.scale.width, H = this.scale.height;
+  const SX = W / 800, SY = H / 600;
+
+  // Background gradient
+  let bg = this.add.graphics();
+  bg.fillGradientStyle(0x2e114d, 0x2e114d, 0x0f051c, 0x0f051c, 1);
+  bg.fillRect(0, 0, W, H);
+
+  // Stars
+  for (let i = 0; i < 40; i++) {
+    let s = this.add.graphics();
+    s.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.2, 0.7));
+    s.fillRect(Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.7), 1, 1);
+  }
+
+  // Platform textures
+  let pg = this.make.graphics({ x:0, y:0, add:false });
+  pg.fillStyle(0x3d1e6d,1); pg.fillRect(0,0,Math.round(400*SX),28);
+  pg.fillStyle(0x00ffcc,1); pg.fillRect(0,0,Math.round(400*SX),4);
+  pg.generateTexture('ground', Math.round(400*SX), 28);
+
+  let ig = this.make.graphics({ x:0, y:0, add:false });
+  ig.fillStyle(0x5a2d9c,1); ig.fillRect(0,0,Math.round(140*SX),18);
+  ig.fillStyle(0x00ffcc,1); ig.fillRect(0,0,Math.round(140*SX),4);
+  ig.generateTexture('island', Math.round(140*SX), 18);
+
+  // Platforms
+  platforms = this.physics.add.staticGroup();
+  platforms.create(W * 0.25, H * 0.97, 'ground');
+  platforms.create(W * 0.75, H * 0.97, 'ground');
+  platforms.create(W * 0.22, H * 0.72, 'island');
+  platforms.create(W * 0.56, H * 0.55, 'island');
+  platforms.create(W * 0.19, H * 0.37, 'island');
+  platforms.create(W * 0.78, H * 0.38, 'island');
+  platforms.create(W * 0.50, H * 0.20, 'island');
+
+  // Gator character texture
+  let gfx = this.make.graphics({ x:0, y:0, add:false });
+  const GW = Math.round(36*SX), GH = Math.round(44*SY);
+  gfx.fillStyle(0x2ecc71,1); gfx.fillRoundedRect(Math.round(3*SX), Math.round(10*SY), Math.round(26*SX), Math.round(32*SY), 5);
+  gfx.fillStyle(0x2980b9,1); gfx.fillRect(Math.round(3*SX), Math.round(22*SY), Math.round(26*SX), Math.round(18*SY));
+  gfx.fillStyle(0xf1c40f,1); gfx.fillRect(Math.round(5*SX), 0, Math.round(22*SX), Math.round(10*SY));
+  gfx.fillStyle(0xd68910,1); gfx.fillRect(Math.round(15*SX), Math.round(4*SY), Math.round(18*SX), Math.round(5*SY));
+  gfx.generateTexture('gator', GW, GH);
+
+  player = this.physics.add.sprite(W * 0.13, H * 0.85, 'gator');
+  player.setBounce(0.05);
+  player.setCollideWorldBounds(true);
+
+  // Coin texture — golden "M"
+  let cg = this.make.graphics({ x:0, y:0, add:false });
+  const CR = Math.round(9 * Math.min(SX,SY));
+  cg.fillStyle(0xf1c40f,1); cg.fillCircle(CR+1, CR+1, CR+1);
+  cg.lineStyle(1.5, 0xffd700, 1); cg.strokeCircle(CR+1, CR+1, CR-1);
+  cg.generateTexture('coin', (CR+1)*2, (CR+1)*2);
+
+  // Distribute coins
+  coins = this.physics.add.group();
+  const coinPositions = [
+    [0.12,0.60],[0.30,0.60],[0.35,0.45],[0.55,0.45],[0.60,0.28],
+    [0.20,0.28],[0.50,0.12],[0.75,0.60],[0.80,0.28],[0.65,0.85]
+  ];
+  coinPositions.forEach(([rx,ry]) => {
+    let c = coins.create(W*rx, H*ry, 'coin');
+    c.setBounceY(Phaser.Math.FloatBetween(0.2, 0.4));
+  });
+
+  // Colliders & overlaps
+  this.physics.add.collider(player, platforms);
+  this.physics.add.collider(coins, platforms);
+  this.physics.add.overlap(player, coins, collectCoin, null, this);
+
+  // HUD
+  const FS = Math.max(13, Math.round(18 * Math.min(SX, SY)));
+  scoreText = this.add.text(10, 8, 'M-COINS: 0', {
+    fontSize: FS+'px', fill:'#00ffcc', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
+    stroke:'#000', strokeThickness:3
+  }).setDepth(10);
+
+  timerText = this.add.text(W - 10, 8, 'TIME: 60', {
+    fontSize: FS+'px', fill:'#ffd700', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
+    stroke:'#000', strokeThickness:3
+  }).setDepth(10).setOrigin(1, 0);
+
+  // Countdown
+  clockEvent = this.time.addEvent({
+    delay: 1000, loop: true,
+    callback: () => {
+      if (!gameRunning) return;
+      timeLeft--;
+      timerText.setText('TIME: ' + timeLeft);
+      if (timeLeft <= 10) timerText.setStyle({ fill:'#ff4444' });
+      if (timeLeft <= 0) endGame();
+    }
+  });
+
+  score = 0; timeLeft = 60; isGliding = false;
+}
+
+function update() {
+  if (!player || !gameRunning) return;
+
+  const onGround = player.body.touching.down || player.body.blocked.down;
+  const speed = _touchKeys.shift ? 360 : 200;
+
+  if (_touchKeys.left) {
+    player.setVelocityX(-speed); player.flipX = true;
+  } else if (_touchKeys.right) {
+    player.setVelocityX(speed); player.flipX = false;
+  } else {
+    // keyboard fallback
+    const kb = phaserGame?.scene?.scenes?.[0]?.input?.keyboard;
+    if (kb) {
+      const L = kb.addKey(37).isDown, R = kb.addKey(39).isDown;
+      const SH = kb.addKey(16).isDown;
+      const spd2 = SH ? 360 : 200;
+      if (L) { player.setVelocityX(-spd2); player.flipX = true; }
+      else if (R) { player.setVelocityX(spd2); player.flipX = false; }
+      else player.setVelocityX(0);
+    } else {
+      player.setVelocityX(0);
+    }
+  }
+
+  const upHeld = _touchKeys.up || (phaserGame?.scene?.scenes?.[0]?.input?.keyboard?.addKey(38)?.isDown);
+  if (upHeld) {
+    if (onGround) {
+      player.setVelocityY(-460);
+      isGliding = false;
+    } else if (player.body.velocity.y > 0) {
+      isGliding = true;
+      player.setGravityY(140 - 1000);
+      player.setVelocityY(Math.min(player.body.velocity.y, 70));
+    }
+  } else {
+    isGliding = false;
+    player.setGravityY(0);
+  }
+
+  if (_touchKeys.shift && (_touchKeys.left || _touchKeys.right)) {
+    player.setTint(0xff3333);
+  } else if (isGliding) {
+    player.setTint(0x33b5ff);
+  } else {
+    player.clearTint();
+  }
+}
+
+function collectCoin(pl, coin) {
+  coin.disableBody(true, true);
+  score += 10;
+  finalScore = score;
+  scoreText.setText('M-COINS: ' + score);
+
+  let pop = scene_ref.add.text(coin.x, coin.y - 10, '+10', {
+    fontSize: '14px', fill:'#00ffcc', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
+    stroke:'#000', strokeThickness:2
+  }).setDepth(20);
+  scene_ref.tweens.add({
+    targets: pop, y: pop.y - 35, alpha: 0, duration: 600,
+    onComplete: () => pop.destroy()
+  });
+
+  // Respawn coins when all collected
+  if (coins.countActive(true) === 0) spawnCoins();
+}
+
+function spawnCoins() {
+  const W = phaserGame.scale.width, H = phaserGame.scale.height;
+  const CR = Math.round(9 * Math.min(W/800, H/600));
+  const positions = [
+    [0.12,0.55],[0.30,0.55],[0.35,0.40],[0.55,0.40],[0.60,0.25],
+    [0.20,0.25],[0.50,0.12],[0.75,0.55],[0.80,0.25],[0.65,0.80]
+  ];
+  positions.forEach(([rx,ry]) => {
+    let c = coins.create(W*rx, H*ry, 'coin');
+    c.setBounceY(Phaser.Math.FloatBetween(0.2, 0.4));
+  });
+}
+
+function endGame() {
+  if (!gameRunning) return;
+  gameRunning = false;
+  if (clockEvent) clockEvent.remove();
+
+  const W = phaserGame.scale.width, H = phaserGame.scale.height;
+  const overlay = scene_ref.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(30);
+  scene_ref.add.text(W/2, H/2 - 40, 'TIME\'S UP!', {
+    fontSize: Math.round(28 * Math.min(W/800,H/600))+'px',
+    fill:'#00ffcc', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
+    stroke:'#000', strokeThickness:4
+  }).setOrigin(0.5).setDepth(31);
+  scene_ref.add.text(W/2, H/2 + 10, 'SCORE: ' + finalScore, {
+    fontSize: Math.round(22 * Math.min(W/800,H/600))+'px',
+    fill:'#ffd700', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
+    stroke:'#000', strokeThickness:3
+  }).setOrigin(0.5).setDepth(31);
+
+  setTimeout(() => {
+    if (phaserGame) { phaserGame.destroy(true); phaserGame = null; }
+    arcadeSubmitScore('gator', finalScore);
+  }, 2200);
+}
+</script>
+</body>
+</html>
