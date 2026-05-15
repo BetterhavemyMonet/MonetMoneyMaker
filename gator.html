@@ -95,7 +95,9 @@ let player, platforms, coins, scoreText, timerText, scene_ref;
 let score = 0, timeLeft = 60, isGliding = false;
 let clockEvent;
 
-function preload() {}
+function preload() {
+  this.load.image('dino', '/dino-sprite.png');
+}
 
 function create() {
   scene_ref = this;
@@ -135,16 +137,9 @@ function create() {
   platforms.create(W * 0.78, H * 0.38, 'island');
   platforms.create(W * 0.50, H * 0.20, 'island');
 
-  // Gator character texture
-  let gfx = this.make.graphics({ x:0, y:0, add:false });
   const GW = Math.round(36*SX), GH = Math.round(44*SY);
-  gfx.fillStyle(0x2ecc71,1); gfx.fillRoundedRect(Math.round(3*SX), Math.round(10*SY), Math.round(26*SX), Math.round(32*SY), 5);
-  gfx.fillStyle(0x2980b9,1); gfx.fillRect(Math.round(3*SX), Math.round(22*SY), Math.round(26*SX), Math.round(18*SY));
-  gfx.fillStyle(0xf1c40f,1); gfx.fillRect(Math.round(5*SX), 0, Math.round(22*SX), Math.round(10*SY));
-  gfx.fillStyle(0xd68910,1); gfx.fillRect(Math.round(15*SX), Math.round(4*SY), Math.round(18*SX), Math.round(5*SY));
-  gfx.generateTexture('gator', GW, GH);
-
-  player = this.physics.add.sprite(W * 0.13, H * 0.85, 'gator');
+  player = this.physics.add.sprite(W * 0.13, H * 0.85, 'dino');
+  player.setDisplaySize(GW, GH);
   player.setBounce(0.05);
   player.setCollideWorldBounds(true);
 

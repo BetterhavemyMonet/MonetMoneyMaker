@@ -47,6 +47,7 @@ body.game-page::before{display:none}
 </div>
 <script>
 const C=document.getElementById('gc'),X=C.getContext('2d');
+const dinoImg=new Image(); dinoImg.src='/dino-sprite.png';
 const LW=480,LH=270;
 let SC=1;
 
@@ -269,19 +270,13 @@ function drawBike(cx,cy,lean,wheelie,speed){
     X.strokeStyle='rgba(255,100,0,0.7)';X.lineWidth=2;
     X.beginPath();X.moveTo(-30,18);X.lineTo(-38+Math.random()*4,22);X.stroke();
   }
-  // Rider body
-  X.fillStyle='#1a1a2e'; // dark jumpsuit
-  X.beginPath();X.moveTo(-5,-5);X.lineTo(10,-5);X.lineTo(14,10);X.lineTo(-8,10);X.closePath();X.fill();
-  // Rider head (helmet)
-  X.fillStyle='#ff2244';
-  X.beginPath();X.arc(5,-14,9,0,Math.PI*2);X.fill();
-  X.fillStyle='rgba(0,200,255,0.7)';
-  X.beginPath();X.ellipse(7,-14,5,4,0.2,0,Math.PI*2);X.fill();
-  // Number plate
-  X.fillStyle='#fff';
-  X.fillRect(-4,14,12,7);
-  X.fillStyle='#000';X.font='bold 6px monospace';
-  X.fillText('42',-2,20);
+  // Rider — dino character
+  if(dinoImg.complete && dinoImg.naturalWidth){
+    X.drawImage(dinoImg,-14,-30,28,30);
+  } else {
+    X.fillStyle='#00ff9d';
+    X.beginPath();X.arc(5,-14,9,0,Math.PI*2);X.fill();
+  }
   X.restore();
 }
 
