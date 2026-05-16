@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>https://betterhavemymonet.com/</loc><priority>1.0</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://betterhavemymonet.com/arcade.html</loc><priority>0.9</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://betterhavemymonet.com/leaderboard.html</loc><priority>0.8</priority><changefreq>daily</changefreq></url>
+  <url><loc>https://betterhavemymonet.com/challenge.html</loc><priority>0.7</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://betterhavemymonet.com/tournament.html</loc><priority>0.7</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://betterhavemymonet.com/exchange.html</loc><priority>0.6</priority><changefreq>weekly</changefreq></url>
+  <url><loc>https://betterhavemymonet.com/mario.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/pacman.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/snake.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/frogger.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/pong.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/invaders.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/dino.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/dodger.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/reaction.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/tap.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/tetris.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/kong.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/racer.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/gator.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/fighter.html</loc><priority>0.6</priority></url>
+  <url><loc>https://betterhavemymonet.com/duckhunt.html</loc><priority>0.6</priority></url>
+</urlset>
