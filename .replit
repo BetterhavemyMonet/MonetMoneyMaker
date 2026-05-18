@@ -101,4 +101,3 @@ timeoutMs = 60000
 [userenv]
 
 [userenv.shared]
-ADMIN_TOKEN = "71HOUJDVZu_23cFQ"
