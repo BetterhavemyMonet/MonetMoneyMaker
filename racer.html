@@ -207,6 +207,7 @@ let gameRunning=false;
 let phase='ready';
 let animId=null;
 let raceEnd=0;
+let countdownStart=0; // timestamp when countdown began
 
 // ── Obstacles (first-person approach) ─────────────────────────────────────
 // depth: 0=at horizon (tiny), 1=at player (full size / collision)
@@ -240,7 +241,20 @@ function obsProject(o){
 function maxSpeed(){ return bike.stalled?0:3.5+(score/2000)*0.8; }
 
 function update(){
-  if(!gameRunning||phase!=='play') return;
+  if(!gameRunning) return;
+
+  // ── Countdown phase: road idles, no obstacles, no scoring ──
+  if(phase==='countdown'){
+    const elapsed=Date.now()-countdownStart;
+    // Slowly scroll road so the scene looks alive
+    roadScroll=(roadScroll+0.0015)%1;
+    bgScroll  =(bgScroll  +0.0005)%1;
+    // After 3 s of numbers + 0.7 s for GO! = 3.7 s total
+    if(elapsed>=3700) phase='play';
+    return;
+  }
+
+  if(phase!=='play') return;
   frameCount++;
   const MAX=maxSpeed();
 
@@ -612,6 +626,46 @@ function draw(){
   drawDashboard();
   drawHUD();
 
+  // ── Countdown overlay ─────────────────────────────────────────────────────
+  if(phase==='countdown'){
+    const elapsed=Date.now()-countdownStart;
+    // Which number: 3 (0-1s), 2 (1-2s), 1 (2-3s), GO (3-3.7s)
+    const num=Math.max(0, 3-Math.floor(elapsed/1000));
+    const isGo=elapsed>=3000;
+    const label=isGo?'GO!':String(num);
+    // Progress within the current 1-second slot (0→1)
+    const slotT=(elapsed%1000)/1000;
+    // Zoom: starts big, settles to normal as slotT goes 0→1
+    const zoom=1+Math.max(0,0.6-slotT*0.6);
+    // Fade out GO! quickly
+    const alpha=isGo?Math.max(0,1-(elapsed-3000)/700):1;
+    // Colour per number
+    const col=isGo?'#00ff66':num===1?'#ff6600':num===2?'#ffcc00':'#00f0ff';
+
+    // Dim the road slightly
+    X.fillStyle='rgba(0,0,0,0.38)'; X.fillRect(0,0,LW,LH);
+
+    // Big number
+    X.save();
+    X.globalAlpha=alpha;
+    X.translate(LW/2, LH*0.42);
+    X.scale(zoom,zoom);
+    X.textAlign='center';
+    X.shadowColor=col; X.shadowBlur=32;
+    X.fillStyle=col;
+    X.font=`bold ${isGo?42:56}px Orbitron,sans-serif`;
+    X.fillText(label,0,0);
+    X.shadowBlur=0;
+    // Small subtitle
+    if(!isGo){
+      X.fillStyle='rgba(255,255,255,0.45)';
+      X.font='bold 9px Orbitron,sans-serif';
+      X.fillText('GET READY',0,18);
+    }
+    X.restore();
+    X.globalAlpha=1;
+  }
+
   // Phase overlays
   if(phase==='over'){
     X.fillStyle='rgba(0,0,0,0.78)'; X.fillRect(0,0,LW,LH);
@@ -653,11 +707,12 @@ function gameOver(){
 }
 
 function startGame(){
-  score=0; frameCount=0; phase='play'; gameRunning=true; raceEnd=0;
+  score=0; frameCount=0; phase='countdown'; gameRunning=true; raceEnd=0;
   bike={speed:0,heat:0,stalled:false,stallTimer:0};
   roadCurve=0; roadCurveTarget=0; wheelAngle=0;
   roadScroll=0; bgScroll=0;
   obstacles=[]; obsTimer=0;
+  countdownStart=Date.now();
   if(animId) cancelAnimationFrame(animId);
   loop();
 }

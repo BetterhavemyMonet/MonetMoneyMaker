@@ -18,7 +18,7 @@ A Web3 Solana arcade with MONET token payment gating. Entry fee is ≈$0.99 USD 
 ## Game Roster
 
 Active games (arcade.html displays in this order):
-1. **Monet Bros** (`mario.html`) — Super Mario-style platformer; ≈$0.50 entry, 90% of pot as prize on level clear
+1. **Dino-Mo Bro** (`mario.html`) — Mario-style crypto platformer; ≈$0.50 entry, 90% of pot as prize on level clear
 2. **Pac-Man** (`pacman.html`) — Maze dot-eating
 3. **Runner** (`dino.html`) — Endless runner + level creator
 4. **Frogger** (`frogger.html`) — Cross traffic/river
@@ -36,7 +36,7 @@ Active games (arcade.html displays in this order):
 16. **Arcade Gator** (`gator.html`) — Phaser 3 platformer; hoodie gator collects M-Coins in 60 sec; jump, hold UP to glide, hold CHARGE to headbutt-dash; uses `showGameLobby`
 17. **Monet Maker** (links to `dino.html` create tab) — Custom level designer
 
-**Monet Bros** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
+**Dino-Mo Bro** and **Monet Kombat** use the direct pay-gate pattern (`showPayGate` → play → `arcadeSubmitScore`).  
 **Asteroid Dodger**, **Reaction Blitz**, and **Tap Frenzy** also use `showPayGate` directly (solo-only games).  
 All other games use `showGameLobby()` (lobby.js) which presents Practice · Solo Play · Join Live · Create H2H · Tournament.  
 **No CPU opponent games** — lobby shows Solo Play (paid, leaderboard) instead of CPU Expert.
@@ -58,7 +58,7 @@ All other games use `showGameLobby()` (lobby.js) which presents Practice · Solo
 ├── snake.html          # Snake (lobby + gamepad)
 ├── pong.html           # Pong (lobby + gamepad)
 ├── dino.html           # Runner + Level Builder (lobby + gamepad)
-├── mario.html          # Monet Bros — Mario-style platformer (pay-gate, CPU challenge)
+├── mario.html          # Dino-Mo Bro — crypto platformer (pay-gate)
 ├── invaders.html       # Space Invaders (lobby + gamepad)
 ├── lobby.js            # Shared game lobby: Solo vs H2H, wager picker, challenge flow
 ├── gamepad.js          # Shared gamepad module: Gamepad API polling, standard action map

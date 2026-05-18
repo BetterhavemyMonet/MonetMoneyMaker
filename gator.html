@@ -4,12 +4,12 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Arcade Gator — Crypto Platformer Game | Monet Money Arcade</title>
-<meta name="description" content="Play Arcade Gator on Solana — a Phaser platformer where you collect M-Coins in 60 seconds. Jump, glide, and headbutt-dash. Win MONET token prizes. $0.99 entry.">
+<meta name="description" content="Play Arcade Gator on Solana — a Phaser platformer where you collect M-Coins across 4 stages. Jump, glide, and headbutt-dash through blockchain levels. Win MONET prizes.">
 <meta name="keywords" content="platformer crypto game, Solana platformer, MONET platform game, Web3 platformer, blockchain platformer, earn crypto platformer, coin collecting game crypto">
 <meta name="robots" content="index, follow">
 <link rel="canonical" href="https://betterhavemymonet.com/gator.html">
 <meta property="og:title" content="Arcade Gator — Crypto Platformer on Solana">
-<meta property="og:description" content="Jump, glide and collect M-Coins in 60 seconds. Win MONET token prizes.">
+<meta property="og:description" content="Jump, glide and collect M-Coins across 4 stages. Win MONET token prizes.">
 <meta property="og:image" content="https://betterhavemymonet.com/logo.png">
 <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800;900&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/styles.css">
@@ -21,18 +21,18 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body.game-page{background:#0f051c;overflow:hidden}
 body.game-page::before{display:none}
-.gw{display:flex;flex-direction:column;height:100vh}
+.gw{display:flex;flex-direction:column;height:100vh;height:100dvh}
 #wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #1a003a;font-size:11px;flex-shrink:0}
 .arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#0f051c;position:relative}
 #game-container{border-radius:8px;overflow:hidden}
 .ctrl{flex-shrink:0;background:rgba(15,5,28,.97);border-top:1px solid #2e114d;padding:5px 8px;display:flex;flex-direction:column;gap:4px}
 .cr{display:flex;justify-content:space-between;align-items:center;gap:4px}
-.cb{height:46px;border-radius:9px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
+.cb{height:52px;border-radius:10px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
     -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;font-size:11px}
 .cb:active{transform:translateY(3px)!important;box-shadow:0 1px 0!important}
-.mv{width:56px;font-size:22px;background:linear-gradient(135deg,#2e114d,#1a0a30);color:#00ffcc;border:1px solid #3d1e6d;box-shadow:0 4px 0 #000}
+.mv{width:60px;font-size:24px;background:linear-gradient(135deg,#2e114d,#1a0a30);color:#00ffcc;border:1px solid #3d1e6d;box-shadow:0 4px 0 #000}
 .jp{flex:1;background:linear-gradient(135deg,#1a0a30,#0f051c);color:#a855ff;border:1px solid #3d1e6d;box-shadow:0 4px 0 #000}
-.ch{width:70px;background:linear-gradient(135deg,#3d0000,#220000);color:#ff4444;border:1px solid #660000;box-shadow:0 4px 0 #000}
+.ch{width:74px;background:linear-gradient(135deg,#3d0000,#220000);color:#ff4444;border:1px solid #660000;box-shadow:0 4px 0 #000}
 .home{font-size:18px;color:#333;text-decoration:none;padding:0 4px;align-self:center}
 #lobby-wrap{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:10;background:#0f051c}
 </style>
@@ -58,251 +58,468 @@ body.game-page::before{display:none}
 </div>
 
 <script>
-// ─── Touch key state ───────────────────────────────────────────────────────────
-const _touchKeys = { left:false, right:false, up:false, shift:false };
-function setKey(k, v, e) { if(e){ e.preventDefault(); } _touchKeys[k]=v; }
+// ─── Touch key state ──────────────────────────────────────────────────────────
+const _touchKeys={left:false,right:false,up:false,shift:false};
+function setKey(k,v,e){if(e)e.preventDefault();_touchKeys[k]=v;}
 
-// ─── Game variables ────────────────────────────────────────────────────────────
-let phaserGame = null;
-let gameRunning = false;
-let finalScore = 0;
+// ─── Game globals ─────────────────────────────────────────────────────────────
+let phaserGame=null,gameRunning=false,finalScore=0;
 
-// ─── Show lobby, then start game ───────────────────────────────────────────────
-showGameLobby('gator', () => {
-  document.getElementById('lobby-wrap').style.display = 'none';
+// ─── Lobby → start ────────────────────────────────────────────────────────────
+showGameLobby('gator',()=>{
+  document.getElementById('lobby-wrap').style.display='none';
   startPhaserGame();
 });
 
-function startPhaserGame() {
-  if (phaserGame) { phaserGame.destroy(true); phaserGame = null; }
-  gameRunning = true;
-  finalScore = 0;
-
-  const arena = document.querySelector('.arena');
-  const W = Math.min(arena.clientWidth, 520);
-  const H = Math.min(arena.clientHeight, 480);
-
-  const cfg = {
-    type: Phaser.AUTO,
-    width:  W,
-    height: H,
-    parent: 'game-container',
-    backgroundColor: '#0f051c',
-    physics: {
-      default: 'arcade',
-      arcade: { gravity: { y: 1000 }, debug: false }
-    },
-    scene: { preload, create, update }
-  };
-  phaserGame = new Phaser.Game(cfg);
+function startPhaserGame(){
+  if(phaserGame){phaserGame.destroy(true);phaserGame=null;}
+  gameRunning=true;finalScore=0;
+  const arena=document.querySelector('.arena');
+  const W=Math.min(arena.clientWidth,520),H=Math.min(arena.clientHeight,480);
+  phaserGame=new Phaser.Game({
+    type:Phaser.AUTO,width:W,height:H,
+    parent:'game-container',backgroundColor:'#0f051c',
+    physics:{default:'arcade',arcade:{gravity:{y:1000},debug:false}},
+    scene:{preload,create,update}
+  });
 }
 
-// ─── Phaser Scene ──────────────────────────────────────────────────────────────
-let player, platforms, coins, scoreText, timerText, scene_ref;
-let score = 0, timeLeft = 60, isGliding = false;
-let clockEvent;
+// ─── Level definitions ────────────────────────────────────────────────────────
+// plats: {x,y} in 0-1 fractions of canvas, w in 0-1 width fraction
+// coins: [[x,y]...] fractions
+// spikes: [[x,y,w]...] fractions — hazard zones, penalise +respawn
+// enemies: [{x,y,rangeW,speed}] — patrol horizontally, penalise on touch
+const LEVELS=[
+  {
+    id:1,name:'BLOCKCHAIN BASE',nameColor:'#00ffcc',
+    bgTop:0x2e114d,bgBot:0x0f051c,platBody:0x3d1e6d,platAccent:0x00ffcc,
+    coinValue:10,
+    plats:[
+      {x:.25,y:.97,w:.50,ground:true},{x:.75,y:.97,w:.50,ground:true},
+      {x:.22,y:.72,w:.17},{x:.56,y:.55,w:.17},
+      {x:.19,y:.37,w:.17},{x:.78,y:.38,w:.17},{x:.50,y:.20,w:.17},
+    ],
+    coins:[[.12,.60],[.30,.60],[.35,.45],[.55,.45],[.60,.28],
+           [.20,.28],[.50,.12],[.75,.60],[.80,.28],[.65,.85]],
+    spikes:[],enemies:[],spawn:[.13,.85],
+  },
+  {
+    id:2,name:'DeFi DUNGEON',nameColor:'#00aaff',
+    bgTop:0x061228,bgBot:0x020810,platBody:0x0a2550,platAccent:0x0088ff,
+    coinValue:15,
+    plats:[
+      {x:.20,y:.97,w:.35,ground:true},{x:.80,y:.97,w:.35,ground:true},
+      {x:.14,y:.80,w:.16},{x:.50,y:.75,w:.16},{x:.84,y:.70,w:.16},
+      {x:.25,y:.58,w:.16},{x:.62,y:.52,w:.16},
+      {x:.12,y:.38,w:.16},{x:.45,y:.30,w:.16},{x:.78,y:.22,w:.16},
+      {x:.28,y:.14,w:.16},{x:.62,y:.08,w:.16},
+    ],
+    coins:[[.14,.70],[.50,.65],[.84,.60],[.25,.48],[.62,.42],
+           [.12,.28],[.45,.20],[.78,.12],[.28,.04],[.62,.98],
+           [.38,.87],[.70,.87]],
+    spikes:[[.44,.97,.09],[.64,.97,.08]],
+    enemies:[],spawn:[.07,.87],
+  },
+  {
+    id:3,name:'CRYPTO CAVERN',nameColor:'#ff6622',
+    bgTop:0x3a0a05,bgBot:0x0f0202,platBody:0x5a1800,platAccent:0xff4400,
+    coinValue:20,
+    plats:[
+      {x:.15,y:.97,w:.25,ground:true},{x:.85,y:.97,w:.25,ground:true},
+      {x:.20,y:.83,w:.14},{x:.50,y:.88,w:.14},{x:.80,y:.79,w:.14},
+      {x:.35,y:.65,w:.14},{x:.68,y:.58,w:.14},
+      {x:.18,y:.48,w:.14},{x:.52,y:.40,w:.14},{x:.82,y:.32,w:.14},
+      {x:.30,y:.22,w:.14},{x:.65,y:.15,w:.14},{x:.48,y:.06,w:.14},
+    ],
+    coins:[[.20,.73],[.50,.78],[.80,.69],[.35,.55],[.68,.48],
+           [.18,.38],[.52,.30],[.82,.22],[.30,.12],[.65,.05],
+           [.48,.96],[.10,.87],[.90,.87],[.48,.58],[.35,.28]],
+    spikes:[[.33,.97,.09],[.60,.97,.09]],
+    enemies:[{x:.35,y:.57,rangeW:.17,speed:72}],
+    spawn:[.07,.87],
+  },
+  {
+    id:4,name:'MOON MISSION',nameColor:'#ffd700',
+    bgTop:0x060610,bgBot:0x000005,platBody:0x1a1a30,platAccent:0xffd700,
+    coinValue:25,
+    plats:[
+      {x:.12,y:.97,w:.20,ground:true},{x:.88,y:.97,w:.20,ground:true},
+      {x:.50,y:.94,w:.13},
+      {x:.25,y:.82,w:.12},{x:.75,y:.78,w:.12},
+      {x:.42,y:.68,w:.12},{x:.60,y:.60,w:.12},
+      {x:.20,y:.50,w:.12},{x:.80,y:.44,w:.12},
+      {x:.38,y:.35,w:.12},{x:.62,y:.28,w:.12},
+      {x:.22,y:.18,w:.12},{x:.78,y:.14,w:.12},
+      {x:.50,y:.06,w:.12},
+    ],
+    coins:[[.25,.72],[.75,.68],[.42,.58],[.60,.50],
+           [.20,.40],[.80,.34],[.38,.25],[.62,.18],
+           [.22,.08],[.78,.04],[.50,.84],[.12,.87],
+           [.88,.87],[.50,.94],[.36,.78],[.64,.70],
+           [.30,.50],[.70,.38],[.50,.22],[.50,.96]],
+    spikes:[[.29,.97,.13],[.58,.97,.10]],
+    enemies:[
+      {x:.42,y:.60,rangeW:.18,speed:85},
+      {x:.62,y:.30,rangeW:.16,speed:102},
+    ],
+    spawn:[.05,.87],
+  },
+];
 
-function preload() {
-  this.load.image('dino', '/dino-sprite.png');
+// ─── Phaser scene state ───────────────────────────────────────────────────────
+let player,platforms,coins,spikeGroup,enemyGroup;
+let scoreText,timerText,levelText,scene_ref;
+let score=0,timeLeft=60,isGliding=false;
+let currentLevel=1,levelTransitioning=false;
+let clockEvent,bgGfx,starsGfx,enemiesList=[];
+let spikeHitCool=false,enemyHitCool=false;
+
+function preload(){
+  this.load.image('dino','/dino-sprite.png');
 }
 
-function create() {
-  scene_ref = this;
-  const W = this.scale.width, H = this.scale.height;
-  const SX = W / 800, SY = H / 600;
+function create(){
+  scene_ref=this;
+  // Inherit state from level transition data if present
+  const data=this.scene.settings.data||{};
+  currentLevel     = data.level    !==undefined ? data.level    : 1;
+  score            = data.score    !==undefined ? data.score    : 0;
+  timeLeft         = data.timeLeft !==undefined ? data.timeLeft : 60;
+  isGliding=false;levelTransitioning=false;
+  enemiesList=[];spikeHitCool=false;enemyHitCool=false;
+  finalScore=score;gameRunning=true;
 
-  // Background gradient
-  let bg = this.add.graphics();
-  bg.fillGradientStyle(0x2e114d, 0x2e114d, 0x0f051c, 0x0f051c, 1);
-  bg.fillRect(0, 0, W, H);
+  const W=this.scale.width,H=this.scale.height;
+  const SX=W/800,SY=H/600;
 
-  // Stars
-  for (let i = 0; i < 40; i++) {
-    let s = this.add.graphics();
-    s.fillStyle(0xffffff, Phaser.Math.FloatBetween(0.2, 0.7));
-    s.fillRect(Phaser.Math.Between(0, W), Phaser.Math.Between(0, H * 0.7), 1, 1);
+  bgGfx  =this.add.graphics();
+  starsGfx=this.add.graphics();
+
+  platforms =this.physics.add.staticGroup();
+  coins     =this.physics.add.group();
+  spikeGroup=this.physics.add.staticGroup();
+  enemyGroup=this.physics.add.group();
+
+  // Coin texture (cached once per game)
+  const CR=Math.round(9*Math.min(SX,SY));
+  if(!this.textures.exists('coin')){
+    let cg=this.make.graphics({x:0,y:0,add:false});
+    cg.fillStyle(0xf1c40f,1);cg.fillCircle(CR+1,CR+1,CR+1);
+    cg.lineStyle(1.5,0xffd700,1);cg.strokeCircle(CR+1,CR+1,CR-1);
+    cg.generateTexture('coin',(CR+1)*2,(CR+1)*2);cg.destroy();
   }
 
-  // Platform textures
-  let pg = this.make.graphics({ x:0, y:0, add:false });
-  pg.fillStyle(0x3d1e6d,1); pg.fillRect(0,0,Math.round(400*SX),28);
-  pg.fillStyle(0x00ffcc,1); pg.fillRect(0,0,Math.round(400*SX),4);
-  pg.generateTexture('ground', Math.round(400*SX), 28);
-
-  let ig = this.make.graphics({ x:0, y:0, add:false });
-  ig.fillStyle(0x5a2d9c,1); ig.fillRect(0,0,Math.round(140*SX),18);
-  ig.fillStyle(0x00ffcc,1); ig.fillRect(0,0,Math.round(140*SX),4);
-  ig.generateTexture('island', Math.round(140*SX), 18);
-
-  // Platforms
-  platforms = this.physics.add.staticGroup();
-  platforms.create(W * 0.25, H * 0.97, 'ground');
-  platforms.create(W * 0.75, H * 0.97, 'ground');
-  platforms.create(W * 0.22, H * 0.72, 'island');
-  platforms.create(W * 0.56, H * 0.55, 'island');
-  platforms.create(W * 0.19, H * 0.37, 'island');
-  platforms.create(W * 0.78, H * 0.38, 'island');
-  platforms.create(W * 0.50, H * 0.20, 'island');
-
-  const GW = Math.round(36*SX), GH = Math.round(44*SY);
-  player = this.physics.add.sprite(W * 0.13, H * 0.85, 'dino');
-  player.setDisplaySize(GW, GH);
-  player.setBounce(0.05);
+  // Player
+  const GW=Math.round(36*SX),GH=Math.round(44*SY);
+  const lev0=LEVELS[currentLevel-1];
+  player=this.physics.add.sprite(W*lev0.spawn[0],H*lev0.spawn[1],'dino');
+  player.setDisplaySize(GW,GH);player.setBounce(0.05);
   player.setCollideWorldBounds(true);
 
-  // Coin texture — golden "M"
-  let cg = this.make.graphics({ x:0, y:0, add:false });
-  const CR = Math.round(9 * Math.min(SX,SY));
-  cg.fillStyle(0xf1c40f,1); cg.fillCircle(CR+1, CR+1, CR+1);
-  cg.lineStyle(1.5, 0xffd700, 1); cg.strokeCircle(CR+1, CR+1, CR-1);
-  cg.generateTexture('coin', (CR+1)*2, (CR+1)*2);
-
-  // Distribute coins
-  coins = this.physics.add.group();
-  const coinPositions = [
-    [0.12,0.60],[0.30,0.60],[0.35,0.45],[0.55,0.45],[0.60,0.28],
-    [0.20,0.28],[0.50,0.12],[0.75,0.60],[0.80,0.28],[0.65,0.85]
-  ];
-  coinPositions.forEach(([rx,ry]) => {
-    let c = coins.create(W*rx, H*ry, 'coin');
-    c.setBounceY(Phaser.Math.FloatBetween(0.2, 0.4));
-  });
-
-  // Colliders & overlaps
-  this.physics.add.collider(player, platforms);
-  this.physics.add.collider(coins, platforms);
-  this.physics.add.overlap(player, coins, collectCoin, null, this);
+  this.physics.add.collider(player,platforms);
+  this.physics.add.overlap(player,coins,collectCoin,null,this);
+  this.physics.add.overlap(player,spikeGroup,hitSpike,null,this);
+  this.physics.add.overlap(player,enemyGroup,hitEnemy,null,this);
 
   // HUD
-  const FS = Math.max(13, Math.round(18 * Math.min(SX, SY)));
-  scoreText = this.add.text(10, 8, 'M-COINS: 0', {
-    fontSize: FS+'px', fill:'#00ffcc', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
-    stroke:'#000', strokeThickness:3
+  const FS=Math.max(13,Math.round(18*Math.min(SX,SY)));
+  const FS2=Math.max(10,Math.round(12*Math.min(SX,SY)));
+  scoreText=this.add.text(10,8,'M-COINS: '+score,{
+    fontSize:FS+'px',fill:'#00ffcc',fontFamily:'Orbitron,sans-serif',
+    fontStyle:'bold',stroke:'#000',strokeThickness:3
   }).setDepth(10);
+  timerText=this.add.text(W-10,8,'TIME: '+timeLeft,{
+    fontSize:FS+'px',fill:timeLeft<=10?'#ff4444':'#ffd700',
+    fontFamily:'Orbitron,sans-serif',fontStyle:'bold',
+    stroke:'#000',strokeThickness:3
+  }).setDepth(10).setOrigin(1,0);
+  levelText=this.add.text(W/2,8,'',{
+    fontSize:FS2+'px',fill:'#aaaaaa',fontFamily:'Orbitron,sans-serif',
+    fontStyle:'bold',stroke:'#000',strokeThickness:2
+  }).setDepth(10).setOrigin(.5,0);
 
-  timerText = this.add.text(W - 10, 8, 'TIME: 60', {
-    fontSize: FS+'px', fill:'#ffd700', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
-    stroke:'#000', strokeThickness:3
-  }).setDepth(10).setOrigin(1, 0);
+  // Countdown clock
+  clockEvent=this.time.addEvent({delay:1000,loop:true,callback:()=>{
+    if(!gameRunning||levelTransitioning)return;
+    timeLeft--;
+    timerText.setText('TIME: '+timeLeft);
+    if(timeLeft<=10)timerText.setStyle({fill:'#ff4444'});
+    if(timeLeft<=0)endGame();
+  }});
 
-  // Countdown
-  clockEvent = this.time.addEvent({
-    delay: 1000, loop: true,
-    callback: () => {
-      if (!gameRunning) return;
-      timeLeft--;
-      timerText.setText('TIME: ' + timeLeft);
-      if (timeLeft <= 10) timerText.setStyle({ fill:'#ff4444' });
-      if (timeLeft <= 0) endGame();
-    }
-  });
-
-  score = 0; timeLeft = 60; isGliding = false;
+  buildLevel(this,currentLevel);
 }
 
-function update() {
-  if (!player || !gameRunning) return;
+// ─── Build / rebuild a level in-place ─────────────────────────────────────────
+function buildLevel(scene,lvlNum){
+  const lev=LEVELS[Math.min(lvlNum,LEVELS.length)-1];
+  const W=scene.scale.width,H=scene.scale.height;
+  const SX=W/800,SY=H/600;
 
-  const onGround = player.body.touching.down || player.body.blocked.down;
-  const speed = _touchKeys.shift ? 360 : 200;
+  // Background
+  bgGfx.clear();
+  bgGfx.fillGradientStyle(lev.bgTop,lev.bgTop,lev.bgBot,lev.bgBot,1);
+  bgGfx.fillRect(0,0,W,H);
 
-  if (_touchKeys.left) {
-    player.setVelocityX(-speed); player.flipX = true;
-  } else if (_touchKeys.right) {
-    player.setVelocityX(speed); player.flipX = false;
-  } else {
-    // keyboard fallback
-    const kb = phaserGame?.scene?.scenes?.[0]?.input?.keyboard;
-    if (kb) {
-      const L = kb.addKey(37).isDown, R = kb.addKey(39).isDown;
-      const SH = kb.addKey(16).isDown;
-      const spd2 = SH ? 360 : 200;
-      if (L) { player.setVelocityX(-spd2); player.flipX = true; }
-      else if (R) { player.setVelocityX(spd2); player.flipX = false; }
+  // Stars
+  starsGfx.clear();
+  for(let i=0;i<50;i++){
+    starsGfx.fillStyle(0xffffff,Phaser.Math.FloatBetween(0.15,0.85));
+    starsGfx.fillRect(
+      Phaser.Math.Between(0,W),
+      Phaser.Math.Between(0,Math.round(H*.80)),1,1);
+  }
+
+  // Level label
+  levelText.setText('LVL '+lvlNum+': '+lev.name);
+  levelText.setStyle({fill:lev.nameColor});
+
+  // Generate platform textures (per level, cached after first use)
+  const gKey='pg'+lvlNum,iKey='pi'+lvlNum,sKey='ps'+lvlNum;
+  if(!scene.textures.exists(gKey)){
+    const tw=Math.round(400*SX);
+    let g=scene.make.graphics({x:0,y:0,add:false});
+    g.fillStyle(lev.platBody,1);g.fillRect(0,0,tw,28);
+    g.fillStyle(lev.platAccent,1);g.fillRect(0,0,tw,4);
+    g.generateTexture(gKey,tw,28);g.destroy();
+  }
+  if(!scene.textures.exists(iKey)){
+    const tw=Math.round(140*SX);
+    let g=scene.make.graphics({x:0,y:0,add:false});
+    g.fillStyle(lev.platBody,1);g.fillRect(0,0,tw,18);
+    g.fillStyle(lev.platAccent,1);g.fillRect(0,0,tw,4);
+    g.generateTexture(iKey,tw,18);g.destroy();
+  }
+  if(!scene.textures.exists(sKey)){
+    const sw=Math.round(80*SX);
+    let g=scene.make.graphics({x:0,y:0,add:false});
+    g.fillStyle(0xff2200,1);
+    for(let i=0;i<5;i++)g.fillTriangle(i*sw/5,12,i*sw/5+sw/10,0,(i+1)*sw/5,12);
+    g.generateTexture(sKey,sw,12);g.destroy();
+  }
+
+  // Clear old level objects
+  platforms.clear(true,true);
+  coins.clear(true,true);
+  spikeGroup.clear(true,true);
+  enemyGroup.clear(true,true);
+  enemiesList=[];
+
+  // Reset player to spawn
+  player.setPosition(W*lev.spawn[0],H*lev.spawn[1]);
+  player.setVelocity(0,0);
+
+  // Platforms
+  lev.plats.forEach(p=>{
+    const key=p.ground?gKey:iKey;
+    const ph=p.ground?28:18;
+    let obj=platforms.create(W*p.x,H*p.y,key);
+    obj.setDisplaySize(W*p.w,ph);
+    obj.refreshBody();
+  });
+
+  // Coins
+  lev.coins.forEach(([rx,ry])=>{
+    let c=coins.create(W*rx,H*ry,'coin');
+    c.setBounceY(Phaser.Math.FloatBetween(0.2,0.4));
+    c._value=lev.coinValue;
+  });
+
+  // Spike hazards
+  lev.spikes.forEach(([rx,ry,rw])=>{
+    let sp=spikeGroup.create(W*rx,H*ry-6,sKey);
+    sp.setDisplaySize(W*rw,12);
+    sp.refreshBody();
+  });
+
+  // Enemies
+  const GW=Math.round(36*SX),GH=Math.round(44*SY);
+  lev.enemies.forEach(e=>{
+    let en=enemyGroup.create(W*e.x,H*e.y,'dino');
+    en.setDisplaySize(GW,GH);
+    en.setTint(0xff3333);
+    en.setImmovable(true);
+    en.body.allowGravity=false;
+    en.setVelocityX(e.speed);
+    en._rangeLeft =W*(e.x-e.rangeW);
+    en._rangeRight=W*(e.x+e.rangeW);
+    en._speed=e.speed;
+    enemiesList.push(en);
+  });
+}
+
+// ─── Phaser update ────────────────────────────────────────────────────────────
+function update(){
+  if(!player||!gameRunning||levelTransitioning)return;
+
+  const onGround=player.body.touching.down||player.body.blocked.down;
+  const spd=_touchKeys.shift?360:200;
+
+  // Horizontal movement
+  if(_touchKeys.left){player.setVelocityX(-spd);player.flipX=true;}
+  else if(_touchKeys.right){player.setVelocityX(spd);player.flipX=false;}
+  else {
+    const kb=phaserGame?.scene?.scenes?.[0]?.input?.keyboard;
+    if(kb){
+      const L=kb.addKey(37).isDown,R=kb.addKey(39).isDown,SH=kb.addKey(16).isDown;
+      const spd2=SH?360:200;
+      if(L){player.setVelocityX(-spd2);player.flipX=true;}
+      else if(R){player.setVelocityX(spd2);player.flipX=false;}
       else player.setVelocityX(0);
-    } else {
-      player.setVelocityX(0);
-    }
+    } else player.setVelocityX(0);
   }
 
-  const upHeld = _touchKeys.up || (phaserGame?.scene?.scenes?.[0]?.input?.keyboard?.addKey(38)?.isDown);
-  if (upHeld) {
-    if (onGround) {
-      player.setVelocityY(-460);
-      isGliding = false;
-    } else if (player.body.velocity.y > 0) {
-      isGliding = true;
-      player.setGravityY(140 - 1000);
-      player.setVelocityY(Math.min(player.body.velocity.y, 70));
+  // Jump / glide
+  const upHeld=_touchKeys.up||(phaserGame?.scene?.scenes?.[0]?.input?.keyboard?.addKey(38)?.isDown);
+  if(upHeld){
+    if(onGround){player.setVelocityY(-460);isGliding=false;}
+    else if(player.body.velocity.y>0){
+      isGliding=true;
+      player.setGravityY(140-1000);
+      player.setVelocityY(Math.min(player.body.velocity.y,70));
     }
-  } else {
-    isGliding = false;
-    player.setGravityY(0);
-  }
+  } else {isGliding=false;player.setGravityY(0);}
 
-  if (_touchKeys.shift && (_touchKeys.left || _touchKeys.right)) {
-    player.setTint(0xff3333);
-  } else if (isGliding) {
-    player.setTint(0x33b5ff);
-  } else {
-    player.clearTint();
-  }
+  // Visual tint
+  if(_touchKeys.shift&&(_touchKeys.left||_touchKeys.right))player.setTint(0xff3333);
+  else if(isGliding)player.setTint(0x33b5ff);
+  else player.clearTint();
+
+  // Patrol enemies
+  enemiesList.forEach(en=>{
+    if(!en.active)return;
+    if(en.x<=en._rangeLeft){en.setVelocityX(en._speed);en.flipX=false;}
+    else if(en.x>=en._rangeRight){en.setVelocityX(-en._speed);en.flipX=true;}
+  });
 }
 
-function collectCoin(pl, coin) {
-  coin.disableBody(true, true);
-  score += 10;
-  finalScore = score;
-  scoreText.setText('M-COINS: ' + score);
-
-  let pop = scene_ref.add.text(coin.x, coin.y - 10, '+10', {
-    fontSize: '14px', fill:'#00ffcc', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
-    stroke:'#000', strokeThickness:2
+// ─── Coin collect ─────────────────────────────────────────────────────────────
+function collectCoin(pl,coin){
+  if(!coin.active)return;
+  coin.disableBody(true,true);
+  const val=coin._value||10;
+  score+=val;finalScore=score;
+  scoreText.setText('M-COINS: '+score);
+  let pop=scene_ref.add.text(coin.x,coin.y-12,'+'+val,{
+    fontSize:'14px',fill:'#ffd700',fontFamily:'Orbitron,sans-serif',
+    fontStyle:'bold',stroke:'#000',strokeThickness:2
   }).setDepth(20);
-  scene_ref.tweens.add({
-    targets: pop, y: pop.y - 35, alpha: 0, duration: 600,
-    onComplete: () => pop.destroy()
-  });
-
-  // Respawn coins when all collected
-  if (coins.countActive(true) === 0) spawnCoins();
+  scene_ref.tweens.add({targets:pop,y:pop.y-38,alpha:0,duration:700,
+    onComplete:()=>pop.destroy()});
+  if(coins.countActive(true)===0)advanceLevel();
 }
 
-function spawnCoins() {
-  const W = phaserGame.scale.width, H = phaserGame.scale.height;
-  const CR = Math.round(9 * Math.min(W/800, H/600));
-  const positions = [
-    [0.12,0.55],[0.30,0.55],[0.35,0.40],[0.55,0.40],[0.60,0.25],
-    [0.20,0.25],[0.50,0.12],[0.75,0.55],[0.80,0.25],[0.65,0.80]
-  ];
-  positions.forEach(([rx,ry]) => {
-    let c = coins.create(W*rx, H*ry, 'coin');
-    c.setBounceY(Phaser.Math.FloatBetween(0.2, 0.4));
+// ─── Hazard: spikes ───────────────────────────────────────────────────────────
+function hitSpike(pl,spike){
+  if(spikeHitCool)return;
+  spikeHitCool=true;
+  const lev=LEVELS[currentLevel-1];
+  const W=phaserGame.scale.width,H=phaserGame.scale.height;
+  player.setPosition(W*lev.spawn[0],H*lev.spawn[1]);
+  player.setVelocity(0,-180);
+  score=Math.max(0,score-15);finalScore=score;
+  scoreText.setText('M-COINS: '+score);
+  player.setTint(0xff0000);
+  scene_ref.time.delayedCall(420,()=>player.clearTint());
+  scene_ref.time.delayedCall(950,()=>{spikeHitCool=false;});
+}
+
+// ─── Hazard: enemies ──────────────────────────────────────────────────────────
+function hitEnemy(pl,enemy){
+  if(enemyHitCool)return;
+  enemyHitCool=true;
+  player.setVelocity(player.x<enemy.x?-310:310,-370);
+  score=Math.max(0,score-10);finalScore=score;
+  scoreText.setText('M-COINS: '+score);
+  player.setTint(0xff4444);
+  scene_ref.time.delayedCall(360,()=>player.clearTint());
+  scene_ref.time.delayedCall(650,()=>{enemyHitCool=false;});
+}
+
+// ─── Level advance ────────────────────────────────────────────────────────────
+function advanceLevel(){
+  if(levelTransitioning)return;
+  levelTransitioning=true;
+
+  const W=phaserGame.scale.width,H=phaserGame.scale.height;
+  const sc=Math.min(W/800,H/600);
+  const isLast=currentLevel>=LEVELS.length;
+  const nextLvl=isLast?1:currentLevel+1;   // loop back after final level
+  const lev=LEVELS[nextLvl-1];
+
+  // Transition overlay
+  const objs=[];
+  objs.push(scene_ref.add.rectangle(W/2,H/2,W,H,0x000000,0.82).setDepth(50));
+
+  // Heading
+  const heading=isLast?'ALL CLEAR! LOOPING…':'LEVEL '+(nextLvl)+'!';
+  objs.push(scene_ref.add.text(W/2,H/2-38,heading,{
+    fontSize:Math.round(30*sc)+'px',
+    fill:isLast?'#ffd700':lev.nameColor,
+    fontFamily:'Orbitron,sans-serif',fontStyle:'bold',
+    stroke:'#000',strokeThickness:5
+  }).setOrigin(.5).setDepth(51));
+
+  // Level name
+  objs.push(scene_ref.add.text(W/2,H/2+2,lev.name,{
+    fontSize:Math.round(17*sc)+'px',fill:'#ffffff',
+    fontFamily:'Orbitron,sans-serif',fontStyle:'bold',
+    stroke:'#000',strokeThickness:3
+  }).setOrigin(.5).setDepth(51));
+
+  // Coin info
+  objs.push(scene_ref.add.text(W/2,H/2+28,
+    lev.coins.length+' COINS  ·  '+lev.coinValue+' pts each',{
+    fontSize:Math.round(11*sc)+'px',fill:lev.nameColor,
+    fontFamily:'Orbitron,sans-serif',stroke:'#000',strokeThickness:2
+  }).setOrigin(.5).setDepth(51));
+
+  // Hazard hint
+  const hints=[];
+  if(lev.spikes.length) hints.push('⚠ SPIKES');
+  if(lev.enemies.length) hints.push('👾 ENEMIES ×'+lev.enemies.length);
+  if(hints.length){
+    objs.push(scene_ref.add.text(W/2,H/2+46,hints.join('   '),{
+      fontSize:Math.round(10*sc)+'px',fill:'#ff6644',
+      fontFamily:'Orbitron,sans-serif',stroke:'#000',strokeThickness:2
+    }).setOrigin(.5).setDepth(51));
+  }
+
+  scene_ref.time.delayedCall(2400,()=>{
+    objs.forEach(o=>o.destroy());
+    currentLevel=nextLvl;
+    levelTransitioning=false;
+    spikeHitCool=false;enemyHitCool=false;
+    buildLevel(scene_ref,currentLevel);
   });
 }
 
-function endGame() {
-  if (!gameRunning) return;
-  gameRunning = false;
-  if (clockEvent) clockEvent.remove();
-
-  const W = phaserGame.scale.width, H = phaserGame.scale.height;
-  const overlay = scene_ref.add.rectangle(W/2, H/2, W, H, 0x000000, 0.7).setDepth(30);
-  scene_ref.add.text(W/2, H/2 - 40, 'TIME\'S UP!', {
-    fontSize: Math.round(28 * Math.min(W/800,H/600))+'px',
-    fill:'#00ffcc', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
-    stroke:'#000', strokeThickness:4
-  }).setOrigin(0.5).setDepth(31);
-  scene_ref.add.text(W/2, H/2 + 10, 'SCORE: ' + finalScore, {
-    fontSize: Math.round(22 * Math.min(W/800,H/600))+'px',
-    fill:'#ffd700', fontFamily:'Orbitron,sans-serif', fontStyle:'bold',
-    stroke:'#000', strokeThickness:3
-  }).setOrigin(0.5).setDepth(31);
-
-  setTimeout(() => {
-    if (phaserGame) { phaserGame.destroy(true); phaserGame = null; }
-    arcadeSubmitScore('gator', finalScore);
-  }, 2200);
+// ─── Game over ────────────────────────────────────────────────────────────────
+function endGame(){
+  if(!gameRunning)return;
+  gameRunning=false;
+  if(clockEvent)clockEvent.remove();
+  const W=phaserGame.scale.width,H=phaserGame.scale.height;
+  const sc=Math.min(W/800,H/600);
+  scene_ref.add.rectangle(W/2,H/2,W,H,0x000000,0.78).setDepth(30);
+  scene_ref.add.text(W/2,H/2-42,"TIME'S UP!",{
+    fontSize:Math.round(28*sc)+'px',fill:'#00ffcc',
+    fontFamily:'Orbitron,sans-serif',fontStyle:'bold',
+    stroke:'#000',strokeThickness:4
+  }).setOrigin(.5).setDepth(31);
+  scene_ref.add.text(W/2,H/2+4,'SCORE: '+finalScore,{
+    fontSize:Math.round(22*sc)+'px',fill:'#ffd700',
+    fontFamily:'Orbitron,sans-serif',fontStyle:'bold',
+    stroke:'#000',strokeThickness:3
+  }).setOrigin(.5).setDepth(31);
+  scene_ref.add.text(W/2,H/2+38,'LEVEL REACHED: '+currentLevel+' / '+LEVELS.length,{
+    fontSize:Math.round(13*sc)+'px',fill:'#aaaaaa',
+    fontFamily:'Orbitron,sans-serif',stroke:'#000',strokeThickness:2
+  }).setOrigin(.5).setDepth(31);
+  setTimeout(()=>{
+    if(phaserGame){phaserGame.destroy(true);phaserGame=null;}
+    arcadeSubmitScore('gator',finalScore);
+  },2200);
 }
 </script>
 </body>
