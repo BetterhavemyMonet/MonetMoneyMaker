@@ -20,21 +20,111 @@
 *{box-sizing:border-box;margin:0;padding:0}
 body.game-page{background:#000;overflow:hidden}
 body.game-page::before{display:none}
-.gw{display:flex;flex-direction:column;height:100vh}
+.gw{display:flex;flex-direction:column;height:100vh;height:100dvh}
 #wbar{text-align:center;padding:3px 10px;background:#000;border-bottom:1px solid #0a0a1a;font-size:11px;flex-shrink:0}
 .arena{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;background:#000}
-#gc{display:block;image-rendering:crisp-edges}
-.ctrl{flex-shrink:0;background:rgba(0,0,5,.97);border-top:1px solid #110033;padding:6px 8px;display:grid;grid-template-columns:1fr 24px 1fr;gap:6px;align-items:center}
-.cb{height:64px;border-radius:12px;border:none;font-family:'Orbitron',sans-serif;font-weight:900;cursor:pointer;
-    -webkit-tap-highlight-color:transparent;user-select:none;touch-action:manipulation;
-    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;line-height:1.1}
-.cb:active{transform:scale(0.93)!important;filter:brightness(1.4)!important}
-.cbpair{display:grid;grid-template-columns:1fr 1fr;gap:5px}
-.lft{font-size:20px;background:linear-gradient(135deg,#0a1a0a,#051005);color:#00ff9d;border:1px solid #004400;box-shadow:0 4px 0 #001400}
-.rgt{font-size:20px;background:linear-gradient(135deg,#0a1a0a,#051005);color:#00ff9d;border:1px solid #004400;box-shadow:0 4px 0 #001400}
-.thr{font-size:13px;background:linear-gradient(135deg,#001133,#000d22);color:#00f0ff;border:1px solid #003366;box-shadow:0 4px 0 #000}
-.trb{font-size:13px;background:linear-gradient(135deg,#220011,#110008);color:#ff2244;border:1px solid #660022;box-shadow:0 4px 0 #000}
-.home{font-size:18px;color:#333;text-decoration:none;text-align:center;align-self:center}
+#gc{display:block;image-rendering:crisp-edges;touch-action:none}
+
+/* ── Control bar ── */
+.ctrl{
+  flex-shrink:0;
+  background:rgba(0,0,5,.98);
+  border-top:2px solid #1a0044;
+  padding:8px 8px calc(8px + env(safe-area-inset-bottom,0px));
+  display:grid;
+  grid-template-columns:1fr 72px 1fr;
+  gap:8px;
+  align-items:stretch;
+  height:calc(84px + env(safe-area-inset-bottom,0px));
+}
+/* Steer buttons — fill their column entirely */
+.cb{
+  height:100%;
+  border-radius:14px;
+  border:none;
+  font-family:'Orbitron',sans-serif;
+  font-weight:900;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  touch-action:manipulation;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:3px;
+  line-height:1;
+  transition:filter .07s, transform .07s;
+}
+.cb:active{transform:scale(0.94);filter:brightness(1.5)}
+
+/* Left steer */
+.stl{
+  font-size:38px;
+  background:linear-gradient(160deg,#071a07,#0d300d);
+  color:#00ff88;
+  border:2px solid #005500;
+  box-shadow:0 5px 0 #002200, inset 0 1px 0 rgba(0,255,100,.15);
+}
+/* Right steer */
+.str{
+  font-size:38px;
+  background:linear-gradient(160deg,#071a07,#0d300d);
+  color:#00ff88;
+  border:2px solid #005500;
+  box-shadow:0 5px 0 #002200, inset 0 1px 0 rgba(0,255,100,.15);
+}
+/* Centre column */
+.cmid{
+  display:flex;
+  flex-direction:column;
+  align-items:stretch;
+  gap:5px;
+}
+.home{
+  font-size:17px;
+  color:#444;
+  text-decoration:none;
+  text-align:center;
+  padding:2px 0;
+  flex-shrink:0;
+}
+/* Turbo button */
+.trb{
+  flex:1;
+  font-size:10px;
+  background:linear-gradient(160deg,#2a0010,#180008);
+  color:#ff3355;
+  border:2px solid #770022;
+  box-shadow:0 4px 0 #330011, inset 0 1px 0 rgba(255,50,80,.15);
+  border-radius:10px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:2px;
+  cursor:pointer;
+  -webkit-tap-highlight-color:transparent;
+  user-select:none;
+  touch-action:manipulation;
+  font-family:'Orbitron',sans-serif;
+  font-weight:900;
+  transition:filter .07s, transform .07s;
+}
+.trb:active{transform:scale(0.93);filter:brightness(1.6)}
+
+/* Auto-drive badge shown on touch devices */
+.auto-badge{
+  display:none;
+  position:absolute;
+  top:3px; left:50%;
+  transform:translateX(-50%);
+  font-size:8px;
+  font-family:'Orbitron',sans-serif;
+  color:rgba(0,240,255,.55);
+  white-space:nowrap;
+  pointer-events:none;
+}
 </style>
 </head>
 <body class="game-page">
@@ -42,27 +132,37 @@ body.game-page::before{display:none}
 <div class="gw">
   <div class="arena"><canvas id="gc"></canvas></div>
   <div class="ctrl">
-    <div class="cbpair">
-      <button class="cb lft"
-        ontouchstart="setBtn('left',true,event)" ontouchend="setBtn('left',false)"
-        onmousedown="setBtn('left',true)" onmouseup="setBtn('left',false)"
-        onmouseleave="setBtn('left',false)"><span style="font-size:26px">&#9664;</span><span style="font-size:9px;opacity:.7">STEER</span></button>
-      <button class="cb rgt"
-        ontouchstart="setBtn('right',true,event)" ontouchend="setBtn('right',false)"
-        onmousedown="setBtn('right',true)" onmouseup="setBtn('right',false)"
-        onmouseleave="setBtn('right',false)"><span style="font-size:26px">&#9654;</span><span style="font-size:9px;opacity:.7">STEER</span></button>
-    </div>
-    <a class="home" href="arcade.html">&#8962;</a>
-    <div class="cbpair">
-      <button class="cb thr"
-        ontouchstart="setBtn('throttle',true,event)" ontouchend="setBtn('throttle',false)"
-        onmousedown="setBtn('throttle',true)" onmouseup="setBtn('throttle',false)"
-        onmouseleave="setBtn('throttle',false)"><span style="font-size:18px">&#9889;</span><span style="font-size:9px">THROTTLE</span></button>
-      <button class="cb trb"
-        ontouchstart="setBtn('turbo',true,event)" ontouchend="setBtn('turbo',false)"
+
+    <!-- LEFT steer — big, full height -->
+    <button class="cb stl" id="btnL"
+      ontouchstart="setBtn('left',true,event)" ontouchend="setBtn('left',false,event)"
+      onmousedown="setBtn('left',true)" onmouseup="setBtn('left',false)"
+      onmouseleave="setBtn('left',false)">
+      <span>&#9664;</span>
+      <span style="font-size:9px;letter-spacing:1px;opacity:.7">LEFT</span>
+    </button>
+
+    <!-- Centre column: home + turbo -->
+    <div class="cmid">
+      <a class="home" href="arcade.html">&#8962;</a>
+      <button class="trb" id="btnT"
+        ontouchstart="setBtn('turbo',true,event)" ontouchend="setBtn('turbo',false,event)"
         onmousedown="setBtn('turbo',true)" onmouseup="setBtn('turbo',false)"
-        onmouseleave="setBtn('turbo',false)"><span style="font-size:18px">&#128293;</span><span style="font-size:9px">TURBO</span></button>
+        onmouseleave="setBtn('turbo',false)">
+        <span style="font-size:18px">&#128293;</span>
+        <span>TURBO</span>
+      </button>
     </div>
+
+    <!-- RIGHT steer — big, full height -->
+    <button class="cb str" id="btnR"
+      ontouchstart="setBtn('right',true,event)" ontouchend="setBtn('right',false,event)"
+      onmousedown="setBtn('right',true)" onmouseup="setBtn('right',false)"
+      onmouseleave="setBtn('right',false)">
+      <span>&#9654;</span>
+      <span style="font-size:9px;letter-spacing:1px;opacity:.7">RIGHT</span>
+    </button>
+
   </div>
 </div>
 <script>
@@ -84,9 +184,15 @@ const DASH_Y    = Math.round(LH*0.79); // top of dashboard overlay (213px)
 const RD_HW_TOP = 9;                   // road half-width at horizon
 const RD_HW_BOT = 195;                 // road half-width at DASH_Y
 
+// ── Touch detection — auto-throttle on mobile ──────────────────────────────
+const isMobile=('ontouchstart' in window)||navigator.maxTouchPoints>0;
+
 // ── Controls ───────────────────────────────────────────────────────────────
 let keys={throttle:false,turbo:false,left:false,right:false};
 function setBtn(k,v,e){ if(e)e.preventDefault(); keys[k]=v; }
+
+// On mobile, throttle is always on — players just steer + turbo
+// On desktop W/↑ still controls throttle manually
 
 // ── Game state ─────────────────────────────────────────────────────────────
 let bike={speed:0,heat:0,stalled:false,stallTimer:0};
@@ -138,26 +244,31 @@ function update(){
   frameCount++;
   const MAX=maxSpeed();
 
+  // On mobile: car always drives itself; turbo provides the boost.
+  // On desktop: W/↑ = throttle, Shift/Z = turbo (classic controls preserved).
+  const goThrottle = isMobile ? true : keys.throttle;
+
   if(!bike.stalled){
     if(keys.turbo&&bike.heat<100){
-      bike.speed=Math.min(MAX*1.9,bike.speed+0.18);
-      bike.heat =Math.min(100,bike.heat+1.1);
-    } else if(keys.throttle){
-      bike.speed=Math.min(MAX,bike.speed+0.12);
-      bike.heat =Math.max(0,bike.heat-0.4);
+      bike.speed=Math.min(MAX*1.9, bike.speed+0.18);
+      bike.heat =Math.min(100, bike.heat+1.1);
+    } else if(goThrottle){
+      bike.speed=Math.min(MAX, bike.speed+0.12);
+      bike.heat =Math.max(0, bike.heat-0.4);
     } else {
-      bike.speed=Math.max(0,bike.speed-0.18);
-      bike.heat =Math.max(0,bike.heat-0.8);
+      // Desktop only: coasting (no throttle pressed)
+      bike.speed=Math.max(0, bike.speed-0.18);
+      bike.heat =Math.max(0, bike.heat-0.8);
     }
   }
 
   // Stall
   if(bike.heat>=100&&!bike.stalled){
-    bike.stalled=true; bike.stallTimer=120; bike.speed=0;
+    bike.stalled=true; bike.stallTimer=150; bike.speed=0;
   }
   if(bike.stalled){
     bike.stallTimer--;
-    bike.heat=Math.max(0,bike.heat-0.8);
+    bike.heat=Math.max(0,bike.heat-0.7);
     if(bike.stallTimer<=0) bike.stalled=false;
   }
 
@@ -180,16 +291,18 @@ function update(){
   roadScroll=(roadScroll+bike.speed*0.009)%1;
   bgScroll  =(bgScroll  +bike.speed*0.003)%1;
 
-  // Obstacle spawning
+  // Obstacle spawning — slightly slower on mobile for fairness
   obsTimer++;
-  if(obsTimer>Math.max(75,150-score/200)){ obsTimer=0; spawnObs(); }
+  const spawnInterval=Math.max(isMobile?100:75, (isMobile?180:150)-score/200);
+  if(obsTimer>spawnInterval){ obsTimer=0; spawnObs(); }
 
   // Approach & collision
+  // Wider dodge window on mobile (finger precision lower)
+  const hitThresh=isMobile?36:44;
   obstacles=obstacles.filter(o=>{
     o.depth+=bike.speed*0.0065;
     if(o.depth>=1.0){
-      // Check if obstacle is in the player's lane at the moment of passing
-      if(Math.abs(o.laneX)*RD_HW_BOT < 44){
+      if(Math.abs(o.laneX)*RD_HW_BOT < hitThresh){
         if(o.type==='oil') bike.speed=Math.max(0,bike.speed-1.5);
         else { bike.speed=Math.max(0,bike.speed-2.5); score=Math.max(0,score-50); }
       }
@@ -517,9 +630,15 @@ function draw(){
     X.textAlign='center';
     X.fillText('HASH RACER',LW/2,LH/2-46);
     X.fillStyle='#00f0ff'; X.font='10px Orbitron,sans-serif';
-    X.fillText('THROTTLE to accelerate · TURBO for boost',LW/2,LH/2-14);
-    X.fillText('TURBO fills HASH TEMP — overheat = stall!',LW/2,LH/2+4);
-    X.fillText('STEER LEFT / RIGHT to dodge obstacles',LW/2,LH/2+22);
+    if(isMobile){
+      X.fillText('Car drives itself — just steer to dodge!',LW/2,LH/2-14);
+      X.fillText('Hold TURBO for a speed boost',LW/2,LH/2+4);
+      X.fillText('Don\'t overheat — TURBO fills HASH TEMP',LW/2,LH/2+22);
+    } else {
+      X.fillText('W / ↑ = Throttle · Shift = Turbo boost',LW/2,LH/2-14);
+      X.fillText('A/← and D/→ to steer · dodge obstacles',LW/2,LH/2+4);
+      X.fillText('TURBO fills HASH TEMP — overheat = stall!',LW/2,LH/2+22);
+    }
     X.textAlign='left';
   }
 
