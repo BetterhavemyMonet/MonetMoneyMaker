@@ -72,26 +72,86 @@ const GRAVITY=0.55, JUMP_V=-13, WALK_SPD=2.4;
 const CW=28, CH=32;
 const BARREL_R=10;
 
-// FLOORS[0] = TOP (Kong's platform), FLOORS[4] = GROUND (player starts)
-// y increases downward; smaller y = higher on screen
-const FLOORS=[
-  {y:72,  x1:60, x2:260},   // 0 = TOP CHAIN (Kong lives here)
-  {y:155, x1:0,  x2:276},   // 1
-  {y:240, x1:44, x2:320},   // 2
-  {y:330, x1:0,  x2:276},   // 3
-  {y:420, x1:0,  x2:320},   // 4 = GROUND (player starts here)
+// Four wave layouts — floors, ladders, barrel roll directions, and a name.
+// Barrel paths verified to traverse all floors for maximum challenge.
+const WAVE_CONFIGS=[
+  { // Wave 1 — CLASSIC (original DK-style)
+    label:'BLOCKCHAIN',
+    floors:[
+      {y:72,  x1:60, x2:260},
+      {y:155, x1:44, x2:320},
+      {y:240, x1:0,  x2:276},
+      {y:330, x1:44, x2:320},
+      {y:420, x1:0,  x2:320},
+    ],
+    ladders:[
+      {x:230, y1:72,  y2:155, w:18},
+      {x:60,  y1:155, y2:240, w:18},
+      {x:240, y1:240, y2:330, w:18},
+      {x:60,  y1:330, y2:420, w:18},
+    ],
+    barrelDir:[1,-1,1,-1,1],
+  },
+  { // Wave 2 — LAYER 2 (mirrored, left-first ladders)
+    label:'LAYER 2',
+    floors:[
+      {y:72,  x1:60, x2:260},
+      {y:160, x1:0,  x2:276},
+      {y:248, x1:44, x2:320},
+      {y:338, x1:0,  x2:276},
+      {y:420, x1:0,  x2:320},
+    ],
+    ladders:[
+      {x:90,  y1:72,  y2:160, w:18},
+      {x:252, y1:160, y2:248, w:18},
+      {x:68,  y1:248, y2:338, w:18},
+      {x:252, y1:338, y2:420, w:18},
+    ],
+    barrelDir:[-1,1,-1,1,-1],
+  },
+  { // Wave 3 — DEFI BRIDGE (short platforms, trickier jumps, all floors reachable)
+    label:'DEFI BRIDGE',
+    floors:[
+      {y:72,  x1:60, x2:260},
+      {y:152, x1:0,  x2:182},
+      {y:238, x1:130,x2:312},
+      {y:328, x1:0,  x2:200},
+      {y:420, x1:0,  x2:320},
+    ],
+    ladders:[
+      {x:138, y1:72,  y2:152, w:18},
+      {x:155, y1:152, y2:238, w:18},
+      {x:162, y1:238, y2:328, w:18},
+      {x:30,  y1:328, y2:420, w:18},
+    ],
+    barrelDir:[-1,1,-1,1,-1],
+  },
+  { // Wave 4 — MOON CHAIN (wide zigzag, ladders at extremes)
+    label:'MOON CHAIN',
+    floors:[
+      {y:72,  x1:60, x2:260},
+      {y:158, x1:20, x2:300},
+      {y:244, x1:20, x2:300},
+      {y:332, x1:20, x2:300},
+      {y:420, x1:0,  x2:320},
+    ],
+    ladders:[
+      {x:88,  y1:72,  y2:158, w:18},
+      {x:258, y1:158, y2:244, w:18},
+      {x:80,  y1:244, y2:332, w:18},
+      {x:238, y1:332, y2:420, w:18},
+    ],
+    barrelDir:[1,-1,1,-1,1],
+  },
 ];
 
-// Ladders: x=center, y1=top (smaller y), y2=bottom (larger y)
-const LADDERS=[
-  {x:152, y1:72,  y2:155, w:18},  // floor 0 → floor 1
-  {x:252, y1:155, y2:240, w:18},  // floor 1 → floor 2
-  {x:68,  y1:240, y2:330, w:18},  // floor 2 → floor 3
-  {x:252, y1:330, y2:420, w:18},  // floor 3 → floor 4
-];
+// Active layout — set by applyWaveConfig each wave
+let FLOORS, LADDERS, BARREL_DIR;
 
-// Barrel direction per floor: +1 = moving right, -1 = moving left
-const BARREL_DIR=[1, -1, 1, -1, 1];
+function applyWaveConfig(waveNum){
+  const cfg=WAVE_CONFIGS[waveNum%WAVE_CONFIGS.length];
+  FLOORS=cfg.floors; LADDERS=cfg.ladders; BARREL_DIR=cfg.barrelDir;
+}
 
 let player, barrels, score, lives, gameRunning, animId, phase;
 let barrelTimer=0, wave=0, kongAnim=0, kongThrow=false;
@@ -100,41 +160,55 @@ let jumpQueued=false;
 
 function initVars(){
   score=0; lives=3; wave=0; barrelTimer=0; phase='play'; gameRunning=true; kongAnim=0;
-  barrels=[];
+  barrels=[]; applyWaveConfig(0);
 }
 
 function resetPlayer(){
   player={x:20, y:FLOORS[4].y-CH, vy:0, climbing:false, floorIdx:4, dead:false, deadTimer:0};
 }
 
-function barrelSpeed(){ return 1.4+wave*0.18; }
+function barrelSpeed(b){ const base=1.4+wave*0.18; return (b&&b.fast)?base*1.9:base; }
 
 function spawnBarrel(){
-  // Start just above FLOORS[0], moving right
   const f=FLOORS[0];
-  barrels.push({x:f.x1+8, y:f.y-BARREL_R-2, vy:0, floorIdx:0, falling:false, scored:false});
+  // Expert aim: launch from whichever side Kong is rolling toward
+  const startX=BARREL_DIR[0]>=0?f.x1+8:f.x2-8;
+  const isFast=wave>=3&&Math.random()<0.30;
+  barrels.push({x:startX,y:f.y-BARREL_R-2,vy:0,vx:0,floorIdx:0,falling:false,scored:false,fast:isFast});
   kongThrow=true; setTimeout(()=>kongThrow=false,400);
+  // Double-throw on wave 4+ — a second barrel follows 22 frames later
+  if(wave>=4&&Math.random()<0.45){
+    setTimeout(()=>{
+      if(!gameRunning) return;
+      const f2=FLOORS[0];
+      const sx2=BARREL_DIR[0]>=0?f2.x1+8:f2.x2-8;
+      barrels.push({x:sx2,y:f2.y-BARREL_R-2,vy:0,vx:0,floorIdx:0,falling:false,scored:false,fast:false});
+    }, Math.round(22*(1000/60)));
+  }
 }
 
 function updateBarrel(b){
   if(b.falling){
     b.vy+=GRAVITY*0.9;
     b.y+=b.vy;
+    if(b.vx) b.x+=b.vx;
     const nextFi=b.floorIdx+1;
     if(nextFi<FLOORS.length){
       const f=FLOORS[nextFi];
       if(b.y+BARREL_R>=f.y && b.x+BARREL_R>f.x1 && b.x-BARREL_R<f.x2){
-        b.y=f.y-BARREL_R; b.vy=0; b.falling=false; b.floorIdx=nextFi;
+        b.y=f.y-BARREL_R; b.vy=0; b.vx=0; b.falling=false; b.floorIdx=nextFi;
       }
     }
     if(b.y>LH+20) return false;
   } else {
+    const spd=barrelSpeed(b);
     const dir=BARREL_DIR[b.floorIdx];
-    b.x+=dir*barrelSpeed();
+    b.x+=dir*spd;
     const f=FLOORS[b.floorIdx];
     if(b.x-BARREL_R<f.x1||b.x+BARREL_R>f.x2){
       if(b.floorIdx>=FLOORS.length-1) return false;
       b.falling=true; b.vy=1;
+      b.vx=dir*spd*0.28;
     }
   }
   return true;
@@ -178,6 +252,7 @@ function checkWin(){
       wave=Math.min(wave+1,8);
       if(wave>=8){ endGame(); return; }
       barrels=[]; barrelTimer=0;
+      applyWaveConfig(wave);
       resetPlayer(); phase='play';
     },1800);
   }
@@ -343,7 +418,8 @@ function draw(){
   X.fillStyle='#ff8800';
   X.fillText('SCORE: '+(score||0),6,14);
   X.fillStyle='#888';
-  X.fillText('WAVE '+(wave+1),LW/2-22,14);
+  const _wlabel=WAVE_CONFIGS[wave%WAVE_CONFIGS.length].label;
+  X.fillText('W'+(wave+1)+' · '+_wlabel,LW/2-42,14);
   X.fillStyle='#ff4444';
   for(let i=0;i<(lives||0);i++) X.fillText('\u2665',LW-20-i*18,14);
 
@@ -376,15 +452,19 @@ function draw(){
   // Kong
   drawKong();
 
-  // Barrels
+  // Barrels — fast barrels glow white/red as a warning
   for(let b of barrels){
-    const br=X.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,BARREL_R);
-    br.addColorStop(0,'#ffcc00'); br.addColorStop(1,'#ff4400');
-    X.beginPath();X.arc(b.x,b.y,BARREL_R,0,Math.PI*2);
+    const r=b.fast?BARREL_R+2:BARREL_R;
+    const br=X.createRadialGradient(b.x-3,b.y-3,1,b.x,b.y,r);
+    br.addColorStop(0,b.fast?'#ffffff':'#ffcc00');
+    br.addColorStop(1,b.fast?'#ff0000':'#ff4400');
+    if(b.fast){ X.save(); X.shadowColor='#ff0000'; X.shadowBlur=8; }
+    X.beginPath();X.arc(b.x,b.y,r,0,Math.PI*2);
     X.fillStyle=br;X.fill();
-    X.strokeStyle='#000';X.lineWidth=1.5;X.stroke();
+    X.strokeStyle=b.fast?'#ff2200':'#000';X.lineWidth=1.5;X.stroke();
     X.fillStyle='#000';X.font='bold 6px monospace';
-    X.fillText('TX',b.x-5,b.y+3);
+    X.fillText(b.fast?'!!':'TX',b.x-(b.fast?4:5),b.y+3);
+    if(b.fast) X.restore();
   }
 
   // Player
@@ -451,6 +531,7 @@ function startGame(){
 }
 
 document.addEventListener('DOMContentLoaded',()=>{
+  applyWaveConfig(0);
   phase='ready'; score=0; lives=3; wave=0; barrels=[];
   draw();
   showGameLobby('kong',()=>startGame());
