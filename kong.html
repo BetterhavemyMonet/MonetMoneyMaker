@@ -66,6 +66,7 @@ window.addEventListener('resize',()=>{resize(); if(phase) draw();});
 resize();
 
 const charImg=new Image(); charImg.src='/dino-sprite.png';
+const kongImg=new Image(); kongImg.src='/kong-boss.png';
 
 const GRAVITY=0.55, JUMP_V=-13, WALK_SPD=2.4;
 const CW=28, CH=32;
@@ -276,41 +277,41 @@ function update(){
 }
 
 function drawKong(){
-  // Kong sits on FLOORS[0] (the top platform)
   const f=FLOORS[0];
-  const kx=f.x1+12, ky=f.y-52;
   const bob=Math.sin(kongAnim*Math.PI*2)*3;
+  // Sprite dimensions — sized to sit naturally on the top platform
+  const KW=62, KH=72;
+  // Left-align Kong on the platform; feet rest just above the floor line
+  const kx=f.x1+4;
+  const ky=f.y-KH+bob+(kongThrow?-6:0);
+
   X.save();
-  // Body
-  X.fillStyle=kongThrow?'#ff6600':'#7B3210';
-  X.fillRect(kx+2,ky+18+bob,32,24);
-  // Head
-  X.fillStyle='#6B3010';
-  X.fillRect(kx+6,ky+2+bob,24,20);
-  // Eyes
-  X.fillStyle='#ff0000';
-  X.fillRect(kx+9,ky+7+bob,5,5);
-  X.fillRect(kx+20,ky+7+bob,5,5);
-  // Nose
-  X.fillStyle='#5a2008';
-  X.fillRect(kx+13,ky+12+bob,8,5);
-  // Chest
-  X.fillStyle='#c08060';
-  X.fillRect(kx+9,ky+20+bob,18,14);
-  // Left arm
-  X.fillStyle='#7B3210';
-  X.fillRect(kx-7,ky+18+bob,11,16);
-  // Right arm / throwing arm
-  if(kongThrow){
-    X.fillStyle='#7B3210';
-    X.fillRect(kx+33,ky+12+bob,10,10);
-    X.fillStyle='#ffd700';
-    X.beginPath();X.arc(kx+46,ky+12+bob,8,0,Math.PI*2);X.fill();
-    X.fillStyle='#000';X.font='bold 7px monospace';X.fillText('TX',kx+42,ky+16+bob);
+  if(kongImg.complete&&kongImg.naturalWidth>0){
+    if(kongThrow){
+      // Mirror horizontally for throw pose
+      X.save();
+      X.translate(kx+KW,ky);
+      X.scale(-1,1);
+      X.drawImage(kongImg,0,0,KW,KH);
+      X.restore();
+      // Thrown barrel (FAILED TX) flying out to the right
+      const bx=kx+KW+14, by=ky+KH*0.35;
+      X.fillStyle='#ffd700';
+      X.beginPath();X.arc(bx,by,8,0,Math.PI*2);X.fill();
+      X.fillStyle='#000';X.font='bold 6px monospace';
+      X.textAlign='center';X.fillText('TX',bx,by+2);X.textAlign='left';
+    } else {
+      X.drawImage(kongImg,kx,ky,KW,KH);
+    }
   } else {
-    X.fillRect(kx+33,ky+18+bob,11,16);
+    // Fallback block while image loads
+    X.fillStyle='#7B3210';
+    X.fillRect(kx,ky+10,KW,KH-10);
+    X.fillStyle='#6B3010';
+    X.fillRect(kx+8,ky,KW-16,28);
   }
-  // MONET prize coin on platform
+
+  // MONET prize coin on platform (unchanged)
   X.save();
   X.beginPath();X.arc(f.x2-22,f.y-16,12,0,Math.PI*2);
   const cg=X.createRadialGradient(f.x2-25,f.y-19,1,f.x2-22,f.y-16,12);
