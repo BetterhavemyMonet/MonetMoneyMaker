@@ -318,10 +318,11 @@ function buildLevel(scene,lvlNum){
     obj.refreshBody();
   });
 
-  // Coins
+  // Coins — gravity must be off or they fall off screen immediately
   lev.coins.forEach(([rx,ry])=>{
     let c=coins.create(W*rx,H*ry,'coin');
-    c.setBounceY(Phaser.Math.FloatBetween(0.2,0.4));
+    c.body.allowGravity=false;
+    c.body.immovable=true;
     c._value=lev.coinValue;
   });
 
