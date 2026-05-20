@@ -59,23 +59,23 @@ waitForPort = 3001
 name = "Git remote"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "git remote remove origin 2>/dev/null; git remote add origin https://github.com/BetterhavemyMonet/MonetMoneyArcade.git && echo 'Remote set OK'"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "git remote remove origin 2>/dev/null; git remote add origin https://$GITHUB_TOKEN@github.com/BetterhavemyMonet/MonetMoneyMaker.git && echo 'Remote set OK'"
 
 [[workflows.workflow]]
 name = "Git add"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "git add . && git commit -m 'sync update' && git push origin main"
-
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "git config user.email 'monet@betterhavemymonet.com' && git config user.name 'Monet Arcade' && git remote set-url origin https://$GITHUB_TOKEN@github.com/BetterhavemyMonet/MonetMoneyMaker.git && git add . && (git commit -m 'sync update' || echo 'nothing to commit') && git push origin main && echo 'Push OK'"
 
 [[ports]]
 localPort = 3001
